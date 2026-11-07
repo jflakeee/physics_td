@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,startWave,step,index,ground,WIDTH} from '../engine.js';
+test('enemy cannot tunnel below ground to bypass a complete wall',()=>{const s=createGame();for(let y=0;y<ground[2];y++)s.solid[index(2,y)]=1;startWave(s);for(let t=0;t<40;t++)step(s);assert.equal(s.enemies[0].cell,index(1,38));});
+test('enemy route remains in above-ground cells',()=>{const s=createGame();for(let y=0;y<ground[2]-1;y++)s.solid[index(2,y)]=1;startWave(s);for(let t=0;t<120;t++){step(s);for(const e of s.enemies){const x=e.cell%WIDTH,y=Math.floor(e.cell/WIDTH);assert.ok(y<ground[x], 'enemy entered terrain at '+x+','+y);}}});
