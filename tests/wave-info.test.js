@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,nextWaveInfo,startWave,MAX_WAVES} from '../engine.js';
+test('wave briefing follows spawn rules',()=>{const s=createGame();for(let wave=1;wave<=MAX_WAVES;wave++){const info=nextWaveInfo(s);assert.equal(info.wave,wave);assert.equal(info.enemies,Math.floor((450+wave*80-1)/90)+1);assert.equal(info.enemyHp,3);assert.equal(info.baseDamage,8);assert.equal(startWave(s),true);s.active=false;}assert.equal(nextWaveInfo(s),null);});
