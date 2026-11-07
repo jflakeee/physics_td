@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,startWave,retryWave,step,index} from '../engine.js';
+test('wave counters initialize and retry restores previous counters',()=>{const s=createGame();assert.deepEqual(s.waveStats,{kills:0,leaks:0,blocked:0,damage:0});assert.equal(startWave(s),true);s.waveStats.kills=4;s.waveStats.damage=16;s.active=false;assert.equal(retryWave(s),true);assert.deepEqual(s.waveStats,{kills:0,leaks:0,blocked:0,damage:0});});
+test('enemy reaching base records damage and leak',()=>{const s=createGame();assert.equal(startWave(s),true);s.enemies.push({cell:index(95,38),hp:3});s.tick=3;step(s);assert.equal(s.waveStats.leaks,1);assert.equal(s.waveStats.damage,8);assert.equal(s.hp,92);});
