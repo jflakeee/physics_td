@@ -10,8 +10,8 @@ function routeOverlay(){if(!showPath)return null;let signature=2166136261;for(le
 function refreshPlacementHint(){const hint=document.querySelector('#placement-hint');const cost=tool==='wall'?15:tool==='cooler'?45:35;if(!preview){hint.textContent='선택 시설 $'+cost+' · 현재 $'+game.cash+' · 보드를 터치해 위치를 선택하세요';hint.dataset.valid='no';document.querySelector('#confirm-placement').disabled=true;document.querySelector('#cancel-placement').disabled=true;return;}preview.valid=canPlace(game,preview.x,preview.y,tool);hint.textContent=(preview.valid?'✓ 설치 가능':'✕ '+placementIssue(game,preview.x,preview.y,tool))+' · X '+preview.x+' / Y '+preview.y+' · 비용 $'+cost+' · 설치 후 $'+(game.cash-cost)+(preview.valid?' · 설치 확정 버튼을 누르세요':'');hint.dataset.valid=preview.valid?'yes':'no';document.querySelector('#confirm-placement').disabled=!preview.valid;document.querySelector('#cancel-placement').disabled=false;}
 function showPreview(e){const {x,y}=pointer(e);preview=x>=0&&x<WIDTH&&y>=0&&y<HEIGHT?{x,y,valid:false}:null;refreshPlacementHint();}
 canvas.addEventListener('pointerdown',e=>{if(placingPointer!==null)return;placingPointer=e.pointerId;canvas.setPointerCapture?.(e.pointerId);showPreview(e);});
-canvas.addEventListener('pointermove',e=>{if(placingPointer!==e.pointerId)return;showPreview(e);});
-canvas.addEventListener('pointerup',e=>{if(placingPointer!==e.pointerId)return;placingPointer=null;showPreview(e);message.textContent='위치를 조정하거나 설치 확정 버튼을 누르세요';update();});
+canvas.addEventListener('pointermove',()=>{});
+canvas.addEventListener('pointerup',e=>{if(placingPointer!==e.pointerId)return;placingPointer=null;message.textContent='선택 위치 고정 · 방향 버튼으로 조정하거나 설치 확정';refreshPlacementHint();update();});
 canvas.addEventListener('pointercancel',()=>{placingPointer=null;preview=null;refreshPlacementHint();message.textContent='배치 취소됨';});
 canvas.addEventListener('lostpointercapture',()=>{if(placingPointer!==null){placingPointer=null;preview=null;refreshPlacementHint();}});
 canvas.addEventListener('pointerleave',()=>{});
