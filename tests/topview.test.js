@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {WIDTH,HEIGHT,BASE,ENTRANCES,index,createGame,route,previewRoutes,startWave,step,place,placementIssue} from '../topview-engine.js';
+test('top-down map has four distinct entrances and center base',()=>{assert.equal(ENTRANCES.length,4);assert.equal(new Set(ENTRANCES.map(p=>index(p.x,p.y))).size,4);assert.ok(BASE.x>0&&BASE.x<WIDTH-1&&BASE.y>0&&BASE.y<HEIGHT-1);});
+test('all four entrances have a route to the base',()=>{const s=createGame();for(const r of previewRoutes(s)){assert.ok(r.path?.length>0,r.side);assert.equal(r.path.at(-1),index(BASE.x,BASE.y));}});
+test('four directions spawn simultaneously in one tick',()=>{const s=createGame();assert.equal(startWave(s),true);step(s);assert.equal(s.enemies.length,4);assert.deepEqual(s.enemies.map(e=>e.cell),ENTRANCES.map(p=>index(p.x,p.y)));});
+test('tower placement and protected base restrictions',()=>{const s=createGame();assert.match(placementIssue(s,BASE.x,BASE.y,'tower'),/기지/);assert.equal(place(s,10,10,'tower'),true);assert.equal(s.cash,115);assert.equal(place(s,10,10,'wall'),false);});
+test('blocking one entrance does not remove other routes',()=>{const s=createGame();s.solid[index(2,12)]=1;const paths=previewRoutes(s);assert.equal(paths.length,4);for(const p of paths)assert.ok(p.path?.length>0);});
