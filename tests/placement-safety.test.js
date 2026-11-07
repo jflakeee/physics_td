@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,index,canPlace,place} from '../engine.js';
+test('cannot build a wall on an enemy occupied cell',()=>{const s=createGame();s.enemies.push({cell:index(40,38),hp:3});assert.equal(canPlace(s,40,38,'wall'),false);assert.equal(place(s,40,38,'wall'),false);assert.equal(s.cash,100);assert.equal(s.solid[index(40,38)],0);});
+test('building next to an enemy remains possible',()=>{const s=createGame();s.enemies.push({cell:index(40,38),hp:3});assert.equal(place(s,41,38,'wall'),true);assert.equal(s.cash,85);});
+test('invalid build tool cannot consume currency',()=>{const s=createGame();assert.equal(place(s,40,38,'unknown'),false);assert.equal(s.cash,100);});
