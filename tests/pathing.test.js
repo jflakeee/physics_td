@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,startWave,step,index} from '../engine.js';
+test('unobstructed corridor advances enemy toward base',()=>{const s=createGame();startWave(s);for(let i=0;i<4;i++)step(s);assert.equal(s.enemies[0].cell,index(2,38));});
+test('solid barrier forces pathfinding detour instead of walking through wall',()=>{const s=createGame();s.solid[index(2,38)]=1;startWave(s);for(let i=0;i<4;i++)step(s);assert.notEqual(s.enemies[0].cell,index(2,38));assert.notEqual(s.enemies[0].cell,index(1,38));});
+test('paused wave does not advance spawn clock',()=>{const s=createGame();startWave(s);s.paused=true;for(let i=0;i<20;i++)step(s);assert.equal(s.spawn,0);});
