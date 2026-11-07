@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,previewRoute,nextEnemyCell,index,ground,WIDTH} from '../engine.js';
+test('preview route agrees with actual next-step decision',()=>{const s=createGame();let cell=index(1,38);const expected=previewRoute(s);assert.ok(expected?.length>10);for(const next of expected){assert.equal(nextEnemyCell(s,cell),next);cell=next;}assert.equal(cell,index(95,38));});
+test('preview and movement both detect blocked route',()=>{const s=createGame();for(let y=0;y<ground[2];y++)s.solid[index(2,y)]=1;assert.equal(previewRoute(s),null);assert.equal(nextEnemyCell(s,index(1,38)),null);});
+test('preview avoids frozen and solid cells',()=>{const s=createGame();s.ice[index(5,38)]=.9;s.solid[index(6,38)]=1;const path=previewRoute(s);assert.ok(path?.length);for(const i of path){assert.equal(s.solid[i],0);assert.ok(s.ice[i]<.65);assert.ok(Math.floor(i/WIDTH)<ground[i%WIDTH]);}});
