@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,index,step} from '../engine.js';
+test('water and ice mass is conserved across flow and freeze cycles',()=>{const s=createGame();s.water[index(20,20)]=.8;s.water[index(21,20)]=.6;s.towers.push({x:20,y:20,kind:'cooler',cool:0});const total=()=>s.water.reduce((a,b)=>a+b,0)+s.ice.reduce((a,b)=>a+b,0);const before=total();for(let i=0;i<120;i++)step(s);assert.ok(Math.abs(total()-before)<.0002);});
+test('water remains nonnegative and bounded in free cells',()=>{const s=createGame();s.water[index(10,10)]=1;for(let i=0;i<100;i++)step(s);for(const v of s.water){assert.ok(v>=0);assert.ok(v<=1.00001);}});
