@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {createGame,campaignSummary,retryWave,startWave} from '../engine.js';
+test('campaign summary sums completed waves only',()=>{const s=createGame();s.waveHistory=[{wave:1,kills:4,leaks:1,blocked:0,damage:8},{wave:2,kills:7,leaks:0,blocked:1,damage:15}];assert.deepEqual(campaignSummary(s),{waves:2,kills:11,leaks:1,blocked:1,damage:23});});
+test('retry invalidates prior result for same wave',()=>{const s=createGame();startWave(s);s.active=false;s.waveHistory.push({wave:1,kills:5,leaks:0,blocked:0,damage:0});assert.equal(retryWave(s),true);assert.equal(campaignSummary(s).waves,0);assert.equal(startWave(s),true);assert.equal(s.wave,1);});
