@@ -1,6 +1,6 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {WIDTH,HEIGHT,BASE,ENTRANCES,index,createGame,route,previewRoutes,startWave,step,place,placementIssue} from '../topview-engine.js';
-test('top-down map has four distinct entrances and center base',()=>{assert.equal(ENTRANCES.length,4);assert.equal(new Set(ENTRANCES.map(p=>index(p.x,p.y))).size,4);assert.ok(BASE.x>0&&BASE.x<WIDTH-1&&BASE.y>0&&BASE.y<HEIGHT-1);});
-test('all four entrances have a route to the base',()=>{const s=createGame();for(const r of previewRoutes(s)){assert.ok(r.path?.length>0,r.side);assert.equal(r.path.at(-1),index(BASE.x,BASE.y));}});
-test('four directions spawn simultaneously in one tick',()=>{const s=createGame();assert.equal(startWave(s),true);step(s);assert.equal(s.enemies.length,4);assert.deepEqual(s.enemies.map(e=>e.cell),ENTRANCES.map(p=>index(p.x,p.y)));});
-test('tower placement and protected base restrictions',()=>{const s=createGame();assert.match(placementIssue(s,BASE.x,BASE.y,'tower'),/기지/);assert.equal(place(s,10,10,'tower'),true);assert.equal(s.cash,115);assert.equal(place(s,10,10,'wall'),false);});
-test('blocking one entrance does not remove other routes',()=>{const s=createGame();s.solid[index(2,12)]=1;const paths=previewRoutes(s);assert.equal(paths.length,4);for(const p of paths)assert.ok(p.path?.length>0);});
+import test from 'node:test';import assert from 'node:assert/strict';import {BASE,ENTRANCES,index,createGame,startWave,step,place,nextWaveInfo} from '../topview-engine.js';
+test('four natural flood inlets feed water simultaneously',()=>{const s=createGame();startWave(s);step(s);for(const p of ENTRANCES)assert.ok(s.water[index(p.x,p.y)]>0);assert.equal(s.enemies.length,0);});
+test('flood waves describe water rather than enemies',()=>{const s=createGame(),info=nextWaveInfo(s);assert.ok(info.rainfall>0);assert.equal(info.enemies,0);});
+test('base inundation causes physical damage',()=>{const s=createGame();startWave(s);for(let y=BASE.y-1;y<=BASE.y+1;y++)for(let x=BASE.x-1;x<=BASE.x+1;x++)s.water[index(x,y)]=1;step(s);assert.ok(s.hp<100);assert.ok(s.waveStats.damage>0);});
+test('levee and drainage structures can be placed',()=>{const s=createGame();assert.equal(place(s,10,10,'wall'),true);assert.equal(place(s,14,10,'tower'),true);assert.equal(s.cash,100);});
+test('four-front flood wave completes without hostile units',()=>{const s=createGame();startWave(s);let result;for(let i=0;i<220;i++)result=step(s);assert.equal(s.enemies.length,0);assert.ok(['complete','idle','defeat'].includes(result));});
