@@ -7,6 +7,7 @@
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
 - [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
 - [배치 UX가 필요 없는 UI 브레인스토밍](docs/NO_PLACEMENT_UI_BRAINSTORM.md)
+- [4갈래 엔딩 UX·스토리 구성 검토](docs/ENDINGS_UX_STORY_REVIEW.md)
 - [소스 및 변경 이력](https://github.com/jflakeee/physics_td/commits/main/)
 - [자동 테스트 및 배포 결과](https://github.com/jflakeee/physics_td/actions)
 
