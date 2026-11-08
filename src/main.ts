@@ -1,34 +1,62 @@
-import dikeVillage from '../data/maps/dike-village.json' with { type: 'json' };
 import ko from '../i18n/ko.json' with { type: 'json' };
 import { loadMap } from './game/map.ts';
-import type { MapData } from './game/map.ts';
 import { createT } from './ui/i18n.ts';
 import { mountPlay } from './ui/screens/play.ts';
+import { mountMapSelect } from './ui/screens/mapSelect.ts';
 import { CHARACTERS, ECONOMY, SKILLS } from './data/catalog.ts';
+import { MAPS } from './data/maps.ts';
 import { createRules, grant } from './rules/skills.ts';
+import { createTutorial, DONE } from './game/tutorial.ts';
+import { isFirstRun, loadProgress, saveProgress } from './save/local.ts';
 
 /**
- * v2 bootstrap. Map select / briefing arrive with later stories; this boots straight into
- * 둑마을. URL params (dev until the briefing screen exists):
- *   char=dike-keeper|wetland-researcher · kit=all (also grant tactical + ultimate) ·
- *   region=glacier (regional skill variants) · dev=1 (frame timings for e2e, §26)
+ * v2 bootstrap and screen router: map select ↔ play (DETAILED §10 subset).
+ * URL params for development / e2e:
+ *   map=<id> (skip map select) · char=<id> · kit=all (grant tactical + ultimate) ·
+ *   region=glacier (force regional skill variants) · tutorial=0 (off) · dev=1 (expose state)
  */
 const q = new URLSearchParams(location.search);
 const t = createT(ko);
 document.title = t('app.title');
 const root = document.getElementById('app') as HTMLElement;
-const data = { ...(dikeVillage as unknown as MapData), ...(q.get('region') ? { region: q.get('region') as string } : {}) };
-const map = loadMap(data);
-const char = CHARACTERS.find(c => c.id === q.get('char')) ?? CHARACTERS[0];
 const dev = q.has('dev');
 const frames: number[] = [];
-const screen = mountPlay({
-  root, map, t,
-  rules: play => {
-    const rs = createRules(map, SKILLS, char, ECONOMY, () => play.phase === 'wave');
-    if (q.get('kit') === 'all') { grant(rs, char.skills.tactical); grant(rs, char.skills.ultimate); }
-    return rs;
-  },
-  onFrame: dev ? ms => { frames.push(ms); if (frames.length > 600) frames.shift(); } : undefined,
-});
-if (dev) (globalThis as Record<string, unknown>).__ptd = { play: screen.play, target: screen.target, zones: map.zones.zones, frames };
+let charId = q.get('char') ?? CHARACTERS[0].id;
+let dispose: (() => void) | null = null;
+
+function showMapSelect(): void {
+  dispose?.();
+  const prog = loadProgress();
+  dispose = mountMapSelect({
+    root, t, maps: MAPS, chars: CHARACTERS, charId, cleared: prog.cleared, firstRun: isFirstRun(prog),
+    onPick: (mapId, c) => { charId = c; play(mapId); },
+  }).dispose;
+  if (dev) (globalThis as Record<string, unknown>).__ptd = { screen: 'mapSelect' };
+}
+
+function play(mapId: string): void {
+  dispose?.();
+  const base = MAPS.find(m => m.id === mapId) ?? MAPS[0];
+  const data = { ...base, ...(q.get('region') ? { region: q.get('region') as string } : {}) };
+  const map = loadMap(data);
+  const char = CHARACTERS.find(c => c.id === charId) ?? CHARACTERS[0];
+  const prog = loadProgress();
+  const tutorialOn = q.get('tutorial') !== '0' && map.data.id === MAPS[0].id && prog.tutorial < DONE;
+  const screen = mountPlay({
+    root, map, t,
+    rules: p => {
+      const rs = createRules(map, SKILLS, char, ECONOMY, () => p.phase === 'wave');
+      if (q.get('kit') === 'all') { grant(rs, char.skills.tactical); grant(rs, char.skills.ultimate); }
+      return rs;
+    },
+    tutorial: tutorialOn ? createTutorial(prog.tutorial) : undefined,
+    onTutorial: step => { const p = loadProgress(); p.tutorial = step; saveProgress(p); },
+    onClear: () => { const p = loadProgress(); p.cleared[map.data.id] = true; saveProgress(p); },
+    onExit: to => (to === 'restart' ? play(mapId) : showMapSelect()),
+    onFrame: dev ? ms => { frames.push(ms); if (frames.length > 600) frames.shift(); } : undefined,
+  });
+  dispose = screen.dispose;
+  if (dev) (globalThis as Record<string, unknown>).__ptd = { screen: 'play', play: screen.play, target: screen.target, zones: map.zones.zones, frames };
+}
+
+if (q.get('map')) play(q.get('map') as string); else showMapSelect();

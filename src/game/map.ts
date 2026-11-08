@@ -8,6 +8,8 @@ import type { ZoneMap } from '../sim/zones.ts';
 import { buildLeveeLines } from '../sim/leveeLines.ts';
 import type { LeveeLine } from '../sim/leveeLines.ts';
 import { initEcology } from '../sim/metrics.ts';
+import { placeLakes } from './lakes.ts';
+import type { Lake, LakeDef } from './lakes.ts';
 import { createWorld } from '../sim/step.ts';
 import { addPump } from '../sim/sinks.ts';
 import { setGate } from '../sim/structures.ts';
@@ -15,6 +17,12 @@ import { setGate } from '../sim/structures.ts';
 /** Map data file (DETAILED_DESIGN_V2 §11.1, subset used so far). */
 export interface MapData {
   id: string;
+  /** i18n key prefix for the map name. */
+  name?: string;
+  order?: number;
+  /** Number of waves (GD §17: 5). */
+  waves?: number;
+  lakes?: LakeDef[];
   tiles: string[];
   zones?: string[];
   inlets?: { weights: number[] }[];
@@ -30,7 +38,7 @@ export interface MapData {
 }
 
 /** Everything the play screen needs from a loaded map. */
-export interface LoadedMap { data: MapData; terrain: Terrain; zones: ZoneMap; world: SimWorld; leveeLines: LeveeLine[][]; }
+export interface LoadedMap { data: MapData; terrain: Terrain; zones: ZoneMap; world: SimWorld; leveeLines: LeveeLine[][]; lakes: Lake[]; }
 
 /** Build terrain, zones, world, pumps and gates from map data. */
 export function loadMap(data: MapData): LoadedMap {
@@ -53,5 +61,6 @@ export function loadMap(data: MapData): LoadedMap {
     world.gates.push(gate);
     setGate(world, k, gd.open);
   });
-  return { data, terrain, zones, world, leveeLines };
+  const lakes = placeLakes(world, data.lakes ?? []);
+  return { data, terrain, zones, world, leveeLines, lakes };
 }

@@ -83,6 +83,8 @@ export function freezeToWall(g: SimGrid, source: ArrayLike<number>, wall: ArrayL
  * with S_j = h_j + wall_j + gate_j + tmp_j + ice_j + w_j over the 4 neighbours (only wet
  * neighbours, w_j > WET, count for the max).
  * (b) keeps freeze films on still or gently sloping water intact. `minHead ≤ 0` disables it.
+ * Map glacier cells (`FLAG.glacier`) are skipped: their outburst is scheduled and announced
+ * by the glacier-lake logic (game/lakes.ts).
  * Returns the number of cells that shattered.
  */
 const WET = 1e-3;
@@ -93,7 +95,7 @@ export function fractureIce(g: SimGrid, minHead: number, out?: number[]): number
   let n = 0;
   for (let i = 0; i < ice.length; i++) {
     const v = ice[i];
-    if (v <= 0) continue;
+    if (v <= 0 || (g.flags[i] & FLAG.glacier)) continue;
     const x = i % W, y = (i / W) | 0;
     let hi = -Infinity, lo = Infinity;
     for (let d = 0; d < 4; d++) {

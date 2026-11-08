@@ -7,7 +7,8 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)('playwright'); // may be a global install
-const URL = pathToFileURL(resolve('dist/v2/index.html')).href + '?dev=1&kit=all';
+const BASE = pathToFileURL(resolve('dist/v2/index.html')).href + '?dev=1';
+const URL = BASE + '&kit=all&map=dike-village&tutorial=0';
 const OUT = 'production/qa/evidence';
 const DATE = '2026-11-08';
 const VIEWPORTS = [
@@ -27,7 +28,7 @@ try {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(URL);
-    await page.waitForFunction(() => globalThis.__ptd);
+    await page.waitForFunction(() => globalThis.__ptd?.play);
     const shot = async step => page.screenshot({ path: `${OUT}/story-002-${name}-${step}-${DATE}.png` });
     const S = fn => page.evaluate(fn);
 
@@ -119,7 +120,63 @@ try {
     await page.waitForTimeout(3000);
     const fr = await S(() => { const a = [...__ptd.frames].sort((x, y) => x - y); return { n: a.length, mean: a.reduce((s, v) => s + v, 0) / a.length, p95: a[Math.floor(a.length * 0.95)] }; });
     check('render frame < 6 ms (mean)', fr.mean < 6, `n=${fr.n} mean=${fr.mean.toFixed(2)} p95=${fr.p95.toFixed(2)}`);
+    // defeat → overlay → retry from the wave checkpoint
+    await S(() => { __ptd.play.world.hp = 0; });
+    await page.waitForSelector('.overlay:not([hidden])');
+    await shot('5-defeat');
+    await page.locator('.overlay button.primary').tap();
+    check('retry returns to prepare of the same wave', await S(() => __ptd.play.phase === 'prepare' && __ptd.play.world.wave === 0 && __ptd.play.world.hp === 100));
     check('no page errors', errors.length === 0, errors.join(' | '));
+    await page.close();
+
+    // map select on a first run: "여기부터" on 둑마을
+    const ms = await browser.newPage({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ms.goto(BASE);
+    await ms.waitForSelector('.map-card');
+    check('map select lists 4 maps', (await ms.locator('.map-card').count()) === 4);
+    check('first run: 여기부터 badge on 둑마을', (await ms.locator('.map-card[data-map="dike-village"] .badge.here').count()) === 1 && (await ms.locator('.badge.here').count()) === 1);
+    const cards = await ms.locator('.map-card, .chip').evaluateAll(els => els.every(e => { const r = e.getBoundingClientRect(); return r.height >= 48 && r.width >= 48; }));
+    check('map select targets ≥ 48px', cards);
+    await ms.screenshot({ path: `${OUT}/story-004-${name}-map-select-${DATE}.png` });
+    await ms.close();
+  }
+
+  // tutorial on the first 둑마을 play (iPhone 13)
+  console.log('\n# tutorial (iPhone 13)');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const page = await ctx.newPage();
+    await page.goto(BASE);
+    await page.locator('.map-card[data-map="dike-village"]').tap();
+    await page.waitForSelector('.bubble:not([hidden])');
+    check('tutorial step 1 shows on the first play', (await page.locator('.bubble p').textContent()).includes('네 방향'));
+    await page.screenshot({ path: `${OUT}/story-004-tutorial-1-${DATE}.png` });
+    await page.locator('.bubble .bnext').tap();
+    check('step 2 asks for a levee', (await page.locator('.bubble p').textContent()).includes('제방'));
+    const z = await page.evaluate(() => { const r = __ptd.play.rules; const zz = __ptd.zones.find(z => r.map.leveeLines[z.id - 1].length > 0); return zz.tiles[0]; });
+    const box = await page.locator('canvas.board').boundingBox();
+    const px = box.width / 64;
+    await page.touchscreen.tap(box.x + (z[0] * 8 + 4) * px, box.y + (z[1] * 8 + 4) * px);
+    await page.waitForTimeout(100);
+    check('levee advances to step 3 (hidden until the wave)', await page.evaluate(() => document.getElementById('app').dataset.tutorial === ''));
+    await page.locator('button.start').tap();
+    await page.waitForSelector('.bubble:not([hidden])');
+    check('step 3 shows in W1 with speed locked', (await page.locator('.bubble p').textContent()).includes('막히는') && await page.locator('.hbtns button').nth(2).isDisabled());
+    await page.screenshot({ path: `${OUT}/story-004-tutorial-3-${DATE}.png` });
+    await page.reload();
+    await page.locator('.map-card[data-map="dike-village"]').tap();
+    await page.waitForTimeout(300);
+    check('progress survives a reload (step kept)', await page.evaluate(() => document.getElementById('app').dataset.tutorial !== '1'));
+    await page.locator('.bubble .bskip').tap().catch(() => {});
+    await ctx.close();
+  }
+  // glacier map board
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&map=glacier-lake-valley&tutorial=0');
+    await page.waitForFunction(() => globalThis.__ptd?.play);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/story-004-glacier-lake-valley-${DATE}.png` });
     await page.close();
   }
   // story 003: regional skill presentation and the second character
@@ -130,7 +187,7 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     await page.goto(URL + q);
-    await page.waitForFunction(() => globalThis.__ptd);
+    await page.waitForFunction(() => globalThis.__ptd?.play);
     check(`${step}: skill bar shows ${label}`, (await page.locator(sel).getAttribute('aria-label')) === label);
     await page.screenshot({ path: `${OUT}/story-003-${step}-${DATE}.png` });
     await page.close();

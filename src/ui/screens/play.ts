@@ -18,6 +18,8 @@ import { createHud } from '../widgets/hud.ts';
 import { expireToasts, pushToast } from '../widgets/toast.ts';
 import type { ToastQueue } from '../widgets/toast.ts';
 import type { T } from '../i18n.ts';
+import * as tut from '../../game/tutorial.ts';
+import type { Tutorial } from '../../game/tutorial.ts';
 
 /**
  * Play screen (DETAILED_DESIGN_V2 §15.3, GD §9.3): HUD / board / skill bar on one screen,
@@ -34,6 +36,13 @@ export interface PlayScreenOptions {
   active?: SkillView[];
   skill?: SkillHandler;
   rules?: PlayOptions['rules'];
+  /** First-play tutorial (둑마을); progress is reported through `onTutorial`. */
+  tutorial?: Tutorial;
+  onTutorial?: (step: number) => void;
+  /** Leave the screen: back to map select, or restart the same map from scratch. */
+  onExit?: (to: 'mapSelect' | 'restart') => void;
+  /** All waves cleared. */
+  onClear?: () => void;
   /** Called every frame with the ms spent rendering (dev overlay, e2e). */
   onFrame?: (renderMs: number) => void;
 }
@@ -82,7 +91,15 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const canvas = h('canvas', { class: 'board', role: 'img', 'aria-label': t('board.label') });
   const toastBox = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
   const startBtn = h('button', { class: 'start', 'aria-label': t('bar.start') }, '▶');
-  boardWrap.append(canvas, toastBox, startBtn);
+  const bubble = h('div', { class: 'bubble', role: 'dialog', 'aria-live': 'polite' });
+  const bubbleText = h('p');
+  const bubbleNext = h('button', { class: 'bnext' }, t('tutorial.next'));
+  const bubbleSkip = h('button', { class: 'bskip' }, t('tutorial.skip'));
+  bubble.append(bubbleText, bubbleNext, bubbleSkip);
+  bubble.hidden = true;
+  const overlay = h('div', { class: 'overlay', role: 'dialog' });
+  overlay.hidden = true;
+  boardWrap.append(canvas, toastBox, startBtn, bubble, overlay);
 
   // --- skill bar
   const bar = h('nav', { class: 'bar', 'aria-label': t('bar.label') });
@@ -139,6 +156,39 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     for (const [id, b] of skillBtns) b.classList.toggle('selected', target.mode === 'selecting' && target.skill === id);
   };
 
+  // --- defeat / result overlay
+  const showOverlay = (kind: 'defeat' | 'result') => {
+    overlay.textContent = '';
+    overlay.append(h('h2', {}, t(kind + '.title')));
+    const btn = (label: string, fn: () => void, cls = '') => { const b = h('button', { class: cls }, label); b.addEventListener('click', fn); overlay.append(b); };
+    if (kind === 'defeat') {
+      btn(t('defeat.retry'), () => send(play, { t: 'retry' }), 'primary');
+      btn(t('defeat.restart'), () => o.onExit?.('restart'));
+    } else btn(t('result.again'), () => o.onExit?.('restart'), 'primary');
+    btn(t('common.mapSelect'), () => o.onExit?.('mapSelect'));
+    overlay.hidden = false;
+  };
+
+  // --- tutorial
+  const T0 = o.tutorial ?? null;
+  let lastTut = '';
+  const syncTutorial = () => {
+    if (!T0) return;
+    const show = T0.step <= tut.TUTORIAL_STEPS && tut.visible(T0, play);
+    const key = show ? String(T0.step) : '';
+    if (key !== lastTut) {
+      lastTut = key;
+      bubble.hidden = !show;
+      if (show) { bubbleText.textContent = t('tutorial.' + T0.step); bubbleNext.hidden = !tut.tapToContinue(T0); }
+      root.dataset.tutorial = key;
+      o.onTutorial?.(T0.step);
+    }
+    if (tut.speedLocked(T0) && play.speed !== 1) { send(play, { t: 'speed', x: 1 }); speedBtn.textContent = '1×'; }
+    speedBtn.disabled = tut.speedLocked(T0);
+  };
+  bubbleNext.addEventListener('click', () => { if (T0) { tut.onTap(T0, play); syncTutorial(); } });
+  bubbleSkip.addEventListener('click', () => { if (T0) { tut.skip(T0); syncTutorial(); } });
+
   // --- events from the game
   const onEvent = (e: PlayEvent) => {
     switch (e.t) {
@@ -156,8 +206,11 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       case 'waveEnd': toast(t('toast.waveEnd', { wave: e.wave })); target = IDLE; syncButtons(); break;
       case 'damageStart': toast(t('toast.damage')); haptic(100); break;
       case 'collapse': toast(t('toast.collapse')); haptic(60); break;
-      case 'defeat': toast(t('toast.defeat')); break;
-      case 'result': toast(t('toast.result')); break;
+      case 'lakeWarning': toast(t('toast.lakeWarning')); haptic([30, 30, 30]); break;
+      case 'lakeBurst': toast(t('toast.lakeBurst')); haptic(100); break;
+      case 'retried': toast(t('toast.retried', { wave: e.wave })); overlay.hidden = true; break;
+      case 'defeat': showOverlay('defeat'); break;
+      case 'result': showOverlay('result'); o.onClear?.(); break;
       default: break;
     }
   };
@@ -241,18 +294,28 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     }
   };
 
+  const tutorialBright = (): Set<number> | null => {
+    if (!T0 || T0.step !== 2 || !play.rules) return null;
+    const blink = Math.floor(performance.now() / 500) % 2 === 0;
+    if (!blink) return null;
+    const v = skills.find(k => k.id === 'build-levee');
+    return v ? new Set(o.map.zones.zones.filter(z => v.canTarget?.(z.id)).map(z => z.id)) : null;
+  };
+
   // --- loop
   const writeHud = createHud({ hp: hpV, cash: cashV, wave: waveV, level: lvV, gauge: gaugeFill, gaugeText });
   let raf = 0, last = performance.now(), lastPhase = '';
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
-    advance(play, Math.min(250, now - last)); last = now;
-    for (const e of play.events) onEvent(e);
+    const ticked = advance(play, Math.min(250, now - last)); last = now;
+    if (T0) for (let k = 0; k < ticked; k++) tut.onTick(T0, play);
+    for (const e of play.events) { onEvent(e); if (T0) tut.onEvent(T0, e); }
     play.events.length = 0;
+    syncTutorial();
     const r0 = performance.now();
     drawBoard(board, {
       highlight: target.mode === 'idle' ? target.highlight : 0,
-      bright: brightZones(target, skills, o.map.zones.zones),
+      bright: brightZones(target, skills, o.map.zones.zones) ?? tutorialBright(),
       arrows: play.phase === 'prepare', time: reduced ? 0 : now,
     });
     const renderMs = performance.now() - r0;
@@ -268,7 +331,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     play,
     target: () => target,
     dispose() {
-      cancelAnimationFrame(raf); ro.disconnect();
+      cancelAnimationFrame(raf); ro.disconnect(); root.textContent = '';
       document.removeEventListener('visibilitychange', onVis); window.removeEventListener('keydown', onKey);
     },
   };

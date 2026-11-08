@@ -1,0 +1,70 @@
+{
+  "id": "glacier-meadow",
+  "name": "map.glacierMeadow",
+  "region": "glacier",
+  "order": 3,
+  "tiles": [
+    "PPIPPHHH",
+    "PPPPPHHH",
+    "FPPPPHHH",
+    "PPPPPPPP",
+    "PPPPPPPI",
+    "PPPBBPPP",
+    "PPPBBPPP",
+    "PPPPPPPP",
+    "PFPPPPWP",
+    "PPPPPPPP",
+    "PPPPPPPP",
+    "PPPPPPOP"
+  ],
+  "zones": [
+    "aaaabbbb",
+    "aaaabbbb",
+    "aaaabbbb",
+    "cnnnnqqd",
+    "cnnnnqqd",
+    "cwwZZqqd",
+    "cwwZZqqd",
+    "cwwssssd",
+    "cwwssssd",
+    "eeeeffff",
+    "eeeeffff",
+    "eeeeffff"
+  ],
+  "pumps": [
+    [
+      2,
+      3
+    ],
+    [
+      5,
+      4
+    ],
+    [
+      6,
+      5
+    ]
+  ],
+  "gates": [],
+  "lakes": [
+    {
+      "tiles": [
+        5,
+        0,
+        7,
+        2
+      ],
+      "water": 30,
+      "rim": 1.0,
+      "breakAt": 0.4
+    }
+  ],
+  "I1": 110,
+  "rain": 0.2,
+  "pulseEvery": 45,
+  "waves": 5,
+  "start": {
+    "cash": 150,
+    "hp": 100
+  }
+}

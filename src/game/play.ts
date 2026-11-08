@@ -6,6 +6,10 @@ import { setGate } from '../sim/structures.ts';
 import { baseFlood } from '../sim/metrics.ts';
 import { rulesTick, rulesWaveEnd, rulesWaveStart, useSkill } from '../rules/skills.ts';
 import type { RulesState } from '../rules/skills.ts';
+import { tickLakes } from './lakes.ts';
+import { restoreCheckpoint, takeCheckpoint } from './checkpoint.ts';
+import type { Checkpoint } from './checkpoint.ts';
+import type { LakeEvent } from './lakes.ts';
 
 /**
  * Play-screen controller (DETAILED_DESIGN_V2 §10 subset, §12 commands, §18 step budget).
@@ -20,6 +24,7 @@ export type PlayCommand =
   | { t: 'startWave' }
   | { t: 'pause'; on: boolean }
   | { t: 'speed'; x: 1 | 2 }
+  | { t: 'retry' }
   | { t: 'skill'; id: string; zone?: number; path?: [number, number][] };
 
 /** Feedback for the UI (toasts, haptics). Cleared by the UI after reading. */
@@ -33,6 +38,8 @@ export type PlayEvent =
   | { t: 'skill'; id: string; zone?: number }
   | { t: 'income'; amount: number }
   | { t: 'zoneChanged' }
+  | LakeEvent
+  | { t: 'retried'; wave: number }
   | { t: 'defeat' } | { t: 'result' };
 
 /** Applies a skill (story 003 plugs in effects). Returns a refusal code or null. */
@@ -55,6 +62,9 @@ export interface Play {
   skill: SkillHandler;
   /** Skill rules (story 003); absent in bare sim/UI tests. */
   rules: RulesState | null;
+  /** State right before the current wave started (defeat → retry). */
+  checkpoint: Checkpoint | null;
+  retries: number;
 }
 
 export const TICK_MS = 1000 / 30;
@@ -82,8 +92,8 @@ const rulesHandler: SkillHandler = (p, id, zone, path) => {
 /** Create a play session in the prepare phase of wave 1. */
 export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
   const p: Play = {
-    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? 5, level: 1,
-    queue: [], events: [], acc: 0, damaging: false, rules: null,
+    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? map.data.waves ?? 5, level: 1,
+    queue: [], events: [], acc: 0, damaging: false, rules: null, checkpoint: null, retries: 0,
     skill: opt.skill ?? ((pp, id, zone) => { pp.events.push({ t: 'skill', id, zone }); return null; }),
   };
   if (opt.rules) { p.rules = opt.rules(p); p.skill = rulesHandler; }
@@ -119,8 +129,15 @@ function apply(p: Play, cmd: PlayCommand): void {
     case 'pumpsOff': pumpsOff(w); return;
     case 'pause': p.paused = cmd.on; return;
     case 'speed': p.speed = cmd.x; return;
+    case 'retry':
+      if (p.phase !== 'defeat' || !p.checkpoint) return;
+      restoreCheckpoint(p, p.checkpoint);
+      p.phase = 'prepare'; p.paused = false; p.retries++;
+      p.events.push({ t: 'retried', wave: w.wave + 1 });
+      return;
     case 'startWave':
       if (p.phase !== 'prepare') return;
+      p.checkpoint = takeCheckpoint(p);
       startWave(w, w.wave + 1);
       p.phase = 'wave'; p.paused = false; p.acc = 0;
       if (p.rules) rulesWaveStart(p.rules);
@@ -142,6 +159,7 @@ export function tick(p: Play): void {
   if (p.phase !== 'wave' || p.paused) return;
   const r = stepSim(p.world);
   const w = p.world;
+  if (p.map.lakes.length) tickLakes(w, p.map.lakes, p.events as LakeEvent[]);
   if (p.rules) {
     rulesTick(p.rules);
     if (p.rules.zoneChanged) { p.rules.zoneChanged = false; p.events.push({ t: 'zoneChanged' }); }

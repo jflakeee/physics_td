@@ -1,13 +1,62 @@
 {
   "id": "dike-village",
-  "style": "plain",
+  "name": "map.dikeVillage",
+  "region": "river",
   "order": 1,
-  "tiles": ["PPPIPPPO", "PPFPPPPP", "PPPPPPFP", "PDPPPPPP", "PPPPPPPP", "IPPBBPPP", "PPPBBPPI", "PPPPPPPP", "PPFPPPDP", "PPPPPPPP", "PPPPFPPP", "OPPPIPPP"],
-  "pumps": [[2, 5], [5, 6]],
+  "tiles": [
+    "PPPIPPPO",
+    "PPFPPPPP",
+    "PPPPPPFP",
+    "PDPPPPPP",
+    "PPPPPPPP",
+    "IPPBBPPP",
+    "PPPBBPPI",
+    "PPPPPPPP",
+    "PPFPPPDP",
+    "PPPPPPPP",
+    "PPPPFPPP",
+    "OPPPIPPP"
+  ],
+  "zones": [
+    "aaaabbbb",
+    "aaaabbbb",
+    "aaaabbbb",
+    "cnnnnqqd",
+    "cnnnnqqd",
+    "cwwZZqqd",
+    "cwwZZqqd",
+    "cwwssssd",
+    "cwwssssd",
+    "eeeeffff",
+    "eeeeffff",
+    "eeeeffff"
+  ],
+  "pumps": [
+    [
+      4,
+      3
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      3,
+      8
+    ]
+  ],
   "gates": [],
+  "lakes": [],
   "I1": 120,
   "rain": 0.2,
   "pulseEvery": 45,
-  "start": { "cash": 150, "hp": 100 },
-  "_note": "pumps/zones are placeholders until story 004 tunes map data"
+  "waves": 5,
+  "start": {
+    "cash": 150,
+    "hp": 100
+  }
 }
