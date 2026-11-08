@@ -4,6 +4,7 @@
 
 - [웹 게임 실행](https://jflakeee.github.io/physics_td/)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
+- [2026-11-08 대화 세션 전체 기록](docs/SESSION_TRANSCRIPT_2026-11-08.md)
 - [소스 및 변경 이력](https://github.com/jflakeee/physics_td/commits/main/)
 - [자동 테스트 및 배포 결과](https://github.com/jflakeee/physics_td/actions)
 
