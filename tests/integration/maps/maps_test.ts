@@ -15,7 +15,7 @@ import { advance, createPlay, send, TICK_MS } from '../../../src/game/play.ts';
 import type { Play } from '../../../src/game/play.ts';
 import { stateHash } from '../../../src/game/checkpoint.ts';
 import { createRules } from '../../../src/rules/skills.ts';
-import { CHARACTERS, ECONOMY, SKILLS } from '../../../src/data/catalog.ts';
+import { CHARACTERS, ECONOMY, FUSIONS, SKILLS } from '../../../src/data/catalog.ts';
 
 import { MAPS, byId } from './fixtures.ts';
 
@@ -69,7 +69,7 @@ test('glacier maps: each lake warns 3 s ahead, then bursts during a wave', () =>
 // ---------------------------------------------------------------- checkpoint
 function newPlay(id: string): Play {
   const map = loadMap(byId(id));
-  return createPlay(map, { rules: p => createRules(map, SKILLS, CHARACTERS[0], ECONOMY, () => p.phase === 'wave') });
+  return createPlay(map, { seed: 7, chars: CHARACTERS, fusions: FUSIONS, rules: p => createRules(map, SKILLS, CHARACTERS[0], ECONOMY, () => p.phase === 'wave') });
 }
 /** Prepare-phase inputs: a levee and a pump. */
 function prep(p: Play): void {
@@ -84,6 +84,7 @@ function runWave(p: Play): void {
     if (k === 300) send(p, { t: 'skill', id: 'freeze', zone: p.map.zones.zones[0].id });
     advance(p, TICK_MS);
   }
+  while (p.phase === 'levelup') send(p, { t: 'pick', index: 0 });
 }
 
 test('defeat → retry restores the wave-start checkpoint; same inputs → same state', () => {

@@ -180,7 +180,9 @@ export interface SimWorld {
   /** Per-pump tick budget (§4.4). */
   pumpBudget: number;
   /** Modifiers from passives / fusions (`wallDurabilityMul`, `absorbMul`). */
-  mods: { wallDurabilityMul: number; absorbMul: number };
+  mods: { wallDurabilityMul: number; absorbMul: number; greenLevee: number };
+  /** BFS distance to the base core (green levee: the inner side of a levee). */
+  distToBase: Uint16Array | null;
   wave: number;
   waveTick: number;
   waveLen: number;

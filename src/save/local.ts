@@ -2,7 +2,7 @@
  * Minimal persistence until story 006 (save/storage.ts): progress and tutorial step in
  * localStorage. Every access is guarded — private mode or blocked storage falls back to memory.
  */
-export interface Progress { cleared: Record<string, boolean>; tutorial: number; }
+export interface Progress { cleared: Record<string, boolean>; tutorial: number; /** Fusion codex (도감). */ codex?: string[]; }
 
 const KEY = 'ptd.v2.progress';
 let memory: Progress | null = null;

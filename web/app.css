@@ -87,3 +87,31 @@ button:disabled { opacity: .35; }
 .badge.done { background: #23485f; }
 @media (orientation: landscape) { .maps { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { #app.play[data-tutorial="6"] .gauge-row { animation: none; outline: 2px solid #ffd36b; } }
+
+/* level-up draft (story 005) */
+.lvbadge { background: #ffd36b; color: #2a1d00; border-radius: 10px; padding: 2px 6px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.lvbadge[hidden] { display: none; }
+.levelup { position: absolute; inset: 0; z-index: 5; background: rgba(8, 14, 24, .92); display: flex; flex-direction: column; gap: 8px; padding: 10px; overflow-y: auto; }
+.levelup[hidden] { display: none; }
+.levelup header { display: flex; justify-content: space-between; align-items: baseline; }
+.levelup h2 { margin: 0; font-size: 20px; }
+.levelup .remain { color: var(--muted); font-size: 13px; }
+.levelup .cards { display: flex; flex-direction: column; gap: 8px; }
+.card { text-align: left; padding: 8px 10px; min-height: 88px; border: 3px solid var(--owner, var(--line)); display: flex; flex-direction: column; gap: 3px; }
+.card .top { display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
+.card .tag { background: #0b1420; border-radius: 6px; padding: 1px 6px; }
+.card.cross .tag { background: #3a2a52; color: #e8dcff; }
+.card .name { font-size: 16px; font-weight: 700; }
+.card .desc, .card .rank { font-size: 13px; color: var(--muted); }
+.card .fusion { font-size: 13px; color: #ffe39a; }
+.card.rare { box-shadow: inset 0 0 0 2px #7fb6ff; }
+.card.rare .rarity { color: #9cc8ff; font-weight: 700; }
+.card.sub { border-style: dashed; }
+.levelup footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.levelup footer button { min-height: 48px; padding: 0 12px; }
+.odds summary { min-width: 48px; min-height: 48px; display: grid; place-items: center; cursor: pointer; border: 1px solid var(--line); border-radius: 10px; }
+.odds p { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.replace { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border-radius: 10px; padding: 8px; }
+.replace p { margin: 0; }
+.replace button { min-height: 48px; }
+@media (orientation: landscape) { .levelup .cards { flex-direction: row; } .card { flex: 1; } }

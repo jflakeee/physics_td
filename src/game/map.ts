@@ -29,6 +29,8 @@ export interface MapData {
   /** Pump sites in tile coordinates (tile centre cell). */
   pumps: [number, number][];
   gates: { tiles: [number, number][]; kind?: 'normal' | 'reservoir'; open: boolean }[];
+  /** Map style (GD §4.2): picks the 정석 character for draft weighting. */
+  style?: string;
   /** Region id; selects regional skill variants (e.g. 'glacier'). Default 'river'. */
   region?: string;
   I1: number;

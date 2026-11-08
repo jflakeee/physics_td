@@ -26,6 +26,11 @@ export interface RulesState {
   owned: OwnedSkill[];
   /** Cooldowns (ticks) of common skills, which occupy no slot. */
   commonCd: Record<string, number>;
+  /** Common-skill cooldown multiplier (정비 substitute card). */
+  commonCdMul: number;
+  maintenanceStacks: number;
+  /** Fusions that fired this run. */
+  fusions: string[];
   gauge: number;
   axes: Record<Axis, number>;
   zones: ZoneRuntime[];
@@ -45,14 +50,14 @@ export interface RulesState {
   refreshMods(): void;
 }
 
-const MOD_DEFAULT: Record<ModKey, number> = { wallDurabilityMul: 1, absorbMul: 0 };
+const MOD_DEFAULT: Record<ModKey, number> = { wallDurabilityMul: 1, absorbMul: 0, greenLevee: 0 };
 
 /** Create rules state for a run and grant the character's starting skills. */
 export function createRules(map: LoadedMap, defs: readonly SkillDef[], char: CharacterDef, eco: EconomyDef, isWave: () => boolean, start = char.start): RulesState {
   const world = map.world;
   const rs: RulesState = {
     map, world, defs: new Map(defs.map(d => [d.id, d])), char, eco, region: map.data.region ?? 'river',
-    owned: [], commonCd: {}, gauge: 0, axes: { safety: 0, conquest: 0, harmony: 0, harvest: 0 },
+    owned: [], commonCd: {}, commonCdMul: 1, maintenanceStacks: 0, fusions: [], gauge: 0, axes: { safety: 0, conquest: 0, harmony: 0, harvest: 0 },
     zones: map.zones.zones.map(() => ({ opened: false, convertTtl: 0, convertDh: 0 })),
     builtLines: new Set(), baseMods: { ...MOD_DEFAULT }, timedMods: [], waveRestore: [],
     fieldDepth: map.zones.zones.map(() => 0), waveTicks: 0,
@@ -63,6 +68,7 @@ export function createRules(map: LoadedMap, defs: readonly SkillDef[], char: Cha
       for (const t of rs.timedMods) m[t.key] = t.mode === 'set' ? t.value : t.mode === 'mul' ? m[t.key] * t.value : m[t.key] + t.value;
       world.mods.wallDurabilityMul = m.wallDurabilityMul;
       world.mods.absorbMul = m.absorbMul;
+      world.mods.greenLevee = m.greenLevee;
     },
   };
   applyPumpParams(rs);
@@ -85,15 +91,32 @@ export function regional(def: SkillDef, region: string): SkillDef {
   return r ? { ...def, icon: r.icon ?? def.icon, i18n: r.i18n ?? def.i18n, ranks: r.ranks ?? def.ranks } : def;
 }
 
-/** Add a skill (or rank it up). Passives apply their modifiers at once. */
-export function grant(rs: RulesState, id: string, borrowed = false): void {
+/**
+ * Add a skill (or rank it up). `toRank` sets the resulting rank (rare cards jump +2);
+ * borrowed (cross) skills stay at Rank 1. Passives apply their modifiers at once.
+ */
+export function grant(rs: RulesState, id: string, borrowed = false, toRank?: number): void {
   const def = rs.defs.get(id);
   if (!def) throw new Error(`unknown skill ${id}`);
   const have = rs.owned.find(o => o.id === id);
-  if (have) { have.rank = Math.min(def.ranks.length, have.rank + 1); if (def.axis) rs.axes[def.axis] += rs.eco.axisOnRankUp; }
-  else { rs.owned.push({ id, rank: 1, borrowed, cd: 0 }); if (def.axis) rs.axes[def.axis] += rs.eco.axisOnGain; }
+  const max = def.ranks.length;
+  if (have) {
+    have.rank = have.borrowed ? 1 : Math.min(max, toRank ?? have.rank + 1);
+    if (def.axis) rs.axes[def.axis] += rs.eco.axisOnRankUp;
+  } else {
+    rs.owned.push({ id, rank: borrowed ? 1 : Math.min(max, toRank ?? 1), borrowed, cd: 0 });
+    if (def.axis) rs.axes[def.axis] += rs.eco.axisOnGain;
+  }
   if (def.slot === 'passive') runOps(rs, ops(rs, def, rankOf(rs, id)), {});
 }
+
+/** Remove an owned skill (active slot replacement). Axis points stay (DETAILED §7.3). */
+export function revoke(rs: RulesState, id: string): void {
+  rs.owned = rs.owned.filter(o => o.id !== id);
+}
+
+/** Run ops outside a skill use (fusions). */
+export function applyOps(rs: RulesState, list: Op[]): void { runOps(rs, list, {}); }
 
 const rankOf = (rs: RulesState, id: string) => rs.owned.find(o => o.id === id)?.rank ?? 1;
 const ops = (rs: RulesState, def: SkillDef, rank: number): Op[] => regional(def, rs.region).ranks[Math.min(rank, def.ranks.length) - 1].ops;
@@ -170,7 +193,7 @@ export function useSkill(rs: RulesState, id: string, paused: boolean, zone?: num
   const z = zone !== undefined ? rs.map.zones.zones[zone - 1] : undefined;
   if (!runOps(rs, ops(rs, def, rankOf(rs, id)), { zone: z, path })) return 'BAD_TARGET';
   if (def.cost > 0 && rs.world.cash !== null) rs.world.cash -= def.cost;
-  if (def.cooldown > 0) setCd(rs, id, Math.round(def.cooldown * rs.world.cfg.tps));
+  if (def.cooldown > 0) setCd(rs, id, Math.round(def.cooldown * rs.world.cfg.tps * (def.slot === 'common' ? rs.commonCdMul : 1)));
   if (def.slot === 'ultimate') rs.gauge = 0;
   if (def.axis) rs.axes[def.axis] += def.cooldown > 0 ? def.cooldown / rs.eco.axisCooldownDiv : rs.eco.axisPerCostUse;
   return null;

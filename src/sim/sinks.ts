@@ -103,6 +103,23 @@ export function applySinks(world: SimWorld): void {
     const e = v * evap; v -= e; evaporated += e;
     w[i] = v;
   }
+  // green levee (fusion): the inner neighbour of every levee cell absorbs `greenLevee`/tick
+  const gl = world.mods.greenLevee, dist = world.distToBase;
+  if (gl > 0 && dist) {
+    const W = g.width, H = g.height, wall = g.wall;
+    for (let i = 0; i < wall.length; i++) {
+      if (wall[i] <= 0) continue;
+      const x = i % W, y = (i / W) | 0;
+      let inner = -1, best = dist[i];
+      if (x + 1 < W && dist[i + 1] < best && wall[i + 1] <= 0) { best = dist[i + 1]; inner = i + 1; }
+      if (x > 0 && dist[i - 1] < best && wall[i - 1] <= 0) { best = dist[i - 1]; inner = i - 1; }
+      if (y + 1 < H && dist[i + W] < best && wall[i + W] <= 0) { best = dist[i + W]; inner = i + W; }
+      if (y > 0 && dist[i - W] < best && wall[i - W] <= 0) { best = dist[i - W]; inner = i - W; }
+      if (inner < 0) continue;
+      const d = w[inner] < gl ? w[inner] : gl;
+      if (d > 0) { w[inner] -= d; drained += d; }
+    }
+  }
   m.drained += drained;
   m.evaporated += evaporated;
 }

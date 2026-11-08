@@ -19,6 +19,8 @@ import { expireToasts, pushToast } from '../widgets/toast.ts';
 import type { ToastQueue } from '../widgets/toast.ts';
 import type { T } from '../i18n.ts';
 import * as tut from '../../game/tutorial.ts';
+import { createLevelUp } from './levelUp.ts';
+import type { CharacterDef } from '../../rules/types.ts';
 import type { Tutorial } from '../../game/tutorial.ts';
 
 /**
@@ -36,6 +38,12 @@ export interface PlayScreenOptions {
   active?: SkillView[];
   skill?: SkillHandler;
   rules?: PlayOptions['rules'];
+  /** Characters (card colours / home weighting) and fusions for the draft. */
+  chars?: readonly CharacterDef[];
+  fusions?: PlayOptions['fusions'];
+  seed?: number;
+  /** A fusion fired (codex). */
+  onFusion?: (id: string) => void;
   /** First-play tutorial (둑마을); progress is reported through `onTutorial`. */
   tutorial?: Tutorial;
   onTutorial?: (step: number) => void;
@@ -57,7 +65,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, 
 /** Build the play screen into `root` and start its loop. Returns a disposer. */
 export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetState; dispose(): void } {
   const { t, root } = o;
-  const play = createPlay(o.map, { skill: o.skill, rules: o.rules });
+  const play = createPlay(o.map, { skill: o.skill, rules: o.rules, chars: o.chars, fusions: o.fusions, seed: o.seed });
   const world = play.world;
   const [common, active] = play.rules ? skillViews(play.rules) : [o.common ?? [], o.active ?? []];
   const skills = [...common, ...active];
@@ -84,7 +92,9 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const gauge = h('div', { class: 'gauge', role: 'meter', 'aria-label': t('hud.flood'), 'aria-valuemin': '0', 'aria-valuemax': '100' });
   const gaugeFill = h('div', { class: 'fill' }); gauge.append(gaugeFill);
   const gaugeText = h('span', { class: 'gauge-text' });
-  gaugeRow.append(lvS, h('span', { 'aria-hidden': 'true' }, '🏠'), gauge, gaugeText);
+  const lvBadge = h('span', { class: 'lvbadge', 'aria-live': 'polite' });
+  lvBadge.hidden = true;
+  gaugeRow.append(lvS, lvBadge, h('span', { 'aria-hidden': 'true' }, '🏠'), gauge, gaugeText);
 
   // --- board
   const boardWrap = h('div', { class: 'board-wrap' });
@@ -99,7 +109,9 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   bubble.hidden = true;
   const overlay = h('div', { class: 'overlay', role: 'dialog' });
   overlay.hidden = true;
+  const levelUp = play.rules && play.draft ? createLevelUp(play, t, o.chars ?? []) : null;
   boardWrap.append(canvas, toastBox, startBtn, bubble, overlay);
+  if (levelUp) boardWrap.append(levelUp.el);
 
   // --- skill bar
   const bar = h('nav', { class: 'bar', 'aria-label': t('bar.label') });
@@ -175,12 +187,12 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const syncTutorial = () => {
     if (!T0) return;
     const show = T0.step <= tut.TUTORIAL_STEPS && tut.visible(T0, play);
-    const key = show ? String(T0.step) : '';
+    const key = show ? T0.step + ':' + play.phase : '';
     if (key !== lastTut) {
       lastTut = key;
       bubble.hidden = !show;
-      if (show) { bubbleText.textContent = t('tutorial.' + T0.step); bubbleNext.hidden = !tut.tapToContinue(T0); }
-      root.dataset.tutorial = key;
+      if (show) { bubbleText.textContent = t('tutorial.' + T0.step); bubbleNext.hidden = !tut.tapToContinue(T0, play); }
+      root.dataset.tutorial = show ? String(T0.step) : '';
       o.onTutorial?.(T0.step);
     }
     if (tut.speedLocked(T0) && play.speed !== 1) { send(play, { t: 'speed', x: 1 }); speedBtn.textContent = '1×'; }
@@ -209,6 +221,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       case 'lakeWarning': toast(t('toast.lakeWarning')); haptic([30, 30, 30]); break;
       case 'lakeBurst': toast(t('toast.lakeBurst')); haptic(100); break;
       case 'retried': toast(t('toast.retried', { wave: e.wave })); overlay.hidden = true; break;
+      case 'levelUp': toast(t('toast.levelUp', { lv: e.level })); haptic(20); break;
+      case 'fusion': toast(t('fusion.toast', { name: t('fusion.' + e.id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase()) + '.name') })); haptic([20, 40]); o.onFusion?.(e.id); break;
       case 'defeat': showOverlay('defeat'); break;
       case 'result': showOverlay('result'); o.onClear?.(); break;
       default: break;
@@ -302,6 +316,19 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     return v ? new Set(o.map.zones.zones.filter(z => v.canTarget?.(z.id)).map(z => z.id)) : null;
   };
 
+  // --- level-up waiting badge (§6.3): count during waves; last wave → "converted to score"
+  let lastBadge = '';
+  const syncBadge = () => {
+    const ss = play.score;
+    if (!ss) return;
+    const v = ss.lateLevels > 0 ? 'L' + ss.lateLevels : play.phase === 'wave' && ss.pending > 0 ? 'P' + ss.pending : '';
+    if (v === lastBadge) return;
+    lastBadge = v;
+    lvBadge.hidden = !v;
+    lvBadge.textContent = v[0] === 'L' ? '⬆ ' + t('levelUp.badgeLast') : v ? '⬆' + '●'.repeat(Math.min(5, ss.pending)) : '';
+    lvBadge.setAttribute('aria-label', v[0] === 'L' ? t('levelUp.badgeLast') : t('levelUp.badge', { n: ss.pending }));
+  };
+
   // --- loop
   const writeHud = createHud({ hp: hpV, cash: cashV, wave: waveV, level: lvV, gauge: gaugeFill, gaugeText });
   let raf = 0, last = performance.now(), lastPhase = '';
@@ -321,7 +348,10 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });
     if (play.phase !== lastPhase) { lastPhase = play.phase; root.dataset.phase = play.phase; startBtn.hidden = play.phase !== 'prepare'; }
+    if (play.phase === 'levelup' && target.mode === 'selecting') { target = IDLE; syncButtons(); }
     if (play.rules) syncSkillState();
+    levelUp?.sync();
+    syncBadge();
     if (expireToasts(toasts, now)) renderToasts();
     o.onFrame?.(renderMs);
   };

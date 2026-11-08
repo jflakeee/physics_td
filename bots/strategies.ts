@@ -5,6 +5,8 @@ import type { LakeEvent } from '../src/game/lakes.ts';
 import { addPump, setPump } from '../src/sim/sinks.ts';
 import { buildLevee } from '../src/sim/structures.ts';
 import { runWaves } from '../src/sim/step.ts';
+import { createScore, scoreTick, scoreWaveEnd } from '../src/rules/leveling.ts';
+import type { EconomyDef } from '../src/rules/types.ts';
 
 /**
  * Fixed-placement balance bots (GD §25, §26.2 검증; DETAILED §21). Same 7 strategies as
@@ -13,7 +15,7 @@ import { runWaves } from '../src/sim/step.ts';
  * Target: the 5 single-means strategies lose, the 2 mixed ones clear.
  */
 
-export interface Outcome { result: 'clear' | 'defeat'; wave: number; hp: number; }
+export interface Outcome { result: 'clear' | 'defeat'; wave: number; hp: number; score?: number; level?: number; }
 
 type Setup = (m: LoadedMap) => void;
 
@@ -51,13 +53,31 @@ export const STRATEGIES: Readonly<Record<string, { mixed: boolean; setup: Setup 
   twoRingsTwoPumps: { mixed: true, setup: m => { ring(m, 5); ring(m, 9); pump(m, at(m, 0, -12)); pump(m, at(m, 0, 12)); } },
 };
 
-/** Run one strategy on a freshly loaded map (bots place their own pumps, not the map's sites). */
-export function runStrategy(load: () => LoadedMap, name: string): Outcome {
+/**
+ * Run one strategy on a freshly loaded map (bots place their own pumps, not the map's sites).
+ * With `eco`, also tracks play score / level (GD §6.1) — no skills, so no gauge or ecology play.
+ */
+export function runStrategy(load: () => LoadedMap, name: string, eco?: EconomyDef): Outcome {
   const m = load();
   m.world.cash = null;
   m.world.pumps.length = 0; m.world.pumpCells.length = 0;
   STRATEGIES[name].setup(m);
   const repair = (w: SimWorld) => { const g = w.grid; for (let i = 0; i < g.wall.length; i++) if (g.wall[i] > 0) g.dur[i] = w.cfg.leveeDur; };
   const ev: LakeEvent[] = [];
-  return runWaves(m.world, 1, m.data.waves ?? 5, repair, undefined, w => { if (m.lakes.length) { ev.length = 0; tickLakes(w, m.lakes, ev); } });
+  const waves = m.data.waves ?? 5;
+  const ss = eco ? createScore(m.world) : null;
+  let prevWave = 0;
+  const r: Outcome = runWaves(m.world, 1, waves, w => {
+    if (ss && prevWave) scoreWaveEnd(ss, w, eco!, prevWave >= waves);
+    prevWave = w.wave; repair(w);
+  }, undefined, w => {
+    if (m.lakes.length) { ev.length = 0; tickLakes(w, m.lakes, ev); }
+    if (ss && w.waveTick > 0) scoreTick(ss, w, eco!, w.wave >= waves);
+  });
+  if (ss) {
+    scoreTick(ss, m.world, eco!, true);
+    if (r.result === 'clear') scoreWaveEnd(ss, m.world, eco!, true);
+    r.score = Math.floor(ss.scoreF); r.level = ss.level;
+  }
+  return r;
 }

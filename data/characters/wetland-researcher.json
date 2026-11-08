@@ -1,6 +1,24 @@
 {
-  "id": "wetland-researcher", "axis": "harmony", "color": "#4fb07a", "icon": "🌿", "i18n": "char.wetlandResearcher",
-  "skills": { "passive": "wetland-passive", "basic": "open-floodplain", "tactical": "restore-wetland", "ultimate": "river-breath" },
-  "start": ["wetland-passive", "open-floodplain"],
-  "gauge": { "source": "ecologyBest", "per": 5 }
+  "id": "wetland-researcher",
+  "axis": "harmony",
+  "color": "#4fb07a",
+  "icon": "🌿",
+  "i18n": "char.wetlandResearcher",
+  "skills": {
+    "passive": "wetland-passive",
+    "basic": "open-floodplain",
+    "tactical": "restore-wetland",
+    "ultimate": "river-breath"
+  },
+  "start": [
+    "wetland-passive",
+    "open-floodplain"
+  ],
+  "gauge": {
+    "source": "ecologyBest",
+    "per": 5
+  },
+  "homeStyles": [
+    "floodplain"
+  ]
 }

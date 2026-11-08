@@ -11,10 +11,12 @@ import riverBreath from '../../data/skills/river-breath.json' with { type: 'json
 import dikeKeeper from '../../data/characters/dike-keeper.json' with { type: 'json' };
 import wetlandResearcher from '../../data/characters/wetland-researcher.json' with { type: 'json' };
 import economy from '../../data/economy.json' with { type: 'json' };
-import type { CharacterDef, EconomyDef, SkillDef } from '../rules/types.ts';
+import fusions from '../../data/fusions.json' with { type: 'json' };
+import type { CharacterDef, EconomyDef, FusionDef, SkillDef } from '../rules/types.ts';
 
 /** All shipped data, typed. One place to add a skill or character file. */
 export const SKILLS: readonly SkillDef[] = [pump, freeze, dikePassive, buildLevee, sandbag, nightRepair,
   wetlandPassive, openFloodplain, restoreWetland, riverBreath] as unknown as SkillDef[];
 export const CHARACTERS: readonly CharacterDef[] = [dikeKeeper, wetlandResearcher] as unknown as CharacterDef[];
 export const ECONOMY = economy as EconomyDef;
+export const FUSIONS = fusions as unknown as FusionDef[];

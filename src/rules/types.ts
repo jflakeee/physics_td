@@ -16,7 +16,7 @@ export type Op =
   | { op: 'freezeZone'; ratio: number }
   | { op: 'iceWall'; height: number; fallbackRatio: number };
 
-export type ModKey = 'wallDurabilityMul' | 'absorbMul';
+export type ModKey = 'wallDurabilityMul' | 'absorbMul' | 'greenLevee';
 
 export interface RankDef { ops: Op[]; }
 
@@ -50,12 +50,24 @@ export interface CharacterDef {
   skills: { passive: string; basic: string; tactical: string; ultimate: string };
   start: string[];
   gauge: { source: 'blocked' | 'ecologyBest'; per: number };
+  /** Map styles where this character is the 정석 (home) pick (GD §4.2). */
+  homeStyles: string[];
 }
+
+/** A fusion (DETAILED §7.4). */
+export interface FusionDef { id: string; requires: string[]; ops: Op[]; hidden: boolean; icon: string; i18n: string; }
 
 export interface EconomyDef {
   waveClear: number; fieldIncome: number; fieldFloodDepth: number;
   axisOnGain: number; axisOnRankUp: number; axisPerPassiveWave: number; axisPerCostUse: number; axisCooldownDiv: number;
   gaugeMax: number;
+  score: { drainedPer: number; noDamageWave: number; blockedPer: number; ecologyPer: number; waveClear: number };
+  xp: { base: number; growth: number; lateLevelScore: number };
+  draft: {
+    rarity: { common: number; rare: number; legendary: number }; skipCash: number; rerolls: number; fusionCeiling: number;
+    homeWeight: number; spike: { tactical: number; ultimate: number }; rareRankGain: number; rareNewRank: number;
+  };
+  substitutes: { supply: { cash: number }; repair: { hp: number; maxHp: number }; maintenance: { commonCdMul: number; maxStacks: number } };
 }
 
 /** Why a skill can't be used (§6.6). */

@@ -53,7 +53,12 @@ test('tutorial runs its 6 steps in order with their conditions', () => {
   assert.equal(tut.visible(t, p), false, 'card step shows after W1');
   while (p.phase === 'wave') frame(p, t);
   assert.ok(tut.visible(t, p));
-  tut.onTap(t, p); assert.equal(t.step, 6);
+  if (p.phase === 'levelup') {
+    tut.onTap(t, p); assert.equal(t.step, 5, 'card step waits for a pick');
+    send(p, { t: 'pick', index: 0 }); pumpEvents(p, t);
+    while (p.phase === 'levelup') { send(p, { t: 'skip' }); pumpEvents(p, t); }
+  } else tut.onTap(t, p);
+  assert.equal(t.step, 6);
   tut.onTap(t, p); assert.equal(t.step, tut.DONE);
   assert.equal(tut.visible(t, p), false);
 });

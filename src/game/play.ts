@@ -7,6 +7,12 @@ import { baseFlood } from '../sim/metrics.ts';
 import { rulesTick, rulesWaveEnd, rulesWaveStart, useSkill } from '../rules/skills.ts';
 import type { RulesState } from '../rules/skills.ts';
 import { tickLakes } from './lakes.ts';
+import { createScore, scoreTick, scoreWaveEnd } from '../rules/leveling.ts';
+import type { ScoreState } from '../rules/leveling.ts';
+import { createDraft, pickCard, reroll, rollCards, skipDraft } from '../rules/cards.ts';
+import type { DraftState } from '../rules/cards.ts';
+import type { FusionDef } from '../rules/types.ts';
+import { createStreams } from '../core/rng.ts';
 import { restoreCheckpoint, takeCheckpoint } from './checkpoint.ts';
 import type { Checkpoint } from './checkpoint.ts';
 import type { LakeEvent } from './lakes.ts';
@@ -16,7 +22,7 @@ import type { LakeEvent } from './lakes.ts';
  * No DOM. Commands queue and apply before the next tick; in `prepare` they apply at once.
  */
 
-export type Phase = 'prepare' | 'wave' | 'result' | 'defeat';
+export type Phase = 'prepare' | 'wave' | 'levelup' | 'result' | 'defeat';
 
 export type PlayCommand =
   | { t: 'toggle'; kind: 'pump' | 'gate'; id: number }
@@ -25,6 +31,9 @@ export type PlayCommand =
   | { t: 'pause'; on: boolean }
   | { t: 'speed'; x: 1 | 2 }
   | { t: 'retry' }
+  | { t: 'pick'; index: number; replace?: string }
+  | { t: 'skip' }
+  | { t: 'reroll' }
   | { t: 'skill'; id: string; zone?: number; path?: [number, number][] };
 
 /** Feedback for the UI (toasts, haptics). Cleared by the UI after reading. */
@@ -40,6 +49,9 @@ export type PlayEvent =
   | { t: 'zoneChanged' }
   | LakeEvent
   | { t: 'retried'; wave: number }
+  | { t: 'levelUp'; level: number; late: boolean }
+  | { t: 'cardPicked' }
+  | { t: 'fusion'; id: string }
   | { t: 'defeat' } | { t: 'result' };
 
 /** Applies a skill (story 003 plugs in effects). Returns a refusal code or null. */
@@ -65,6 +77,12 @@ export interface Play {
   /** State right before the current wave started (defeat → retry). */
   checkpoint: Checkpoint | null;
   retries: number;
+  /** Play score / XP / level (needs rules). */
+  score: ScoreState | null;
+  /** Level-up draft (needs rules). */
+  draft: DraftState | null;
+  fusions: readonly FusionDef[];
+  seed: number;
 }
 
 export const TICK_MS = 1000 / 30;
@@ -74,6 +92,11 @@ export const ACC_CAP_MS = 100;
 export interface PlayOptions {
   /** Skill rules; when given, skills run through `useSkill`. */
   rules?: (play: Play) => RulesState;
+  /** Run seed (card stream etc., §1). */
+  seed?: number;
+  /** Characters (for the map's 정석 weighting) and fusions, for the draft. */
+  chars?: readonly { id: string; homeStyles: string[] }[];
+  fusions?: readonly FusionDef[];
   /** Custom handler (tests / placeholder UI) when no rules are given. */
   skill?: SkillHandler;
   waves?: number;
@@ -94,9 +117,14 @@ export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
   const p: Play = {
     map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? map.data.waves ?? 5, level: 1,
     queue: [], events: [], acc: 0, damaging: false, rules: null, checkpoint: null, retries: 0,
+    score: null, draft: null, fusions: opt.fusions ?? [], seed: opt.seed ?? 1,
     skill: opt.skill ?? ((pp, id, zone) => { pp.events.push({ t: 'skill', id, zone }); return null; }),
   };
-  if (opt.rules) { p.rules = opt.rules(p); p.skill = rulesHandler; }
+  if (opt.rules) {
+    p.rules = opt.rules(p); p.skill = rulesHandler;
+    p.score = createScore(p.world);
+    p.draft = createDraft(createStreams(p.seed).cards, p.rules, map.data.style, opt.chars ?? []);
+  }
   return p;
 }
 
@@ -135,6 +163,21 @@ function apply(p: Play, cmd: PlayCommand): void {
       p.phase = 'prepare'; p.paused = false; p.retries++;
       p.events.push({ t: 'retried', wave: w.wave + 1 });
       return;
+    case 'pick': case 'skip': case 'reroll': {
+      if (p.phase !== 'levelup' || !p.draft || !p.rules) return;
+      const ctx = { rs: p.rules, fusions: p.fusions };
+      if (cmd.t === 'reroll') { const r = reroll(p.draft, ctx); if (!r.ok) p.events.push({ t: 'refused', reason: r.reason }); return; }
+      if (cmd.t === 'skip') skipDraft(p.draft, p.rules);
+      else {
+        const r = pickCard(p.draft, ctx, cmd.index, cmd.replace);
+        if (!r.ok) { p.events.push({ t: 'refused', reason: r.reason }); return; }
+        for (const id of r.fused) p.events.push({ t: 'fusion', id });
+      }
+      p.score!.pending--;
+      p.events.push({ t: 'cardPicked' });
+      nextDraft(p);
+      return;
+    }
     case 'startWave':
       if (p.phase !== 'prepare') return;
       p.checkpoint = takeCheckpoint(p);
@@ -152,6 +195,17 @@ function apply(p: Play, cmd: PlayCommand): void {
   }
 }
 
+function levelEvents(p: Play, ups: number, late: boolean): void {
+  for (let k = ups - 1; k >= 0; k--) p.events.push({ t: 'levelUp', level: p.score!.level - k, late });
+  p.level = p.score!.level;
+}
+
+/** Open the next draft, or return to prepare when none are pending. */
+function nextDraft(p: Play): void {
+  if (p.score && p.draft && p.rules && p.score.pending > 0) { p.phase = 'levelup'; rollCards(p.draft, { rs: p.rules, fusions: p.fusions }); }
+  else if (p.phase === 'levelup') p.phase = 'prepare';
+}
+
 /** One sim tick with queued commands applied first. */
 export function tick(p: Play): void {
   for (const c of p.queue) apply(p, c);
@@ -160,9 +214,11 @@ export function tick(p: Play): void {
   const r = stepSim(p.world);
   const w = p.world;
   if (p.map.lakes.length) tickLakes(w, p.map.lakes, p.events as LakeEvent[]);
+  const last = w.wave >= p.waves;
   if (p.rules) {
     rulesTick(p.rules);
     if (p.rules.zoneChanged) { p.rules.zoneChanged = false; p.events.push({ t: 'zoneChanged' }); }
+    if (p.score) levelEvents(p, scoreTick(p.score, w, p.rules.eco, last), last);
   }
   if (w.events.collapsed.length) p.events.push({ t: 'collapse', count: w.events.collapsed.length });
   if (w.events.cashEmpty) p.events.push({ t: 'refused', reason: 'cashEmptyPumps' });
@@ -172,7 +228,8 @@ export function tick(p: Play): void {
   else if (r === 'waveEnd') {
     p.events.push({ t: 'waveEnd', wave: w.wave });
     if (p.rules) p.events.push({ t: 'income', amount: rulesWaveEnd(p.rules) });
-    if (w.wave >= p.waves) { p.phase = 'result'; p.events.push({ t: 'result' }); } else p.phase = 'prepare';
+    if (p.score && p.rules) levelEvents(p, scoreWaveEnd(p.score, w, p.rules.eco, last), last);
+    if (last) { p.phase = 'result'; p.events.push({ t: 'result' }); } else { p.phase = 'prepare'; nextDraft(p); }
   }
 }
 

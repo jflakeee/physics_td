@@ -3,7 +3,7 @@ import { loadMap } from './game/map.ts';
 import { createT } from './ui/i18n.ts';
 import { mountPlay } from './ui/screens/play.ts';
 import { mountMapSelect } from './ui/screens/mapSelect.ts';
-import { CHARACTERS, ECONOMY, SKILLS } from './data/catalog.ts';
+import { CHARACTERS, ECONOMY, FUSIONS, SKILLS } from './data/catalog.ts';
 import { MAPS } from './data/maps.ts';
 import { createRules, grant } from './rules/skills.ts';
 import { createTutorial, DONE } from './game/tutorial.ts';
@@ -49,6 +49,10 @@ function play(mapId: string): void {
       if (q.get('kit') === 'all') { grant(rs, char.skills.tactical); grant(rs, char.skills.ultimate); }
       return rs;
     },
+    chars: CHARACTERS, fusions: FUSIONS,
+    // run seed: any integer; chosen outside the sim (retries restore the card stream)
+    seed: q.get('seed') ? +(q.get('seed') as string) : (crypto.getRandomValues(new Uint32Array(1))[0] | 0),
+    onFusion: id => { const p = loadProgress(); p.codex = [...new Set([...(p.codex ?? []), id])]; saveProgress(p); },
     tutorial: tutorialOn ? createTutorial(prog.tutorial) : undefined,
     onTutorial: step => { const p = loadProgress(); p.tutorial = step; saveProgress(p); },
     onClear: () => { const p = loadProgress(); p.cleared[map.data.id] = true; saveProgress(p); },

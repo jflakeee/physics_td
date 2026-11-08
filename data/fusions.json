@@ -1,0 +1,20 @@
+[
+  {
+    "id": "green-levee",
+    "requires": [
+      "build-levee",
+      "restore-wetland"
+    ],
+    "ops": [
+      {
+        "op": "modifier",
+        "key": "greenLevee",
+        "value": 0.003,
+        "mode": "set"
+      }
+    ],
+    "hidden": true,
+    "icon": "🌾",
+    "i18n": "fusion.greenLevee"
+  }
+]

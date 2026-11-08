@@ -7,5 +7,47 @@
   "axisPerPassiveWave": 1,
   "axisPerCostUse": 1,
   "axisCooldownDiv": 10,
-  "gaugeMax": 100
+  "gaugeMax": 100,
+  "score": {
+    "drainedPer": 0.3,
+    "noDamageWave": 60,
+    "blockedPer": 0.35,
+    "ecologyPer": 8,
+    "waveClear": 100
+  },
+  "xp": {
+    "base": 100,
+    "growth": 1.35,
+    "lateLevelScore": 50
+  },
+  "draft": {
+    "rarity": {
+      "common": 70,
+      "rare": 25,
+      "legendary": 5
+    },
+    "skipCash": 40,
+    "rerolls": 1,
+    "fusionCeiling": 4,
+    "homeWeight": 1.5,
+    "spike": {
+      "tactical": 3,
+      "ultimate": 5
+    },
+    "rareRankGain": 2,
+    "rareNewRank": 2
+  },
+  "substitutes": {
+    "supply": {
+      "cash": 60
+    },
+    "repair": {
+      "hp": 10,
+      "maxHp": 100
+    },
+    "maintenance": {
+      "commonCdMul": 0.85,
+      "maxStacks": 2
+    }
+  }
 }

@@ -1,6 +1,9 @@
 import type { SimGrid, SimWorld } from '../core/types.ts';
 import type { RulesState } from '../rules/skills.ts';
 import type { Play } from './play.ts';
+import type { ScoreState } from '../rules/leveling.ts';
+import type { RngState } from '../core/rng.ts';
+import { createRng } from '../core/rng.ts';
 
 /**
  * Wave checkpoints (DETAILED_DESIGN_V2 §10 defeat → retry). Taken in prepare right before a
@@ -23,11 +26,14 @@ export interface Checkpoint {
   zoneTypes: string[];
   rules: Partial<RulesState> | null;
   level: number;
+  score: ScoreState | null;
+  draft: { rng: RngState; rerollsLeft: number; sinceFusion: number; skips: number; drafted: number } | null;
 }
 
 function snapRules(rs: RulesState): Partial<RulesState> {
   return structuredClone({
     owned: rs.owned, commonCd: rs.commonCd, gauge: rs.gauge, axes: rs.axes, zones: rs.zones,
+    commonCdMul: rs.commonCdMul, maintenanceStacks: rs.maintenanceStacks, fusions: rs.fusions,
     builtLines: rs.builtLines, baseMods: rs.baseMods, timedMods: rs.timedMods, waveRestore: rs.waveRestore,
     fieldDepth: rs.fieldDepth, waveTicks: rs.waveTicks, lastBlocked: rs.lastBlocked, lastEcoBest: rs.lastEcoBest,
   });
@@ -47,6 +53,8 @@ export function takeCheckpoint(p: Play): Checkpoint {
     zoneTypes: p.map.zones.zones.map(z => z.type),
     rules: p.rules ? snapRules(p.rules) : null,
     level: p.level,
+    score: p.score ? structuredClone(p.score) : null,
+    draft: p.draft ? { rng: p.draft.rng.state(), rerollsLeft: p.draft.rerollsLeft, sinceFusion: p.draft.sinceFusion, skips: p.draft.skips, drafted: p.draft.drafted } : null,
   };
 }
 
@@ -61,6 +69,8 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   c.zoneTypes.forEach((t, i) => { p.map.zones.zones[i].type = t as typeof p.map.zones.zones[number]['type']; });
   if (p.rules && c.rules) { Object.assign(p.rules, structuredClone(c.rules)); p.rules.refreshMods(); }
   p.level = c.level;
+  if (p.score && c.score) Object.assign(p.score, structuredClone(c.score));
+  if (p.draft && c.draft) { const { rng, ...rest } = c.draft; Object.assign(p.draft, rest, { rng: createRng(rng), offer: null }); }
   p.queue.length = 0; p.acc = 0; p.damaging = false;
 }
 

@@ -115,17 +115,39 @@ try {
     await S(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); });
     await pause.tap();
 
+    // level-up: pending badge in the wave, draft sheet after it (story 005)
+    await S(() => { __ptd.play.world.metrics.drained += 1200; });
+    await page.waitForTimeout(200);
+    check('level-up waits as a badge during the wave', await page.locator('.lvbadge:not([hidden])').isVisible() && (await S(() => __ptd.play.phase)) === 'wave');
+    await S(() => { __ptd.play.world.waveTick = __ptd.play.world.waveLen - 2; });
+    await page.waitForSelector('.levelup:not([hidden])');
+    check('draft opens after the wave with 3 cards', (await page.locator('.levelup .card').count()) === 3);
+    check('odds are published (ⓘ)', (await page.locator('.levelup .odds p').textContent()).includes('70'));
+    const cardBtns = await page.locator('.levelup button, .levelup summary').evaluateAll(els => els.every(e => { const r = e.getBoundingClientRect(); return r.height >= 48 && r.width >= 48; }));
+    check('draft targets ≥ 48px', cardBtns);
+    await shot('6-levelup');
+    const pend0 = await S(() => __ptd.play.score.pending);
+    await page.locator('.levelup .reroll').tap();
+    await page.waitForTimeout(150);
+    check('reroll once per run', (await S(() => __ptd.play.draft.rerollsLeft)) === 0 && await page.locator('.levelup .reroll').isDisabled());
+    await page.locator('.levelup .card').first().tap();
+    check('picking a card consumes one pending level', (await S(() => __ptd.play.score.pending)) === pend0 - 1);
+    while ((await S(() => __ptd.play.phase)) === 'levelup') await page.locator('.levelup .skip').tap();
+    check('draft ends in prepare', (await S(() => __ptd.play.phase)) === 'prepare');
+    await page.locator('button.start').tap();
+
     // render frame budget
     await S(() => { __ptd.frames.length = 0; });
     await page.waitForTimeout(3000);
     const fr = await S(() => { const a = [...__ptd.frames].sort((x, y) => x - y); return { n: a.length, mean: a.reduce((s, v) => s + v, 0) / a.length, p95: a[Math.floor(a.length * 0.95)] }; });
     check('render frame < 6 ms (mean)', fr.mean < 6, `n=${fr.n} mean=${fr.mean.toFixed(2)} p95=${fr.p95.toFixed(2)}`);
     // defeat → overlay → retry from the wave checkpoint
+    const waveAtDefeat = await S(() => __ptd.play.world.wave);
     await S(() => { __ptd.play.world.hp = 0; });
     await page.waitForSelector('.overlay:not([hidden])');
     await shot('5-defeat');
     await page.locator('.overlay button.primary').tap();
-    check('retry returns to prepare of the same wave', await S(() => __ptd.play.phase === 'prepare' && __ptd.play.world.wave === 0 && __ptd.play.world.hp === 100));
+    check('retry returns to prepare of the same wave', (await S(() => __ptd.play.phase === 'prepare' && __ptd.play.world.hp > 0)) && (await S(() => __ptd.play.world.wave)) === waveAtDefeat - 1);
     check('no page errors', errors.length === 0, errors.join(' | '));
     await page.close();
 

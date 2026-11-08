@@ -31,7 +31,7 @@ export function createWorld(t: Terrain, map: MapSimParams, opt: WorldOptions = {
   const world: SimWorld = {
     cfg, map: m, grid: t.grid, baseCore: t.baseCore, inlets: t.inlets,
     pumps: [], gates: [], pumpCells: [], pumpBudget: 0,
-    mods: { wallDurabilityMul: 1, absorbMul: 0 },
+    mods: { wallDurabilityMul: 1, absorbMul: 0, greenLevee: 0 }, distToBase: t.distToBase,
     wave: 0, waveTick: 0, waveLen: 0, waveParams: { mul: 1, rain: m.rain },
     hp: opt.hp ?? 100, hpAcc: 0, cash: opt.cash === undefined ? 150 : opt.cash, cashAcc: 0,
     tick: 0, ecoBase: 0, metrics: createMetrics(), events: { collapsed: [], iceBroken: [], cashEmpty: false },

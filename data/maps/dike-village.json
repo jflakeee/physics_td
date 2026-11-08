@@ -58,5 +58,6 @@
   "start": {
     "cash": 150,
     "hp": 100
-  }
+  },
+  "style": "plain"
 }
