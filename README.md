@@ -5,6 +5,7 @@
 - [웹 게임 실행](https://jflakeee.github.io/physics_td/)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
+- [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
 - [소스 및 변경 이력](https://github.com/jflakeee/physics_td/commits/main/)
 - [자동 테스트 및 배포 결과](https://github.com/jflakeee/physics_td/actions)
 
