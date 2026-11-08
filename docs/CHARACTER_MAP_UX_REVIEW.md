@@ -1,5 +1,7 @@
 # 캐릭터 선택 × 맵 스타일 — UX 검토
 
+> 🔖 **v2 통합 설계서([GAME_DESIGN_V2.md](GAME_DESIGN_V2.md))가 우선합니다.** 이 문서는 검토 기록이며, 상충 시 v2 0.1장·부록 A를 따릅니다.
+
 > 작성일: 2026-11-08 · 선행 문서: [목적별 맵 + 종합 스테이지](STAGE_SELECT_UX_REVIEW.md), [4갈래 엔딩](ENDINGS_UX_STORY_REVIEW.md), [배치 없는 UI](NO_PLACEMENT_UI_BRAINSTORM.md)
 > 변경된 구조: 맵은 **4가지 스타일**로 나뉘고 스타일마다 **여러 장**이 있다. 플레이어는 **스킬 4개를 가진 캐릭터** 4명 중 하나를 골라 맵을 클리어한다.
 > ⚠️ 스킬·성장 구조(3장, 6장)는 [공통·특수 스킬 + 레벨업 교차 스킬](SKILL_LEVELUP_UX_REVIEW.md) 문서로 갱신됨.
