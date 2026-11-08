@@ -3,6 +3,7 @@
 모바일 우선 웹 기반 **탑뷰 자연재해 방어 시뮬레이션**. 중앙 기지를 네 방향의 홍수로부터 제방·배수펌프·냉각탑으로 보호합니다.
 
 - [웹 게임 실행](https://jflakeee.github.io/physics_td/)
+- **[v2 통합 설계서 (확정안)](docs/GAME_DESIGN_V2.md)**
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
 - [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
