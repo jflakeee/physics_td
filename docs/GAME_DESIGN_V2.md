@@ -1,5 +1,6 @@
 # Physics TD v2 — 통합 설계서 (권장안 확정본)
 
+> 구현 명세: [상세 설계서](DETAILED_DESIGN_V2.md)
 > 작성일: 2026-11-08 · 상태: **설계 확정안 v2.1** (구현 기준 문서) · v2.1 변경: 상충 개념 정리(부록 A), 누락 규칙 보강(15~23장)
 > 이 문서는 아래 검토 문서들의 **권장 항목을 채택해 하나로 묶은 것**이다. 수치는 모두 **초기 튜닝값**이며 봇 시뮬레이션(12장)으로 조정한다.
 > 근거 문서: [설계 검토](DESIGN_REVIEW_2026-11.md) · [모바일 재구현](MOBILE_REBUILD_REVIEW.md) · [배치 없는 UI](NO_PLACEMENT_UI_BRAINSTORM.md) · [4갈래 엔딩](ENDINGS_UX_STORY_REVIEW.md) · [목적 맵/종합 스테이지](STAGE_SELECT_UX_REVIEW.md) · [캐릭터 × 맵](CHARACTER_MAP_UX_REVIEW.md) · [스킬·레벨업](SKILL_LEVELUP_UX_REVIEW.md)
