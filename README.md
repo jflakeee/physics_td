@@ -7,6 +7,8 @@
 - **[v2 상세 설계서 (구현 명세)](docs/DETAILED_DESIGN_V2.md)**
 - [v2 설계 부족분 검토](docs/DESIGN_GAP_REVIEW_V2.md)
 - [v1 세션 기록 (ChatGPT)](docs/SESSION_HISTORY_V1_CHATGPT.md)
+- [스토리·세계 확장 설계](docs/STORY_WORLD_EXPANSION.md)
+- [TD 장르 딥리서치 (장단점·참신한 시스템·플레이어 요청)](docs/TD_GENRE_RESEARCH_2026-11.md)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
 - [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
