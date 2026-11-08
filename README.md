@@ -10,6 +10,7 @@
 - [4갈래 엔딩 UX·스토리 구성 검토](docs/ENDINGS_UX_STORY_REVIEW.md)
 - [목적별 맵 4개 + 종합 스테이지 UX 검토](docs/STAGE_SELECT_UX_REVIEW.md)
 - [캐릭터 선택 × 맵 스타일 UX 검토](docs/CHARACTER_MAP_UX_REVIEW.md)
+- [공통·특수 스킬 + 레벨업 교차 스킬 UX 검토](docs/SKILL_LEVELUP_UX_REVIEW.md)
 - [소스 및 변경 이력](https://github.com/jflakeee/physics_td/commits/main/)
 - [자동 테스트 및 배포 결과](https://github.com/jflakeee/physics_td/actions)
 
