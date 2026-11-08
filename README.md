@@ -6,6 +6,7 @@
 - **[v2 통합 설계서 (확정안)](docs/GAME_DESIGN_V2.md)**
 - **[v2 상세 설계서 (구현 명세)](docs/DETAILED_DESIGN_V2.md)**
 - [v2 설계 부족분 검토](docs/DESIGN_GAP_REVIEW_V2.md)
+- [v1 세션 기록 (ChatGPT)](docs/SESSION_HISTORY_V1_CHATGPT.md)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
 - [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
