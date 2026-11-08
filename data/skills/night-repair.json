@@ -1,0 +1,10 @@
+{
+  "id": "night-repair", "owner": "dike-keeper", "slot": "ultimate", "axis": "safety", "target": "global", "zoneTypes": [],
+  "cooldown": 0, "cost": 0, "borrowable": false,
+  "ranks": [
+    { "ops": [{ "op": "repairAll", "addHeight": 0.1 }] },
+    { "ops": [{ "op": "repairAll", "addHeight": 0.15 }] },
+    { "ops": [{ "op": "repairAll", "addHeight": 0.2 }] }
+  ],
+  "icon": "🌙", "i18n": "skill.nightRepair"
+}

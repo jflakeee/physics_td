@@ -21,6 +21,8 @@ export interface SkillView {
   zoneTypes: ZoneType[];
   icon: string;
   i18n: string;
+  /** Extra per-zone check from the rules layer (levee lines, already opened, …). */
+  canTarget?: (zoneId: number) => boolean;
 }
 
 export type TargetState = { mode: 'idle'; highlight: number } | { mode: 'selecting'; skill: string };
@@ -36,6 +38,7 @@ export type TargetAction =
 /** Zones a skill may target. */
 export function validZone(s: SkillView, z: Zone): boolean {
   if (z.type === 'base') return false;
+  if (s.canTarget) return s.canTarget(z.id);
   return s.zoneTypes.length === 0 || s.zoneTypes.includes(z.type);
 }
 

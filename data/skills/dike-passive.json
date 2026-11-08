@@ -1,0 +1,10 @@
+{
+  "id": "dike-passive", "owner": "dike-keeper", "slot": "passive", "axis": "safety", "target": "none", "zoneTypes": [],
+  "cooldown": 0, "cost": 0, "borrowable": true,
+  "ranks": [
+    { "ops": [{ "op": "modifier", "key": "wallDurabilityMul", "value": 1.3, "mode": "set" }] },
+    { "ops": [{ "op": "modifier", "key": "wallDurabilityMul", "value": 1.45, "mode": "set" }] },
+    { "ops": [{ "op": "modifier", "key": "wallDurabilityMul", "value": 1.6, "mode": "set" }] }
+  ],
+  "icon": "🪨", "i18n": "skill.dikePassive"
+}

@@ -6,6 +6,9 @@
 /** Cell flag bits (`SimGrid.flags`). */
 export const FLAG = { outlet: 1, inlet: 2, baseCore: 4, gateCell: 8, glacier: 16 } as const;
 
+/** Cell terrain-type codes (`SimGrid.ztype`), mirrors zone types. */
+export const ZT = { none: 0, plain: 1, forest: 2, hill: 3, field: 4, wetland: 5, reservoir: 6, base: 7 } as const;
+
 /** Per-cell simulation arrays. Index `i = y * width + x`, y grows southward. */
 export interface SimGrid {
   width: number;
@@ -32,6 +35,12 @@ export interface SimGrid {
   dur: Float32Array;
   /** Bit flags, see `FLAG`. */
   flags: Uint8Array;
+  /** Zone type code per cell (`ZT`), drives absorption and ecology. */
+  ztype: Uint8Array;
+  /** Forest / wetland health 0..1 (GD §16). */
+  health: Float32Array;
+  /** Consecutive ticks with depth ≥ forestFloodDepth (forest damage). */
+  floodTicks: Uint16Array;
 }
 
 /** A pump site. `cell` is the centre cell index. */
@@ -92,6 +101,15 @@ export interface SimConfig {
   inletCellCap: number;
   /** Ticks per second. */
   tps: number;
+  /** Wetland absorption per tick at absorbMul 1 (forest gets `forestAbsorbFrac` of it). */
+  absorbRate: number;
+  forestAbsorbFrac: number;
+  /** Forest damage: depth and duration (ticks) before health starts falling, and loss per tick. */
+  forestFloodDepth: number;
+  forestFloodTicks: number;
+  forestDamagePerTick: number;
+  /** Ecology index cap (%). */
+  ecologyMax: number;
 }
 
 /** Wave status returned by the step function. */
@@ -116,6 +134,10 @@ export interface SimMetrics {
   waveMaxFlood: number;
   /** Levee cells collapsed (whole run). */
   collapses: number;
+  /** Ecology index now (%), GD §16. */
+  ecology: number;
+  /** Highest ecology index reached this run (%). */
+  ecologyBest: number;
 }
 
 /** Per-wave inflow modifiers supplied by the rules layer (events, contracts). */
@@ -170,6 +192,8 @@ export interface SimWorld {
   cash: number | null;
   cashAcc: number;
   tick: number;
+  /** Forest + wetland cell count at map start (ecology denominator). */
+  ecoBase: number;
   metrics: SimMetrics;
   events: TickEvents;
   scratch: { head: Float64Array; out: Float64Array; s: Float64Array };

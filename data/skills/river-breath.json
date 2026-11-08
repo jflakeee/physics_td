@@ -1,0 +1,10 @@
+{
+  "id": "river-breath", "owner": "wetland-researcher", "slot": "ultimate", "axis": "harmony", "target": "global", "zoneTypes": [],
+  "cooldown": 0, "cost": 0, "borrowable": false,
+  "ranks": [
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 3, "mode": "mul", "ttlSec": 10 }] },
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 3, "mode": "mul", "ttlSec": 12 }] },
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 3, "mode": "mul", "ttlSec": 14 }] }
+  ],
+  "icon": "🌬", "i18n": "skill.riverBreath"
+}

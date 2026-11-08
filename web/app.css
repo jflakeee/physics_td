@@ -38,6 +38,13 @@ button:disabled { opacity: .35; }
 .sk.selected { background: var(--accent); border-color: #c8fff7; }
 .sk.ult { border-style: double; border-width: 3px; }
 .sk.empty { background: transparent; border-style: dashed; }
+.sk { position: relative; overflow: hidden; }
+.sk .ico { position: relative; z-index: 1; }
+/* cooldown: dark sweep covering the remaining fraction (shape + shade, not colour only) */
+.sk.cooling::after { content: ""; position: absolute; inset: 0; background: conic-gradient(rgba(5,10,18,.72) var(--cd), transparent 0); }
+/* ultimate gauge: fill from the bottom; double border + glow when ready */
+.sk.ult::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--g, 0%); background: rgba(255, 196, 80, .35); }
+.sk.ult.ready { box-shadow: 0 0 0 2px #ffd36b, 0 0 12px #ffd36b; }
 /* landscape (§13.1): board left, panel right — HUD, gauge, 2-column skills */
 @media (orientation: landscape) {
   #app.play { grid-template-rows: minmax(0, 1fr); grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "board panel"; }

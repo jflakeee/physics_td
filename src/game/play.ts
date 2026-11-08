@@ -4,6 +4,8 @@ import { startWave, stepSim } from '../sim/step.ts';
 import { pumpsOff, setPump } from '../sim/sinks.ts';
 import { setGate } from '../sim/structures.ts';
 import { baseFlood } from '../sim/metrics.ts';
+import { rulesTick, rulesWaveEnd, rulesWaveStart, useSkill } from '../rules/skills.ts';
+import type { RulesState } from '../rules/skills.ts';
 
 /**
  * Play-screen controller (DETAILED_DESIGN_V2 §10 subset, §12 commands, §18 step budget).
@@ -29,6 +31,8 @@ export type PlayEvent =
   | { t: 'damageStart' } | { t: 'damageEnd' }
   | { t: 'collapse'; count: number }
   | { t: 'skill'; id: string; zone?: number }
+  | { t: 'income'; amount: number }
+  | { t: 'zoneChanged' }
   | { t: 'defeat' } | { t: 'result' };
 
 /** Applies a skill (story 003 plugs in effects). Returns a refusal code or null. */
@@ -49,19 +53,41 @@ export interface Play {
   acc: number;
   damaging: boolean;
   skill: SkillHandler;
+  /** Skill rules (story 003); absent in bare sim/UI tests. */
+  rules: RulesState | null;
 }
 
 export const TICK_MS = 1000 / 30;
 /** Max accumulated time simulated per frame (§18). */
 export const ACC_CAP_MS = 100;
 
+export interface PlayOptions {
+  /** Skill rules; when given, skills run through `useSkill`. */
+  rules?: (play: Play) => RulesState;
+  /** Custom handler (tests / placeholder UI) when no rules are given. */
+  skill?: SkillHandler;
+  waves?: number;
+}
+
+/** Skill handler backed by the rules layer. */
+const rulesHandler: SkillHandler = (p, id, zone, path) => {
+  const r = useSkill(p.rules as RulesState, id, p.paused, zone, path);
+  if (!r) {
+    p.events.push({ t: 'skill', id, zone });
+    if ((p.rules as RulesState).zoneChanged) { (p.rules as RulesState).zoneChanged = false; p.events.push({ t: 'zoneChanged' }); }
+  }
+  return r;
+};
+
 /** Create a play session in the prepare phase of wave 1. */
-export function createPlay(map: LoadedMap, skill?: SkillHandler, waves = 5): Play {
-  return {
-    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves, level: 1,
-    queue: [], events: [], acc: 0, damaging: false,
-    skill: skill ?? ((p, id, zone) => { p.events.push({ t: 'skill', id, zone }); return null; }),
+export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
+  const p: Play = {
+    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? 5, level: 1,
+    queue: [], events: [], acc: 0, damaging: false, rules: null,
+    skill: opt.skill ?? ((pp, id, zone) => { pp.events.push({ t: 'skill', id, zone }); return null; }),
   };
+  if (opt.rules) { p.rules = opt.rules(p); p.skill = rulesHandler; }
+  return p;
 }
 
 /**
@@ -97,6 +123,7 @@ function apply(p: Play, cmd: PlayCommand): void {
       if (p.phase !== 'prepare') return;
       startWave(w, w.wave + 1);
       p.phase = 'wave'; p.paused = false; p.acc = 0;
+      if (p.rules) rulesWaveStart(p.rules);
       p.events.push({ t: 'waveStart', wave: w.wave });
       return;
     case 'skill': {
@@ -115,6 +142,10 @@ export function tick(p: Play): void {
   if (p.phase !== 'wave' || p.paused) return;
   const r = stepSim(p.world);
   const w = p.world;
+  if (p.rules) {
+    rulesTick(p.rules);
+    if (p.rules.zoneChanged) { p.rules.zoneChanged = false; p.events.push({ t: 'zoneChanged' }); }
+  }
   if (w.events.collapsed.length) p.events.push({ t: 'collapse', count: w.events.collapsed.length });
   if (w.events.cashEmpty) p.events.push({ t: 'refused', reason: 'cashEmptyPumps' });
   const dmg = baseFlood(w) > w.cfg.floodThreshold;
@@ -122,6 +153,7 @@ export function tick(p: Play): void {
   if (r === 'defeat') { p.phase = 'defeat'; p.events.push({ t: 'defeat' }); }
   else if (r === 'waveEnd') {
     p.events.push({ t: 'waveEnd', wave: w.wave });
+    if (p.rules) p.events.push({ t: 'income', amount: rulesWaveEnd(p.rules) });
     if (w.wave >= p.waves) { p.phase = 'result'; p.events.push({ t: 'result' }); } else p.phase = 'prepare';
   }
 }

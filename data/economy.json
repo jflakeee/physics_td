@@ -1,0 +1,11 @@
+{
+  "waveClear": 60,
+  "fieldIncome": 8,
+  "fieldFloodDepth": 0.05,
+  "axisOnGain": 3,
+  "axisOnRankUp": 1,
+  "axisPerPassiveWave": 1,
+  "axisPerCostUse": 1,
+  "axisCooldownDiv": 10,
+  "gaugeMax": 100
+}

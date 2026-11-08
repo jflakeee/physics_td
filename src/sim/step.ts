@@ -6,12 +6,12 @@ import { fractureIce, meltIce } from './ice.ts';
 import { applyInflow } from './inflow.ts';
 import { applySinks, pumpBudget } from './sinks.ts';
 import { updateStructures } from './structures.ts';
-import { applyDamage, createMetrics } from './metrics.ts';
+import { applyDamage, createMetrics, updateEcology } from './metrics.ts';
 
 /**
  * Sim tick pipeline (docs/DETAILED_DESIGN_V2.md §4.1), fixed order:
- *   inflow → fluid → ice melt/fracture → sinks → structures → base damage → end check.
- * Steps 1 (events), 7 (ecology) and 9 (score / xp / gauges) belong to the rules layer
+ *   inflow → fluid → ice melt/fracture → sinks → structures → ecology → base damage → end check.
+ * Steps 1 (events) and 9 (score / xp / gauges / cooldowns) belong to the rules layer
  * (stories 003–005) and run around this function, not inside it.
  */
 
@@ -34,7 +34,7 @@ export function createWorld(t: Terrain, map: MapSimParams, opt: WorldOptions = {
     mods: { wallDurabilityMul: 1, absorbMul: 0 },
     wave: 0, waveTick: 0, waveLen: 0, waveParams: { mul: 1, rain: m.rain },
     hp: opt.hp ?? 100, hpAcc: 0, cash: opt.cash === undefined ? 150 : opt.cash, cashAcc: 0,
-    tick: 0, metrics: createMetrics(), events: { collapsed: [], iceBroken: [], cashEmpty: false },
+    tick: 0, ecoBase: 0, metrics: createMetrics(), events: { collapsed: [], iceBroken: [], cashEmpty: false },
     scratch: createFluidScratch(n),
   };
   world.pumpBudget = pumpBudget(world);
@@ -66,6 +66,7 @@ export function stepSim(world: SimWorld): StepResult {
   fractureIce(g, cfg.iceFractureHead, world.events.iceBroken);
   applySinks(world);
   updateStructures(world);
+  updateEcology(world);
   applyDamage(world);
   world.tick++;
   world.waveTick++;

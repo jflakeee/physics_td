@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)('playwright'); // may be a global install
-const URL = pathToFileURL(resolve('dist/v2/index.html')).href + '?dev=1';
+const URL = pathToFileURL(resolve('dist/v2/index.html')).href + '?dev=1&kit=all';
 const OUT = 'production/qa/evidence';
 const DATE = '2026-11-08';
 const VIEWPORTS = [
@@ -52,11 +52,13 @@ try {
     const tile = (z) => z.tiles[0];
     const tileCentre = (z) => at(tile(z)[0] * 8 + 4, tile(z)[1] * 8 + 4);
 
-    // zone tap → highlight (build-levee is the only basic for plain, so it also fires)
-    const field = zones.find(z => z.type === 'field');
-    await page.touchscreen.tap(...tileCentre(field ?? plain));
+    // zone tap → highlight; on a plain zone with levee lines it also builds a levee ($20)
+    const leveeZone = await S(() => { const r = __ptd.play.rules; return __ptd.zones.find(z => r.map.leveeLines[z.id - 1].length > 0).id; });
+    const lz = zones.find(z => z.id === leveeZone);
+    await page.touchscreen.tap(...tileCentre(lz));
     const hl = await S(() => __ptd.target());
-    check('zone tap highlights the zone', hl.mode === 'idle' && hl.highlight === (field ?? plain).id, JSON.stringify(hl));
+    check('zone tap highlights the zone', hl.mode === 'idle' && hl.highlight === lz.id, JSON.stringify(hl));
+    check('zone tap builds a levee (basic skill)', await S(() => __ptd.play.world.cash === 130 && __ptd.play.world.grid.wall.some(v => v > 0)));
     await shot('2-zone-highlight');
 
     // skill button → targeting with dimmed zones; tap base (invalid) cancels
@@ -75,6 +77,10 @@ try {
     await ult.tap();
     check('ultimate tap asks for a long press', (await page.locator('.toast').allTextContents()).some(t => t.includes('길게')));
     const ub = await ult.boundingBox();
+    await page.mouse.move(ub.x + ub.width / 2, ub.y + ub.height / 2);
+    await page.mouse.down(); await page.waitForTimeout(600); await page.mouse.up();
+    check('ultimate with an empty gauge is refused', (await page.locator('.toast').allTextContents()).some(t => t.includes('게이지')));
+    await S(() => { __ptd.play.rules.gauge = 100; });
     await page.mouse.move(ub.x + ub.width / 2, ub.y + ub.height / 2);
     await page.mouse.down(); await page.waitForTimeout(600); await page.mouse.up();
     check('ultimate long press fires', (await page.locator('.toast').allTextContents()).some(t => t.includes('철야 보강 사용')));
@@ -114,6 +120,19 @@ try {
     const fr = await S(() => { const a = [...__ptd.frames].sort((x, y) => x - y); return { n: a.length, mean: a.reduce((s, v) => s + v, 0) / a.length, p95: a[Math.floor(a.length * 0.95)] }; });
     check('render frame < 6 ms (mean)', fr.mean < 6, `n=${fr.n} mean=${fr.mean.toFixed(2)} p95=${fr.p95.toFixed(2)}`);
     check('no page errors', errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+  // story 003: regional skill presentation and the second character
+  console.log('\n# variants (iPhone 13)');
+  for (const [step, q, sel, label] of [
+    ['glacier', '&region=glacier', '[data-skill="build-levee"]', '얼음 둑'],
+    ['wetland-researcher', '&char=wetland-researcher', '[data-skill="open-floodplain"]', '범람원 개방'],
+  ]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(URL + q);
+    await page.waitForFunction(() => globalThis.__ptd);
+    check(`${step}: skill bar shows ${label}`, (await page.locator(sel).getAttribute('aria-label')) === label);
+    await page.screenshot({ path: `${OUT}/story-003-${step}-${DATE}.png` });
     await page.close();
   }
 } finally {

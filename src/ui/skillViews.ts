@@ -1,14 +1,30 @@
 import type { SkillView } from '../input/targeting.ts';
+import type { RulesState } from '../rules/skills.ts';
+import { regional, zoneTargetable } from '../rules/skills.ts';
+import type { SkillDef } from '../rules/types.ts';
 
 /**
- * Skill buttons shown on the play screen until story 003 supplies owned skills from
- * `data/skills/*.json`. Targets follow DETAILED_DESIGN_V2 §6.2.
+ * Skill buttons from the rules state: common skills with a button (freeze), then owned
+ * actives in slot order (basic, tactical, ultimate), regional presentation applied.
  */
-export const FREEZE: SkillView = { id: 'freeze', slot: 'common', target: 'zone', zoneTypes: [], icon: '🧊', i18n: 'skill.freeze' };
+const ORDER: Record<string, number> = { basic: 0, tactical: 1, ultimate: 2 };
 
-/** 둑지기 Lv1~ actives; the 4th slot stays empty until a level-up card fills it (story 005). */
-export const DIKE_KEEPER_ACTIVE: SkillView[] = [
-  { id: 'build-levee', slot: 'basic', target: 'zone', zoneTypes: ['plain'], icon: '🧱', i18n: 'skill.buildLevee' },
-  { id: 'sandbag', slot: 'tactical', target: 'swipe', zoneTypes: [], icon: '🛍', i18n: 'skill.sandbag' },
-  { id: 'night-repair', slot: 'ultimate', target: 'global', zoneTypes: [], icon: '🌙', i18n: 'skill.nightRepair' },
-];
+export function viewOf(def: SkillDef, rs: RulesState): SkillView {
+  const r = regional(def, rs.region);
+  return {
+    id: def.id, slot: def.slot, target: def.target === 'pump' ? 'none' : def.target, zoneTypes: def.zoneTypes,
+    icon: r.icon, i18n: r.i18n, canTarget: z => zoneTargetable(rs, def.id, z),
+  };
+}
+
+/** [common buttons, active buttons (max 4)]. */
+export function skillViews(rs: RulesState): [SkillView[], SkillView[]] {
+  const common = [...rs.defs.values()].filter(d => d.slot === 'common' && d.target === 'zone').map(d => viewOf(d, rs));
+  const active = rs.owned
+    .map(o => rs.defs.get(o.id)!)
+    .filter(d => d.slot !== 'passive' && d.slot !== 'common')
+    .sort((a, b) => ORDER[a.slot] - ORDER[b.slot])
+    .slice(0, 4)
+    .map(d => viewOf(d, rs));
+  return [common, active];
+}

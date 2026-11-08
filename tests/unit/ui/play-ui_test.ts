@@ -16,7 +16,15 @@ import { createHud } from '../../../src/ui/widgets/hud.ts';
 import { expireToasts, pushToast, TOAST_MAX, TOAST_MS } from '../../../src/ui/widgets/toast.ts';
 import { createT } from '../../../src/ui/i18n.ts';
 import { fitBoard } from '../../../src/render/canvas.ts';
-import { DIKE_KEEPER_ACTIVE, FREEZE } from '../../../src/ui/skillViews.ts';
+import type { SkillView } from '../../../src/input/targeting.ts';
+
+// type-only skill views (targeting is tested without the rules layer here)
+const FREEZE: SkillView = { id: 'freeze', slot: 'common', target: 'zone', zoneTypes: [], icon: '🧊', i18n: 'skill.freeze' };
+const DIKE_KEEPER_ACTIVE: SkillView[] = [
+  { id: 'build-levee', slot: 'basic', target: 'zone', zoneTypes: ['plain'], icon: '🧱', i18n: 'skill.buildLevee' },
+  { id: 'sandbag', slot: 'tactical', target: 'swipe', zoneTypes: [], icon: '🛍', i18n: 'skill.sandbag' },
+  { id: 'night-repair', slot: 'ultimate', target: 'global', zoneTypes: [], icon: '🌙', i18n: 'skill.nightRepair' },
+];
 
 const MAP = dikeVillage as unknown as MapData;
 const SKILLS = [FREEZE, ...DIKE_KEEPER_ACTIVE];
@@ -168,7 +176,7 @@ test('play: step budget — 1× ≤ 2 ticks/frame, 2× ≤ 4, backlog capped; pa
 
 test('play: third pump is refused with an event', () => {
   const m = loadMap({ ...MAP, pumps: [[1, 1], [6, 1], [1, 10]] });
-  const p = createPlay(m);
+  const p = createPlay(m, {});
   send(p, { t: 'toggle', kind: 'pump', id: 0 });
   send(p, { t: 'toggle', kind: 'pump', id: 1 });
   send(p, { t: 'toggle', kind: 'pump', id: 2 });
@@ -177,7 +185,7 @@ test('play: third pump is refused with an event', () => {
 
 test('play: gate toggle closes the gate (0.8 wall)', () => {
   const m = loadMap({ ...MAP, gates: [{ tiles: [[1, 8]], open: true }] });
-  const p = createPlay(m);
+  const p = createPlay(m, {});
   send(p, { t: 'toggle', kind: 'gate', id: 0 });
   assert.equal(p.world.gates[0].open, false);
   assert.ok(Math.abs(m.terrain.grid.gate[m.world.gates[0].cells[0]] - 0.8) < 1e-6);

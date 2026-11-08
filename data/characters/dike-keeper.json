@@ -1,0 +1,6 @@
+{
+  "id": "dike-keeper", "axis": "safety", "color": "#d98b3a", "icon": "🛡", "i18n": "char.dikeKeeper",
+  "skills": { "passive": "dike-passive", "basic": "build-levee", "tactical": "sandbag", "ultimate": "night-repair" },
+  "start": ["dike-passive", "build-levee"],
+  "gauge": { "source": "blocked", "per": 0.5 }
+}

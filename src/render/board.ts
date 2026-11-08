@@ -88,8 +88,9 @@ export function drawBoard(b: Board, v: BoardView): void {
     const x = i % W, y = (i / W) | 0;
     if (wall > 0) {
       ctx.fillStyle = g.dur[i] < 0.3 ? LEVEE_WEAK : LEVEE;
-      const inset = Math.max(0.05, 0.35 - wall * 0.5); // taller = thicker
-      ctx.fillRect(x + inset, y + inset, 1 - 2 * inset, 1 - 2 * inset);
+      ctx.globalAlpha = Math.min(1, 0.55 + wall); // taller = more solid
+      ctx.fillRect(x, y, 1, 1);
+      ctx.globalAlpha = 1;
       if (g.dur[i] < 0.3) { ctx.strokeStyle = '#300'; ctx.lineWidth = 0.12; ctx.beginPath(); ctx.moveTo(x + 0.2, y + 0.2); ctx.lineTo(x + 0.8, y + 0.8); ctx.stroke(); }
     }
     if (tmp > 0) { ctx.fillStyle = TEMP_WALL; ctx.fillRect(x + 0.3, y + 0.3, 0.4, 0.4); }

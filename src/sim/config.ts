@@ -31,6 +31,12 @@ export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   pulseEvery: 45,
   inletCellCap: 2.0,
   tps: 30,
+  absorbRate: 0.004,
+  forestAbsorbFrac: 0.5,
+  forestFloodDepth: 0.1,
+  forestFloodTicks: 300,
+  forestDamagePerTick: 0.1 / 30,
+  ecologyMax: 150,
 });
 
 /** Wave length in ticks: 30 × (40 + 7.5 × (w − 1)). W1 1200 … W5 2100 (§4.5). */

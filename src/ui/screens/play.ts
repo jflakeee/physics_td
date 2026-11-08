@@ -1,7 +1,11 @@
 import type { LoadedMap } from '../../game/map.ts';
 import { advance, createPlay, send } from '../../game/play.ts';
-import type { Play, PlayEvent, SkillHandler } from '../../game/play.ts';
-import { createBoard, drawBoard } from '../../render/board.ts';
+import type { Play, PlayEvent, PlayOptions, SkillHandler } from '../../game/play.ts';
+import { createBoard, drawBoard, refreshTerrain } from '../../render/board.ts';
+import { cooldownTicks } from '../../rules/skills.ts';
+import { REFUSAL_TOAST } from '../../rules/types.ts';
+import type { Refusal } from '../../rules/types.ts';
+import { skillViews } from '../skillViews.ts';
 import type { Board } from '../../render/board.ts';
 import { fitBoard, sizeCanvas } from '../../render/canvas.ts';
 import { createGestureTracker } from '../../input/gestures.ts';
@@ -25,9 +29,11 @@ export interface PlayScreenOptions {
   root: HTMLElement;
   map: LoadedMap;
   t: T;
-  common: SkillView[];
-  active: SkillView[];
+  /** Buttons when no rules are given (otherwise derived from the rules state). */
+  common?: SkillView[];
+  active?: SkillView[];
   skill?: SkillHandler;
+  rules?: PlayOptions['rules'];
   /** Called every frame with the ms spent rendering (dev overlay, e2e). */
   onFrame?: (renderMs: number) => void;
 }
@@ -42,9 +48,10 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, 
 /** Build the play screen into `root` and start its loop. Returns a disposer. */
 export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetState; dispose(): void } {
   const { t, root } = o;
-  const play = createPlay(o.map, o.skill);
+  const play = createPlay(o.map, { skill: o.skill, rules: o.rules });
   const world = play.world;
-  const skills = [...o.common, ...o.active];
+  const [common, active] = play.rules ? skillViews(play.rules) : [o.common ?? [], o.active ?? []];
+  const skills = [...common, ...active];
   root.textContent = '';
   root.className = 'play';
 
@@ -81,11 +88,12 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const bar = h('nav', { class: 'bar', 'aria-label': t('bar.label') });
   const skillBtns = new Map<string, HTMLButtonElement>();
   for (const s of skills) {
-    const b = h('button', { class: s.slot === 'common' ? 'sk common' : 'sk', 'aria-label': t(s.i18n + '.name'), 'data-skill': s.id }, s.icon);
+    const b = h('button', { class: s.slot === 'common' ? 'sk common' : 'sk', 'aria-label': t(s.i18n + '.name'), 'data-skill': s.id });
+    b.append(h('span', { class: 'ico', 'aria-hidden': 'true' }, s.icon));
     if (s.slot === 'ultimate') b.classList.add('ult');
     skillBtns.set(s.id, b); bar.append(b);
   }
-  for (let k = o.active.length; k < 4; k++) bar.append(h('button', { class: 'sk empty', disabled: '', 'aria-label': '—' }, ''));
+  for (let k = active.length; k < 4; k++) bar.append(h('button', { class: 'sk empty', disabled: '', 'aria-label': '—' }, ''));
 
   const panel = h('div', { class: 'panel' });
   panel.append(hud, gaugeRow, bar);
@@ -134,10 +142,14 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   // --- events from the game
   const onEvent = (e: PlayEvent) => {
     switch (e.t) {
-      case 'refused':
-        toast(t(e.reason === 'maxOn' ? 'toast.maxOn' : e.reason === 'noCash' ? 'toast.noCash' : e.reason === 'PAUSED' ? 'toast.paused'
-          : e.reason === 'cashEmptyPumps' ? 'toast.cashEmptyPumps' : 'toast.notImplemented'));
+      case 'refused': {
+        const key = e.reason === 'maxOn' ? 'toast.maxOn' : e.reason === 'noCash' ? 'toast.noCash'
+          : e.reason === 'cashEmptyPumps' ? 'toast.cashEmptyPumps' : REFUSAL_TOAST[e.reason as Refusal] ?? null;
+        if (key) toast(t(key));
         haptic([30, 30, 30]); break;
+      }
+      case 'income': toast(t('toast.income', { amount: e.amount })); break;
+      case 'zoneChanged': refreshTerrain(board, make); break;
       case 'toggled': toast(t(e.kind === 'pump' ? (e.on ? 'toast.pumpOn' : 'toast.pumpOff') : (e.on ? 'toast.gateOpen' : 'toast.gateClosed'))); haptic(10); break;
       case 'skill': toast(t('toast.skillUsed', { skill: skillName(e.id) })); break;
       case 'waveStart': toast(t('toast.waveStart', { wave: e.wave })); target = IDLE; syncButtons(); break;
@@ -212,6 +224,23 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   };
   window.addEventListener('keydown', onKey);
 
+  // --- cooldown ring / gauge (written only on change, 1% steps)
+  const lastVis: Record<string, string> = {};
+  const syncSkillState = () => {
+    const rs = play.rules!;
+    for (const [id, b] of skillBtns) {
+      const def = rs.defs.get(id)!;
+      let v: string;
+      if (def.slot === 'ultimate') v = 'g' + Math.floor(rs.gauge);
+      else { const total = def.cooldown * world.cfg.tps; v = 'c' + (total ? Math.ceil(cooldownTicks(rs, id) / total * 100) : 0); }
+      if (lastVis[id] === v) continue;
+      lastVis[id] = v;
+      const pct = +v.slice(1);
+      if (v[0] === 'g') { b.style.setProperty('--g', pct + '%'); b.classList.toggle('ready', pct >= 100); }
+      else { b.style.setProperty('--cd', pct + '%'); b.classList.toggle('cooling', pct > 0); }
+    }
+  };
+
   // --- loop
   const writeHud = createHud({ hp: hpV, cash: cashV, wave: waveV, level: lvV, gauge: gaugeFill, gaugeText });
   let raf = 0, last = performance.now(), lastPhase = '';
@@ -229,6 +258,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });
     if (play.phase !== lastPhase) { lastPhase = play.phase; root.dataset.phase = play.phase; startBtn.hidden = play.phase !== 'prepare'; }
+    if (play.rules) syncSkillState();
     if (expireToasts(toasts, now)) renderToasts();
     o.onFrame?.(renderMs);
   };

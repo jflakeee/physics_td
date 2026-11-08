@@ -1,0 +1,11 @@
+{
+  "id": "restore-wetland", "owner": "wetland-researcher", "slot": "tactical", "axis": "harmony", "target": "zone", "zoneTypes": ["field", "plain"],
+  "cooldown": 30, "cost": 30, "borrowable": true, "needs": "notConverting",
+  "ranks": [
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttlSec": 10, "dh": 0.3 }] },
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttlSec": 8, "dh": 0.3 }] },
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttlSec": 6, "dh": 0.3 }] }
+  ],
+  "icon": "🪷", "i18n": "skill.restoreWetland",
+  "regions": { "glacier": { "icon": "🌿", "i18n": "skill.mossBog" } }
+}

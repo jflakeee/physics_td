@@ -13,6 +13,7 @@ export function createGrid(width = GRID_W, height = GRID_H): SimGrid {
     w: new Float64Array(n), ice: new Float64Array(n), h: new Float32Array(n),
     wall: new Float32Array(n), gate: new Float32Array(n), tmp: new Float32Array(n),
     tmpTtl: new Uint16Array(n), dur: new Float32Array(n), flags: new Uint8Array(n),
+    ztype: new Uint8Array(n), health: new Float32Array(n), floodTicks: new Uint16Array(n),
   };
 }
 
@@ -22,6 +23,7 @@ export function cloneGrid(g: SimGrid): SimGrid {
     width: g.width, height: g.height,
     w: g.w.slice(), ice: g.ice.slice(), h: g.h.slice(), wall: g.wall.slice(), gate: g.gate.slice(),
     tmp: g.tmp.slice(), tmpTtl: g.tmpTtl.slice(), dur: g.dur.slice(), flags: g.flags.slice(),
+    ztype: g.ztype.slice(), health: g.health.slice(), floodTicks: g.floodTicks.slice(),
   };
 }
 
