@@ -62,7 +62,7 @@ export function stepSim(world: SimWorld): StepResult {
   world.metrics.inflow += added;
   world.metrics.waveInflow += added;
   fluidStep(g, cfg.K, world.scratch);
-  meltIce(g, cfg.iceMelt, cfg.iceEpsilon);
+  meltIce(g, cfg.iceMelt, cfg.iceEpsilon, cfg.glacierMelt);
   fractureIce(g, cfg.iceFractureHead, world.events.iceBroken);
   applySinks(world);
   updateStructures(world);
@@ -77,7 +77,7 @@ export function stepSim(world: SimWorld): StepResult {
 /** Step without waves: fluid + ice only (no inflow, sinks, damage). For tests and previews. */
 export function stepFluidOnly(world: SimWorld): void {
   fluidStep(world.grid, world.cfg.K, world.scratch);
-  meltIce(world.grid, world.cfg.iceMelt, world.cfg.iceEpsilon);
+  meltIce(world.grid, world.cfg.iceMelt, world.cfg.iceEpsilon, world.cfg.glacierMelt);
   fractureIce(world.grid, world.cfg.iceFractureHead);
 }
 

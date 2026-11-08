@@ -8,7 +8,7 @@ import { createRng, createStreams, seedState, streamsState, restoreStreams } fro
 import { FLAG } from '../../../src/core/types.ts';
 import { createGrid, totalWater } from '../../../src/sim/grid.ts';
 import { createFluidScratch, fluidStep } from '../../../src/sim/fluid.ts';
-import { fractureIce, freezeCells, meltIce, placeIce } from '../../../src/sim/ice.ts';
+import { fractureIce, freezeCells, freezeToWall, meltIce, placeIce } from '../../../src/sim/ice.ts';
 import { buildTerrain } from '../../../src/sim/terrain.ts';
 import { createWorld, runWaves, startWave, stepSim } from '../../../src/sim/step.ts';
 import { addPump, setPump } from '../../../src/sim/sinks.ts';
@@ -16,7 +16,7 @@ import { buildLevee, updateStructures } from '../../../src/sim/structures.ts';
 import { applyDamage } from '../../../src/sim/metrics.ts';
 import { waveInflow } from '../../../src/sim/inflow.ts';
 import { DEFAULT_SIM_CONFIG, waveLen } from '../../../src/sim/config.ts';
-import { DIKE_I1, DIKE_VILLAGE, STRATEGIES, dikeWorld, flatGrid, hashGrid, randomGrid, repairLevees } from './fixtures.ts';
+import { DIKE_I1, DIKE_VILLAGE, FREEZE_COOLDOWN, GLACIER_POCKET, STRATEGIES, addGlacierLake, dikeWorld, flatGrid, hashGrid, randomGrid, repairLevees } from './fixtures.ts';
 
 const K = DEFAULT_SIM_CONFIG.K;
 
@@ -230,6 +230,29 @@ test('ice fracture leaves freeze films on still water intact and conserves mass'
   assert.ok(Math.abs(totalWater(g) - before - 1.85) < 1e-9);
 });
 
+test('glacier ice (FLAG.glacier) melts at glacierMelt, other ice at iceMelt', () => {
+  const g = flatGrid(2, 1);
+  placeIce(g, [0], 1.0, true);
+  placeIce(g, [1], 1.0);
+  for (let k = 0; k < 100; k++) meltIce(g, DEFAULT_SIM_CONFIG.iceMelt, 1e-6, DEFAULT_SIM_CONFIG.glacierMelt);
+  assert.ok(Math.abs(g.ice[0] - (1 - 100 * DEFAULT_SIM_CONFIG.glacierMelt)) < 1e-9);
+  assert.ok(Math.abs(g.ice[1] - (1 - 100 * DEFAULT_SIM_CONFIG.iceMelt)) < 1e-9);
+});
+
+test('ice wall: freezes existing water into the wall cells, mass conserving', () => {
+  const g = flatGrid(10, 1);
+  const src = [0, 1, 2, 3], wall = [5, 6];
+  for (const c of src) g.w[c] = 0.5;
+  const before = totalWater(g);
+  assert.ok(Math.abs(freezeToWall(g, src, wall, 0.4) - 0.8) < 1e-9);
+  assert.ok(Math.abs(g.ice[5] - 0.4) < 1e-9 && Math.abs(g.ice[6] - 0.4) < 1e-9);
+  assert.ok(Math.abs(totalWater(g) - before) < 1e-12);
+  // not enough water: wall is built partially, nothing created
+  const g2 = flatGrid(4, 1); g2.w[0] = 0.1;
+  assert.ok(Math.abs(freezeToWall(g2, [0], [2, 3], 0.4) - 0.1) < 1e-12);
+  assert.ok(Math.abs(totalWater(g2) - 0.1) < 1e-12);
+});
+
 // ---------------------------------------------------------------- SIM-04 stability
 test('SIM-04: 100k ticks on random terrain → no NaN, no negatives, no sustained oscillation', () => {
   const g = randomGrid(9), n = g.w.length, sc = createFluidScratch(n), r = createRng(seedState(10));
@@ -283,6 +306,28 @@ test('calibration 둑마을: one pump on the path alone cannot clear', () => {
 });
 test('calibration 둑마을: levee ring + one pump clears (levees re-cast each wave)', () => {
   const r = playStrategy('ringPlusPump');
+  assert.equal(r.result, 'clear');
+  assert.ok(r.hp > 0);
+});
+
+// ---------------------------------------------------------------- glacier lake calibration (AC 7)
+function playGlacier(upkeep: boolean) {
+  const { t, w } = dikeWorld();
+  const { inside, rim } = addGlacierLake(w, t);
+  STRATEGIES.ringPlusPump(w, t);
+  let last = -Infinity;
+  return runWaves(w, 1, 5, repairLevees, undefined, ww => {
+    // the player keeps the dam: refreeze lake water into the rim whenever the cooldown allows
+    if (upkeep && ww.tick > 0 && ww.tick - last >= FREEZE_COOLDOWN) {
+      freezeToWall(ww.grid, inside, rim, GLACIER_POCKET.rim); last = ww.tick;
+    }
+  });
+}
+test('glacier lake is a threat: the calibrated ring + pump defence fails when the dam melts', () => {
+  assert.equal(playGlacier(false).result, 'defeat');
+});
+test('glacier lake is a counter: keeping the ice dam frozen saves the same defence', () => {
+  const r = playGlacier(true);
   assert.equal(r.result, 'clear');
   assert.ok(r.hp > 0);
 });

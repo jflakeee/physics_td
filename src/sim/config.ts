@@ -8,8 +8,11 @@ import type { SimConfig } from '../core/types.ts';
 export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   K: 0.2,
   iceMelt: 0.0008,
+  // story-001 decision: map glaciers melt at 1/4 rate so a dam can last into late waves
+  // without its own ice being most of the flood (see story notes)
+  glacierMelt: 0.0002,
   iceEpsilon: 1e-6,
-  // story-001 calibration knob (not in GD v2.2): see ice.ts fractureIce
+  // story-001 decision: ice-dam outburst rule, see ice.ts fractureIce
   iceFractureHead: 0.1,
   evap: 0.00002,
   outletRate: 0.05,

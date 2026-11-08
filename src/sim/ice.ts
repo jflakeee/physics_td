@@ -1,3 +1,4 @@
+import { FLAG } from '../core/types.ts';
 import type { SimGrid } from '../core/types.ts';
 
 /**
@@ -6,14 +7,18 @@ import type { SimGrid } from '../core/types.ts';
  * Melting is mass-conserving: water + ice is invariant under `meltIce` and `freezeCells`.
  */
 
-/** Melt `rate` ice per tick from every ice cell into water. Returns the amount melted. */
-export function meltIce(g: SimGrid, rate: number, epsilon: number): number {
-  const { ice, w } = g;
+/**
+ * Melt ice into water in place: `rate` per tick, `glacierRate` on `FLAG.glacier` cells
+ * (defaults to `rate`). Returns the amount melted.
+ */
+export function meltIce(g: SimGrid, rate: number, epsilon: number, glacierRate = rate): number {
+  const { ice, w, flags } = g;
   let melted = 0;
   for (let i = 0; i < ice.length; i++) {
     const v = ice[i];
     if (v <= 0) continue;
-    const m = v - rate <= epsilon ? v : rate;
+    const r = flags[i] & FLAG.glacier ? glacierRate : rate;
+    const m = v - r <= epsilon ? v : r;
     ice[i] = v - m;
     w[i] += m;
     melted += m;
@@ -31,9 +36,41 @@ export function freezeCells(g: SimGrid, cells: ArrayLike<number>, fraction: numb
   return frozen;
 }
 
-/** Add ice of `thickness` to `cells` (map-authored ice dams, glacier tongues). */
-export function placeIce(g: SimGrid, cells: ArrayLike<number>, thickness: number): void {
-  for (let k = 0; k < cells.length; k++) g.ice[cells[k]] += thickness;
+/**
+ * Add ice of `thickness` to `cells` (map-authored ice dams, glacier tongues).
+ * `glacier` marks the cells so they melt at `glacierMelt`.
+ */
+export function placeIce(g: SimGrid, cells: ArrayLike<number>, thickness: number, glacier = false): void {
+  for (let k = 0; k < cells.length; k++) {
+    g.ice[cells[k]] += thickness;
+    if (glacier) g.flags[cells[k]] |= FLAG.glacier;
+  }
+}
+
+/**
+ * Ice wall (긴급 결빙의 벽 표현): freeze water drawn from `source` cells into a wall of ice
+ * on `wall` cells, topping each up to `height` of ice. Mass conserving — the wall is built
+ * only from water that exists, taken from every source cell in the same proportion, so it
+ * both blocks flow and pulls that water out of the flood until it melts.
+ * Returns the amount of water frozen into the wall.
+ */
+export function freezeToWall(g: SimGrid, source: ArrayLike<number>, wall: ArrayLike<number>, height: number): number {
+  let need = 0;
+  for (let k = 0; k < wall.length; k++) { const d = height - g.ice[wall[k]]; if (d > 0) need += d; }
+  let avail = 0;
+  for (let k = 0; k < source.length; k++) avail += g.w[source[k]];
+  const take = need < avail ? need : avail;
+  if (take <= 0) return 0;
+  const f = take / avail, fill = take / need;
+  let taken = 0;
+  for (let k = 0; k < source.length; k++) { const i = source[k], d = g.w[i] * f; g.w[i] -= d; taken += d; }
+  let placed = 0;
+  for (let k = 0; k < wall.length; k++) {
+    const i = wall[k], d = height - g.ice[i];
+    if (d > 0) { const a = d * fill; g.ice[i] += a; placed += a; }
+  }
+  g.ice[wall[0]] += taken - placed; // put float dust back so water + ice is exact
+  return taken;
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 
 /** Cell flag bits (`SimGrid.flags`). */
-export const FLAG = { outlet: 1, inlet: 2, baseCore: 4, gateCell: 8 } as const;
+export const FLAG = { outlet: 1, inlet: 2, baseCore: 4, gateCell: 8, glacier: 16 } as const;
 
 /** Per-cell simulation arrays. Index `i = y * width + x`, y grows southward. */
 export interface SimGrid {
@@ -52,6 +52,8 @@ export interface SimConfig {
   K: number;
   /** Ice melt per tick. */
   iceMelt: number;
+  /** Melt per tick of map glacier ice (`FLAG.glacier` cells). */
+  glacierMelt: number;
   /** Ice at or below this thickness snaps to water (avoids float dust). */
   iceEpsilon: number;
   /** Head difference across an overtopped ice cell that shatters it (빙하호 붕괴). 0 = off. */

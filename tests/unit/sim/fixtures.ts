@@ -4,7 +4,8 @@ import { createGrid } from '../../../src/sim/grid.ts';
 import type { SimGrid, SimWorld } from '../../../src/core/types.ts';
 import { buildTerrain } from '../../../src/sim/terrain.ts';
 import type { Terrain } from '../../../src/sim/terrain.ts';
-import { createWorld } from '../../../src/sim/step.ts';
+import { createWorld, stepFluidOnly } from '../../../src/sim/step.ts';
+import { placeIce } from '../../../src/sim/ice.ts';
 import { addPump, setPump } from '../../../src/sim/sinks.ts';
 import { buildLevee } from '../../../src/sim/structures.ts';
 
@@ -72,4 +73,23 @@ export function dikeWorld(I1 = DIKE_I1): { t: Terrain; w: SimWorld } {
 export function repairLevees(w: SimWorld): void {
   const g = w.grid;
   for (let i = 0; i < g.wall.length; i++) if (g.wall[i] > 0) g.dur[i] = w.cfg.leveeDur;
+}
+
+/** Glacier pocket used by the glacier-lake calibration (prototypes/v2-glacier-lake.mjs). */
+export const GLACIER_POCKET = { x0: 4, x1: 19, y0: 4, y1: 19, lake: 40, rim: 0.9 } as const;
+export const FREEZE_COOLDOWN = 1800;
+
+/** Place the glacier rim + lake on 둑마을 and let the lake settle with the rim frozen. */
+export function addGlacierLake(w: SimWorld, t: Terrain): { inside: number[]; rim: number[] } {
+  const { x0, x1, y0, y1, lake, rim: rimH } = GLACIER_POCKET, W = t.grid.width;
+  const inside: number[] = [], rim: number[] = [];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++)
+    (x === x0 || x === x1 || y === y0 || y === y1 ? rim : inside).push(y * W + x);
+  placeIce(t.grid, rim, rimH, true);
+  for (const c of inside) t.grid.w[c] += lake / inside.length;
+  const m = w.cfg.glacierMelt;
+  w.cfg.glacierMelt = 0;
+  for (let k = 0; k < 2000; k++) stepFluidOnly(w);
+  w.cfg.glacierMelt = m;
+  return { inside, rim };
 }
