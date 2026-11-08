@@ -1,6 +1,6 @@
 # Physics TD v2 — 상세 설계서
 
-> 작성일: 2026-11-08 · 기준: [v2.1 통합 설계서](GAME_DESIGN_V2.md) (규칙·수치의 원본) · 본 문서: **구현 단위 명세**
+> 작성일: 2026-11-08 · 기준: [v2.2 통합 설계서](GAME_DESIGN_V2.md) · v2.2: [부족분 검토](DESIGN_GAP_REVIEW_V2.md) 반영 (규칙·수치의 원본) · 본 문서: **구현 단위 명세**
 > 표기: `코드`는 식별자, **[GD x.y]** = 통합 설계서 해당 절. 수치가 통합 설계서와 다르면 통합 설계서가 우선.
 
 ---
@@ -15,7 +15,7 @@
 | 타일 | 맵 저작 단위 8×8 셀. 타일 좌표 `(tx, ty)`, `0 ≤ tx < 8`, `0 ≤ ty < 12` |
 | 시간 | 1 tick = 1/30 게임 초. 문서의 "초" = 30 tick [GD 3.1] |
 | 수치 타입 | 시뮬 배열 `Float32Array`, 점수·자금·경험치는 정수(반올림은 tick 누적 후 웨이브 종료 시 1회) |
-| 결정성 | 같은 `seed` + 같은 명령 로그 → 같은 결과. 반복 순서 고정, `Math.random` 금지, 시간 의존 금지 |
+| 결정성 | 같은 `seed` + 같은 명령 로그 → 같은 결과. 반복 순서 고정, `Math.random` 금지, 시간 의존 금지. **보장 범위 = 같은 기기·같은 빌드**. 노이즈는 정수 해시(`Math.sin` 금지), 성장 계수(1.35^n)는 상수 표 |
 | 난수 | `sfc32` PRNG, 용도별 **독립 스트림** 3개: `rng.cards`, `rng.events`, `rng.weather` (다시 뽑기를 써도 사건 순서가 바뀌지 않게) |
 | 의존 방향 | `ui → game → rules → sim`, `render → (game 읽기 전용)`, `input → game(명령만)`. **sim·rules는 DOM 금지** |
 | 문자열 | 모든 UI 문자열은 `i18n/ko.json` 키로. 코드에 한국어 하드코딩 금지 |
@@ -95,7 +95,9 @@ export interface SimGrid {
   zone: Uint8Array;     // 구역 id (0 = 없음)
   health: Float32Array; // 숲·습지 건강도 0..1
   flags: Uint8Array;    // 비트: 1 outlet, 2 inlet, 4 baseCore, 8 gateCell
-  floodTicks: Uint16Array; // 수위 ≥0.5 연속 tick (숲 피해용)
+  floodTicks: Uint16Array; // 수위 ≥0.1 연속 tick (숲 피해용)
+  flowBias: Float32Array;   // 셀별 (bx,by) ×2, 확장(물길 돌리기)용 — 출시 범위 0
+  store: Float32Array;      // 저류량, 확장(수로 기술자)용
 }
 
 export interface Zone { id: number; type: ZoneType; cells: Uint32Array;
@@ -141,7 +143,7 @@ export interface RunState {
 | 2 | 유입 펄스 | `inflow.apply` |
 | 3 | 흐름 계산·적용 | `fluid.step` |
 | 4 | 결빙(긴급 결빙은 즉시형이라 여기선 없음)·융해 | `ice.melt` |
-| 5 | 싱크: 펌프 → 배출구 → 습지/숲 흡수 → 증발 | `sinks.apply` |
+| 5 | 싱크: 펌프(상한) → 배출구 → 습지/숲 흡수 → 증발(수심 비례) | `sinks.apply` |
 | 6 | 구조물: 제방 내구도·붕괴, 임시벽 수명, 습지 전환 진행 | `structures.update` |
 | 7 | 숲 건강도 갱신 | `metrics.ecology` |
 | 8 | 기지 피해 | `damage.apply` |
@@ -152,7 +154,8 @@ export interface RunState {
 가상 파이프 방식의 단순화. 2패스로 **반복 순서에 따른 편향 제거**.
 ```
 H_i = h_i + wall_i + tmp_i + ice_i + w_i                      // 수두
-gateCell 닫힘이면 wall 대신 2.0 사용
+gateCell 닫힘이면 wall 대신 0.8 사용 [GD 3.0]
+flowBias(확장): out_ij *= 1 + dot(bias_i, dir_ij) (출시 범위에서는 항상 0)
 pass 1: 각 셀 i, 4이웃 j에 대해
    out_ij = max(0, H_i − H_j) × K                              // K = 0.20
    total_i = Σ_j out_ij
@@ -177,23 +180,25 @@ pass 2: w'_i = w_i − Σ_j out_ij·s_i + Σ_j out_ji·s_j
 ### 4.4 싱크 (`sim/sinks.ts`)
 | 싱크 | 식 (tick당) | 지표 |
 |---|---|---|
-| 펌프(on) | 반경 3셀 원 내 각 셀 `d = min(w, 0.015)` 제거, 자금 −1/30 누적 | `drained` |
+| 펌프(on) | 반경 3셀 원 내 셀을 고정 순서로 `d = min(w, 0.015, budget)` 제거. `budget = 0.25 × I_3 / waveLen_3` (펌프당 tick 상한). 자금 −1/30 누적. 동시 가동 최대 2대 | `drained` |
 | 배출구 셀 | `d = min(w, 0.05)` | `drained` |
 | 습지 흡수 | `wetland` 셀 `d = min(w, 0.004 × mod.absorbMul)` (패시브 보유 시만, 강의 숨 ×3) | `drained` |
 | 숲 흡수 | `forest` 셀 `d = min(w, 0.004 × mod.absorbMul × 0.5)` (패시브 보유 시만) | `drained` |
 | 녹색 제방(융합) | 제방 셀의 **안쪽 이웃**(기지 거리장 값이 더 작은 이웃) `d = min(w, 0.003)` | `drained` |
-| 증발 | 모든 셀 `d = min(w, 0.0002)` | (지표 제외) |
+| 증발 | 모든 셀 `d = w × 0.00002` | (지표 제외) |
 
 - 자금이 0이 되면 모든 펌프 `on=false` + 토스트 `toast.cashEmptyPumps`.
 
 ### 4.5 유입 (`sim/inflow.ts`)
 ```
-웨이브 w의 총 유입량 I_w = map.I1 × 1.35^(w−1) × (contract.active ? 1.3 : 1) × peakMul(w)
+웨이브 w의 총 유입량 I_w = map.I1 × GROWTH[w] × (contract.active ? 1.3 : 1) × peakMul(w)   // GROWTH = [1, 1.35, 1.8225, 2.4604, 3.3215]
+강우 비율 r = peak 발생 웨이브면 0.4, 아니면 map.rain(기본 0.2)
 펄스 주기 P = map.pulseEvery (tick), 펄스 수 N = floor(waveLen / P)
-펄스 1회 유입구 k의 양 = I_w / N × weight_k(w) / Σ weight(w)
+펄스 1회 유입구 k의 양 = I_w × (1−r) / N × weight_k(w) / Σ weight(w)
+펄스 1회 강우 = I_w × r / N / 6144 (전 셀 균등)
 유입구 셀(3셀 폭)에 균등 분배, 셀당 상한 w ≤ 2.0
 ```
-- `waveLen = 30 × (60 + 7.5 × (w−1))` → W1 1800 tick, W5 2700 tick [GD 17].
+- `waveLen = 30 × (40 + 7.5 × (w−1))` → W1 1200 tick, W5 2100 tick, 합계 8250 tick [GD 17, v2.2].
 - `peakMul(w)`: 예보된 피크 이벤트가 이번 웨이브에 발생하면 `map.peak.mul`(기본 1.5), 아니면 1.
 
 ### 4.6 기지 피해
@@ -207,9 +212,9 @@ contract.damageThisWave += 정수부
 ### 4.7 지표 (`sim/metrics.ts`) [GD 16]
 | 지표 | 누적 방식 | 플레이 점수 변환 [GD 6.1] |
 |---|---|---|
-| `drained` | 싱크 제거량 합 (증발 제외) | 1.0당 +2 |
-| `noDamageTicks` | 피해 0인 tick 카운트 | 10 tick마다 +3 (기지 이동 중은 0) |
-| `blocked` | `Σ_제방셀 min(인접 상류 수심, wall) × 0.01` | 1.0당 +2 |
+| `drained` | 싱크 제거량 합 (증발 제외) | 1.0당 +0.3 |
+| `noDamageWave` | 웨이브 피해 정수부 0 | 웨이브당 +60 (기지 이동 중 웨이브는 0) |
+| `blocked` | `Σ_제방셀 min(인접 최대 수심, wall) × 0.01` | 1.0당 +0.35 |
 | `ecology` | `Σhealth(숲·습지) / 초기 숲·습지 셀 수 × 100`, 최대 150 | **최고치 갱신분** 1%당 +8 |
 | `waveClear` | 웨이브 종료 | +100 |
 
@@ -219,11 +224,19 @@ contract.damageThisWave += 정수부
 ### 4.8 궁극기 게이지
 | 캐릭터 | 충전원 | 충전량 |
 |---|---|---|
-| 둑지기 | `blocked` | 1.0당 +4 |
+| 둑지기 | `blocked` | 1.0당 +0.5 (판당 약 2회 충전, v2.2 보정) |
 | 습지 연구원 | `ecology` 최고치 갱신 | 1%당 +5 |
 | (확장) 공병대장 | 자재 획득 | 1당 +2 |
 | (확장) 수로 기술자 | 저류량 | 1.0당 +4 |
 - 0~100, 100이면 사용 가능. 교차 스킬은 궁극기가 없으므로 게이지는 자기 캐릭터 기준만.
+- 목표: 정석 플레이 판당 궁극기 2회(W2·W4 무렵). 충전 계수는 봇으로 보정.
+
+### 4.9 확장 훅 (출시 범위에서는 비활성, 구조만 구현)
+| 훅 | 용도 | 출시 상태 |
+|---|---|---|
+| `baseCore` 가변 배열 | 기지 이전(`moveBase` op) — 피해 판정·거리장 재계산 | 고정 |
+| `flowBias` 벡터장 | 물길 돌리기(`biasFlow` op) | 0 |
+| `store` / 저류 수문 | 저류(`storeWater` op), 저류 → 자금 | 미사용 |
 
 ---
 
@@ -269,9 +282,9 @@ forecast[w] = { arrows: 방향별 weight, peak: {kind, prob} }   // 실제 발�
   "cost": 20,
   "borrowable": true,
   "ranks": [
-    { "ops": [{ "op": "buildLevee", "height": 1.0 }] },
-    { "ops": [{ "op": "buildLevee", "height": 1.3 }] },
-    { "ops": [{ "op": "buildLevee", "height": 1.6 }] }
+    { "ops": [{ "op": "buildLevee", "height": 0.3 }] },
+    { "ops": [{ "op": "buildLevee", "height": 0.4 }] },
+    { "ops": [{ "op": "buildLevee", "height": 0.5 }] }
   ],
   "icon": "levee", "i18n": "skill.buildLevee"
 }
@@ -283,18 +296,18 @@ forecast[w] = { arrows: 방향별 weight, peak: {kind, prob} }   // 실제 발�
 | `pump` | 공통 | — | pump 오브젝트 | — | 1/초 | (강화 없음) |
 | `freeze` | 공통 | — | zone(all) | 60 | 0 | 구역 물 50% → 얼음 |
 | `dike-passive` | 둑지기 | passive | none | — | — | 내구도 ×1.30 / 1.45 / 1.60 |
-| `build-levee` | 둑지기 | basic | zone[plain] | 0 | 20 | 높이 1.0 / 1.3 / 1.6 |
-| `sandbag` | 둑지기 | tactical | swipe | 25 | 0 | 높이 0.8, 지속 8 / 11 / 14초 |
-| `night-repair` | 둑지기 | ultimate | global | 게이지 | 0 | 전 제방 dur=max, 높이 +0.3(웨이브 종료 시 원복) / +0.4 / +0.5 |
+| `build-levee` | 둑지기 | basic | zone[plain] | 0 | 20 | 높이 0.3 / 0.4 / 0.5 |
+| `sandbag` | 둑지기 | tactical | swipe | 25 | 0 | 높이 0.25, 지속 8 / 11 / 14초 |
+| `night-repair` | 둑지기 | ultimate | global | 게이지 | 0 | 전 제방 dur=max, 높이 +0.1(웨이브 종료 시 원복) / +0.15 / +0.2 |
 | `wetland-passive` | 습지 | passive | none | — | — | 흡수 `absorbMul` 1.0 / 1.4 / 1.75 (기준 0.004) |
-| `open-floodplain` | 습지 | basic | zone[field] | 0 | 0 | 구역 h −0.5, `opened=true` (들판 수입 0) / −0.6 / −0.7 |
+| `open-floodplain` | 습지 | basic | zone[field] | 0 | 0 | 구역 h −0.15, `opened=true` (들판 수입 0) / −0.2 / −0.25 |
 | `restore-wetland` | 습지 | tactical | zone[field, plain] | 30 | 30 | 10초 후 wetland 전환 / 8초 / 6초 |
 | `river-breath` | 습지 | ultimate | global | 게이지 | 0 | 10초간 `absorbMul ×3` / 12초 / 14초 |
 
 ### 6.3 효과 op 레지스트리 (`rules/effects.ts`)
 | op | 인자 | 동작 |
 |---|---|---|
-| `buildLevee` | height | 대상 구역 제방선 선택(6.4) → 선 셀 `wall = max(wall, height)`, `dur = 1`. 모든 선이 지어졌으면 최저 선 `wall += 0.3` |
+| `buildLevee` | height | 대상 구역 제방선 선택(6.4) → 선 셀 `wall = max(wall, height)`, `dur = 1`. 모든 선이 지어졌으면 최저 선 `wall += 0.1` (상한 0.6) |
 | `tempWallPath` | height, ttl | 스와이프 경로 셀(6.5)에 `tmp = height`, `tmpTtl = ttl` |
 | `repairAll` | addHeight | 모든 제방 `dur = mod.wallDurabilityMul`, `wall += addHeight`, 원복 예약 |
 | `lowerZone` | dh | 구역 셀 `h −= dh`, `zone.opened = true` |
@@ -307,7 +320,7 @@ forecast[w] = { arrows: 방향별 weight, peak: {kind, prob} }   // 실제 발�
 ### 6.4 제방선 선택 규칙
 ```
 후보 = zone.leveeLines.filter(!built)
-후보 없음 → 최저 wall 선 높이 +0.3
+후보 없음 → 최저 wall 선 높이 +0.1 (상한 0.6)
 dir = 다음(또는 현재) 웨이브 유입 weight 최대 유입구 → 기지 방향 벡터
 선택 = argmax_line dot(line.facing, −dir)   // 물이 오는 쪽을 향한 선
 ```
@@ -361,7 +374,8 @@ rollCards(run): Card[3]
   slots = [own 1장, cross 2장]   (cross 부족 시 own 추가 → 그래도 부족 시 대체 카드)
   각 카드 rarity = rollRarity(rng.cards)   // 70/25/5
   rarity 적용:
-     rare      : 강화 카드면 +2 Rank(최대 3) / 신규 카드면 "융합 완성"이면 rare 표시만
+     rare      : 강화 카드면 +2 Rank(최대 3) / 신규 카드면 Rank2로 획득(교차는 Rank1 고정이라 rare 미적용 → common으로 재추첨)
+     ※ 융합 완성 여부는 희귀도와 무관하게 ✨ 배지로만 표시 (v2.2, 희귀도 = 효과 강도)
      legendary : 숙련 해금 변형 카드로 교체(출시 범위에는 변형 없음 → rare로 강등)
   융합 완성 카드가 포함되면 cardsSinceFusionOffer = 0, 아니면 +1
 ```
@@ -482,7 +496,8 @@ secret 'confluence': 모든 보유 캐릭터 축(출시: 2축) 값의 (max−min
   "pumps":   [[2,5], [5,6]],                     // 타일 좌표 → 타일 중심 셀
   "gates":   [{ "tiles": [[1,8]], "kind": "normal", "open": true }],
   "relocation": null,
-  "I1": 18, "pulseEvery": 45,
+  "zones": ["aabbbbcc", "..."],                // 12줄 × 8자, 구역 레이어 [GD 26.1]
+  "I1": 120, "rain": 0.2, "pulseEvery": 45,
   "peaks": [{ "wave": 4, "prob": 0.6, "mul": 1.5, "kind": "storm" }],
   "start": { "cash": 150, "hp": 100 },
   "star3Score": 0,                               // M5 봇으로 산정
@@ -493,24 +508,27 @@ secret 'confluence': 모든 보유 캐릭터 축(출시: 2축) 값의 (max−min
 ### 11.2 타일 → 시뮬 변환 (`sim/terrain.ts`)
 | 문자 | 타입 | 기본 h | 비고 |
 |---|---|---|---|
-| `P` | plain | 1.0 | |
-| `F` | forest | 1.2 | health=1 |
-| `H` | hill | 2.2 | |
-| `D` | field | 0.6 | 들판 수입 |
-| `W` | wetland | 0.4 | health=1 |
-| `R` | reservoir | 0.2 | |
-| `B` | base | 1.4 | 4타일(2×2)의 중앙 3×3 셀 = baseCore |
-| `I` | inlet | 1.0 | 맵 가장자리 쪽 3셀 `flags.inlet` |
-| `O` | outlet | 0.3 | 가장자리 쪽 4셀 `flags.outlet` |
+| `P` | plain | 0 | |
+| `F` | forest | +0.05 | health=1 |
+| `H` | hill | +0.4 | |
+| `D` | field | −0.08 | 들판 수입 |
+| `W` | wetland | −0.12 | health=1 |
+| `R` | reservoir | −0.2 | |
+| `B` | base | 0 | 4타일(2×2)의 중앙 3×3 셀 = baseCore |
+| `I` | inlet | 0 | 맵 가장자리 쪽 4셀 `flags.inlet` |
+| `O` | outlet | −0.1 | 가장자리 쪽 4셀 `flags.outlet` |
 
-- `h += noise(x, y) × amp` (값 노이즈, 시드 고정).
-- **구역** = 같은 타입 타일의 4연결 덩어리(`I`/`O`는 plain으로 병합). base는 구역이지만 스킬 대상 아님.
+(v2.2) "기본 h" 열은 **타입 보정값**. 실제 지면고 = `0.6 + 0.8 × dist(기지 중심)/dmax + 보정 + (hash(x,y)−0.5)×0.04` [GD 3.0]
+
+- 노이즈는 정수 해시 `hash(x,y)` (엔진 간 동일).
+- **구역** = `zones` 레이어의 같은 문자 타일 묶음, 타입은 구성 타일 다수결 [GD 26.1]. `zones` 생략 시 기지 중심 8방위 × 2링 자동 섹터. base는 구역이지만 스킬 대상 아님.
+- 로드 시 검증: 구역 수 6~12, 구역당 4~16타일, 펌프 거점이 유입 최단 경로 위에 없음 [GD 26.2] → 위반 시 개발 빌드에서 에러.
 - **기지 거리장** `distToBase`: baseCore에서 BFS (녹색 제방 안쪽 판정, 제방선 방향 계산에 사용).
 - **제방선**: 구역 경계의 타일 변 중 `distToBase`가 큰 쪽(바깥)을 향한 변들을 연결해 선분화, 길이 내림차순 최대 3개. 각 선은 경계 바로 안쪽 1셀 두께, `facing` = 바깥 법선.
 
 ### 11.3 출시 맵 4장 (타일 원안, 튜닝 전)
 ```
-둑마을 (평야, I1=18)       운하 교차로 (평야, I1=22)
+둑마을 (평야, I1=120)      운하 교차로 (평야, I1=130)
 PPPIPPPO                    PPPPOPPP
 PPFPPPPP                    PPFPPPPP
 PPPPPPFP                    PPPPPPPP
@@ -525,7 +543,7 @@ PPPPFPPP                    PPPPPPPP
 OPPPIPPP                    PPPOPPPP
 유입 N·S·W·E 균등            유입 W·E (가중 1.5), 배출 N·S, 수문 2
 
-버드나무 들 (범람원, I1=26)   갈대 삼각주 (범람원, I1=28)
+버드나무 들 (범람원, I1=140)  갈대 삼각주 (범람원, I1=150)
 PPPOPPPP                    WWPOPPWW
 PFPPPPFP                    WDDPPDDW
 PPPPPPPP                    PDDPPDDP
@@ -540,7 +558,7 @@ PPPPPPPP                    WWPPPPWW
 PPPIIPPP                    PPPIIPPP
 유입 S(대량)                 유입 W·E·S, W4 폭우 prob 0.8
 ```
-- 펌프·수문·피크 상세 좌표는 M2에서 데이터 파일로 확정, 봇으로 난이도 목표[GD 17] 충족까지 `I1`·`pulseEvery` 조정.
+- 펌프·수문·피크 상세 좌표와 `zones` 레이어는 M2에서 데이터 파일로 확정, [GD 25] 7전략 봇 기준(단일 수단 패배·혼합 클리어) 충족까지 `I1`·`pulseEvery` 조정. I1 초기값은 보정 결과(둑마을 120, 범람원 +15%) 기준.
 
 ---
 
@@ -575,6 +593,13 @@ interface LoggedCommand { tick: number; phaseSeq: number; cmd: Command }
 | FX | 매 프레임 | 파티클 상한 200(물보라·붕괴·비버·새), `prefers-reduced-motion`이면 0 |
 
 - 캔버스 크기: 가용 높이 기준 `cssH = min(availH, availW × 1.5)`, `cssW = cssH / 1.5`, 내부 해상도 × DPR(최대 2).
+
+### 13.1 가로 레이아웃 (v2.2)
+| 조건 | 배치 |
+|---|---|
+| `innerWidth > innerHeight` | 보드 좌측(높이 100%, 폭 = 높이/1.5), 우측 패널 = HUD(상) + 스킬 2열 그리드(하) + 시작 버튼 |
+| 최소 높이 | 340px (iPhone 가로). 미만이면 HUD를 1줄 축약(❤·💰·🌊만) |
+| 레벨업·결과 | 모달은 가로에서 카드 3장 **가로 배치** |
 - 수심 색표: 0.02 미만 투명, 0.02~0.3 하늘색, 0.3~1.0 청색, 1.0 이상 남색 + 줄무늬 패턴(색약 대비).
 
 ---
@@ -600,7 +625,8 @@ cell = floor((clientX − rect.left) / rect.width × 64), y 동일
 | 상태 | 입력 | 결과 |
 |---|---|---|
 | idle | 스킬 버튼 tap | 해당 스킬이 `target: none/global` → 즉시 실행 / 그 외 `selecting(skill)` |
-| idle | 구역 tap | 그 구역에 쓸 수 있는 **basic 스킬이 1개**면 즉시 실행, 여러 개면 미니 메뉴(구역 위 원형 버튼), 없으면 구역 정보 토스트 |
+| idle | 구역 tap | 그 구역에 쓸 수 있는 **basic 스킬이 1개**면 즉시 실행, 여러 개면 미니 메뉴(구역 위 원형 버튼), 없으면 구역 정보 토스트. 제방 쌓기는 **선택될 제방선 고스트를 0.4초 표시 후 실행** |
+| idle | 구역 longPress (제방 대상) | 제방선 순환 선택 모드: 탭할 때마다 다음 선 고스트, 실행 버튼으로 확정 |
 | idle | 펌프/수문 tap | 토글 |
 | selecting | 유효 구역 tap / swipe | 실행 → idle |
 | selecting | 무효 영역 tap, 같은 버튼 tap, 웨이브 종료 | 취소 → idle |
@@ -654,6 +680,7 @@ cell = floor((clientX − rect.left) / rect.width × 64), y 동일
 - 모든 버튼 `aria-label`, 토스트 `role=status`, 결과 점수 표 `table`.
 - 색 + 아이콘/패턴 병행(물 수심, 제방 균열, 상성 배지, 캐릭터).
 - 키보드: 1~6 스킬, Tab 구역 순회(오버레이 포커스 링), Enter 실행, Esc 취소, Space 일시정지.
+- 설정: **왼손 모드**(스킬 바 좌우 반전), 글자 크기 100/120% (120%에서 레이아웃 깨짐 없음 e2e 검사).
 
 ---
 
@@ -669,12 +696,15 @@ interface SaveV1 {
     tutorialDone: boolean;
   };
   settings: { speed: 1|2; instantLevelBadge: boolean; haptics: boolean; sound: boolean; reducedMotion: 'auto'|'on'|'off' };
-  run?: { mapId: string; charId: CharId; seed: number; log: LoggedCommand[] };
+  run?: { dataVersion: string; mapId: string; charId: CharId; seed: number;
+         snapshot: string;            // 준비 단계 시점 RunState 직렬화 (TypedArray → base64)
+         log?: LoggedCommand[] };     // 디버그·버그 재현용 (재개에는 사용하지 않음)
 }
 ```
 - 키 `physics-td:v2`. 모든 접근 try/catch, 실패 시 메모리 저장으로 계속 진행 + 1회 토스트.
 - `migrate(raw)`: `v` 없음/손상 → 기본값, 이후 버전 추가 시 단계별 함수.
 - 저장 시점: 준비 단계 진입, 레벨업 선택, 결과, 백그라운드 전환.
+- 재개: `dataVersion`(데이터 JSON 해시) 일치 시 스냅샷 복원, 불일치 시 판 폐기 + 안내 [GD 20]. 스냅샷 크기 ≈ 6144셀 × 9배열 × 4B ≈ 220KB → base64 ≈ 300KB (localStorage 한도 내).
 
 ---
 
@@ -683,6 +713,8 @@ interface SaveV1 {
 | 게임 이벤트 | 사운드 | 햅틱 |
 |---|---|---|
 | 스킬 실행 | 스킬별 효과음 | 10ms |
+
+- **iOS 제약**: iOS Safari는 `navigator.vibrate` 미지원 → 햅틱 대신 화면 2px 미세 흔들림(80ms). 오디오는 첫 사용자 터치 후 `AudioContext.resume()`.
 | 실행 불가 | 둔탁음 | 30·30ms |
 | 기지 피해 시작 | 저음 경고 루프 시작 | 100ms |
 | 기지 피해 종료 | 루프 정지 | — |
@@ -730,7 +762,14 @@ ending.wetSafety.loss   "둑을 지키는 손이 늘 부족하다."
 | SIM-04 | fluid | 10만 tick 랜덤 지형 | NaN·음수·진동(같은 셀 부호 반복) 없음 |
 | SIM-05 | structures | 압력 1.0 지속 | `dur` 0 도달 tick = 1500 ± 1, 이후 wall=0 |
 | SIM-06 | sinks | 펌프 on 1초 | 반경 내 제거량·자금 −1 |
-| SIM-07 | inflow | 웨이브 w 종료 | 총 유입 = I_w ± 1e-3 |
+| SIM-07 | inflow | 웨이브 w 종료 | 총 유입(유입구+강우) = I_w ± 1e-3 |
+| SIM-09 | sinks | 펌프 1대, 반경 내 물 충분 | tick당 제거량 = 상한 budget |
+| SIM-10 | sinks | 펌프 3대째 가동 시도 | 거부(동시 2대) |
+| BAL-01 | 보정 | [GD 25] 7전략 × 출시 맵 4장 | 단일 수단 4전략 모두 패배, 혼합 2전략 클리어 |
+| BAL-02 | 보정 | 정석 봇 플레이 점수 | 1,100~1,300 |
+| TER-03 | terrain | 기지 중심 셀 | 맵 최저 지면고 ± 0.05 |
+| TER-04 | terrain | 맵 가이드 검증 [GD 26.2] | 출시 맵 4장 위반 0 |
+| SAV-03 | storage | dataVersion 불일치 | 이어하기 미표시, 안내 토스트 |
 | SIM-08 | damage | flood 1.7 1초 | hp −1 (0.5×2) |
 | TER-01 | terrain | 11.3 맵 4장 | 구역 수, baseCore 9셀, 유입구 3셀 |
 | TER-02 | terrain | 제방선 | 각 plain 구역 1~3개, facing 바깥 |
@@ -810,7 +849,7 @@ interface BotPolicy {
 | T01 | M0 | TS·esbuild·tsx 설정, 폴더 구조, CI 갱신 | 0.5 |
 | T02 | M0 | `core/rng`, `core/types`, `sim/grid` | 0.5 |
 | T03 | M0 | `sim/terrain` (타일 변환·구역·거리장·제방선) + TER 테스트 | 1 |
-| T04 | M0 | `sim/fluid`·`structures`·`sinks`·`inflow`·`ice`·`step` + SIM 테스트, 성능 측정 | 2 |
+| T04 | M0 | `sim/fluid`·`structures`·`sinks`·`inflow`·`ice`·`step` + SIM 테스트, 성능 측정, **`prototypes/v2-calibrate.mjs` 결과 재현(BAL-01 둑마을)** | 2.5 |
 | T05 | M1 | `game/machine`·`state`·`commands`·`checkpoint` + FSM/CMD 테스트 | 1.5 |
 | T06 | M1 | `render/*` 레이어, 캔버스 크기·DPR | 1.5 |
 | T07 | M1 | `input/*` 제스처·히트·타게팅 | 1 |
@@ -826,7 +865,9 @@ interface BotPolicy {
 | T17 | M5 | 돌발 사건 4종·예보 + EVT-01 | 1 |
 | T18 | M5 | 밸런스 봇, 튜닝(`I1`, star3Score 등) | 2 |
 | T19 | M5 | PWA, 성능 튜닝, e2e, legacy 이동, 배포 검증 | 1.5 |
-| | | **합계** | **≈ 27.5일 (약 5.5주)** |
+| T20 | M2 | 출시 맵 4장 `zones` 레이어 작성 + 가이드 검증(TER-04) | 1 |
+| T21 | M5 | 개발자 모드(지표·로그 JSON 내보내기), 가로 레이아웃·왼손 모드 | 1 |
+| | | **합계** | **≈ 30일 (약 6주)** |
 
 ---
 
@@ -839,3 +880,23 @@ interface BotPolicy {
 | 점수 vs 경험치 | 위험 계약만 경험치 ×1.5, 점수는 ×1 | 계약의 보상은 성장, 점수 보상은 무피해 시 +80으로 분리 |
 | 줌/팬 | 출시 범위 제외 | 64×96 전체가 한 화면에 들어오므로 불필요 |
 | 기지 이동 중 무피해 점수 | 0 | 피해 판정이 없는 구간의 무임 점수 방지 |
+
+---
+
+## 25. 출시 에셋 목록 (v2.2)
+| 분류 | 항목 | 수량 | 비고 |
+|---|---|---|---|
+| 일러스트 | 엔딩 (둑지기 단독·+공존, 습지 단독·+수호, 합류) | 5 | 세로 1080×1350 |
+| 캐릭터 | 초상 × 표정(기본·걱정·만족) | 2 × 3 | 확장 시 +2명 |
+| 아이콘 | 스킬 10, 축 4, 사건 4, 상태(쿨다운·잠금 등) 6 | 24 | SVG 단색 + 캐릭터 색 |
+| 지형 | 구역 타입 텍스처 | 7 | 64px 타일, 탑뷰 |
+| UI | 카드 테두리(일반·희귀·전설), 배지, 나침반 | 6 | |
+| 효과음 | 17장 매핑 | ≈ 15 | |
+| 앰비언트 | 빗소리 2단계, 경고 루프 | 3 | |
+- 제작 일정은 M1~M4와 병행, M4 종료 시 최종 교체. 임시 에셋(단색 도형)으로 개발 진행.
+
+## 26. 개발자 모드·느긋한 모드
+| 기능 | 내용 | 범위 |
+|---|---|---|
+| 개발자 모드 | URL `?dev=1`: FPS·step ms·지표 실시간 표시, 판 종료 시 `{지표, 명령 로그, 결과}` JSON **내보내기/복사** 버튼 (서버 없이 플레이테스트 수집) | 출시 |
+| 느긋한 모드 | 유입 −30%, 결과·기록에 "느긋한" 표시(일반 기록과 분리), 엔딩·도감은 동일 | 확장 |

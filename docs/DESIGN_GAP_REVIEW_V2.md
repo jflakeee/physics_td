@@ -2,6 +2,7 @@
 
 > 작성일: 2026-11-08 · 대상: [통합 설계서 v2.1](GAME_DESIGN_V2.md), [상세 설계서](DETAILED_DESIGN_V2.md)
 > 방법: 문서 검토 + **설계 수치를 그대로 넣은 간이 시뮬레이션**([prototypes/v2-scale-check.mjs](../prototypes/v2-scale-check.mjs), 둑마을 맵, 64×96, K=0.20)
+> **반영 상태 (v2.2)**: 치명 6건·높음 7건·중간 10건 반영 완료, H8(펌프 경제)은 M5 봇에서 확정 — [통합 설계서 27장](GAME_DESIGN_V2.md) 참조. 보정 프로토타입: [prototypes/v2-calibrate.mjs](../prototypes/v2-calibrate.mjs)
 > 결론: 규칙 구조는 갖춰졌지만 **물리 스케일(지형 높이·유입량·증발·펌프·제방 높이)이 서로 맞지 않아, 문서 수치 그대로 구현하면 게임이 성립하지 않는다.** 치명 6건은 구현 전에 반드시 수정해야 한다.
 
 ---
