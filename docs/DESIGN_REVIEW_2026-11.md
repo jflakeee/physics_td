@@ -1,0 +1,194 @@
+# Physics TD — 설계 검토·개선점·장르 벤치마크 리포트
+
+> 작성일: 2026-11-08 · 기준 커밋: `e40b815` · 대상: `topview-engine.js`, `src.js`, `index.html`, `docs/PHYSICS_TD_MASTER_DESIGN.md`
+> 표기: **[실측]** = 이 저장소 코드로 직접 시뮬레이션한 결과, **[코드]** = 소스 확인, **[외부]** = 웹 출처(2차 요약 포함), **[제안]** = 가설/아이디어.
+
+---
+
+## 0. 요약 (TL;DR)
+
+1. **밸런스가 사실상 성립하지 않는다. [실측]** 아무것도 짓지 않아도 1~4단계는 피해 0으로 통과하고, 5단계에서 한 번에 HP 100→0으로 패배한다. 반대로 **배수펌프 1개($35)** 만 아무 데나 두어도 5단계까지 무피해 승리한다. 의사결정이 필요한 구간이 없다.
+2. **물은 맵 밖으로 나가지 않고 단계 간 누적된다.** 펌프 외에 배출구가 없어서, 게임은 "총 유입량 vs 총 배수량" 산수로 수렴한다. 지형·경로·타이밍이 전략에 개입할 여지가 적다.
+3. **레거시(적 처치형) 흔적이 UI·데이터에 남아 있다.** 처치/도달/차단 표, `kills`/`blocked`(항상 0), 펌프 사거리 미리보기 오표시(실제 반경 2, 표시 7) 등.
+4. 벤치마크(Creeper World, Timberborn, 출시 예정 *Water TD*) 기준으로 이 장르의 재미는 **"높이(지형) + 수원 리듬 + 막기/돌리기/없애기의 선택"** 에서 나온다. 현재 엔진은 세 가지 모두 비어 있다.
+5. 우선순위: **P0 밸런스·UI 정리 → P1 높이맵·배출구·수원 패턴 → P2 제방 내구도/수문·흐름 시각화 → P3 메타 진행.**
+
+---
+
+## 1. 현재 설계 검토
+
+### 1.1 코어 루프 [코드]
+`시설 배치 → 웨이브 시작 → 4방향 동시 유입(펄스) → 확산/결빙/배수 → 기지 3×3 수위 ≥1.2면 틱당 HP-1 → 시간 종료 시 +$20`
+
+| 요소 | 현재 구현 | 평가 |
+|---|---|---|
+| 격자 | 40×24, 평지(높이 없음) | 지형 전략 불가 |
+| 유입 | 4곳 동일량·동일 틱, 양 `0.2+0.06w`, 주기 `max(4,18-2w)` | 방향별 차이 없음 → 대칭 해법 하나로 충분 |
+| 확산 | 4방향 수위차 × 0.06, 셀 용량 1 | 질량 보존 OK, 방향 편향 없음 [실측] |
+| 제방 | 영구 고체, 내구도 없음, $15 | 완전 차단 가능 → 링 하나로 끝 |
+| 배수펌프 | 반경 2 원 안 셀 매 틱 −0.012, $35 | 물을 **소멸**시키는 유일 수단 → 지배 전략 |
+| 냉각탑 | 반경 √10, 물→얼음 0.015/틱, 얼음은 0.0008/틱 융해 | 지연 효과뿐, 물 총량은 보존 |
+| 경제 | 시작 $150, 단계당 +$20 | 지출처가 적고 수입 고정 |
+| 패배 판정 | 기지 3×3 수위 합 ≥1.2 | 이진 임계값 → 절벽형 난이도 |
+
+### 1.2 밸런스 실측 [실측]
+`node`로 엔진을 직접 돌린 결과(스크립트는 부록 A).
+
+| 전략 | 비용 | W1~W4 | W5 | 결과 |
+|---|---|---|---|---|
+| 아무것도 안 함 | $0 | 피해 0 | HP 100→0 | 패배 |
+| 기지 앞 제방 10개(불완전) | $150 | 피해 0 | HP 100→0 | 패배 |
+| 기지 둘레 제방 링 16개 | $240 | 피해 0 | 피해 0 | 승리 |
+| 배수펌프 1개 (20,6) | $35 | 피해 0 | 피해 0 | 승리 |
+| 배수펌프 2개 | $70 | 피해 0 | 피해 0 | 승리 |
+| 냉각탑 1개 (5,12) | $45 | 피해 0 | HP 34 | 승리 |
+
+- 맵 전체 수량: W1 14.6 → W5 203 (누적). 기지 3×3 수위: 0.02 → 0.15 → 0.40 → 0.81 → 1.39. **임계값 1.2를 W5에서 처음 넘음** → 앞 4단계는 튜토리얼조차 아님.
+- 제방 링은 수학적으로 완전 방어(기지 수위 0.00). 내구도·월류가 없기 때문.
+- 결론: **"정답 1개 + 나머지는 무의미"** 구조. TD 장르의 핵심인 "제한된 자원으로 위협 분산에 대응"하는 긴장이 없다.
+
+### 1.3 코드/UI 결함 목록 [코드]
+
+| # | 위치 | 문제 | 영향 |
+|---|---|---|---|
+| B1 | `src.js` draw() 미리보기 | 펌프(`tower`) 사거리를 반경 **7칸**으로 그림. 실제 효과는 `dx²+dy²≤4` → 반경 **2칸** | 플레이어 오판 |
+| B2 | `index.html` 기록 표 | 헤더 `처치/도달/차단/피해`, `kills`·`blocked`는 항상 0 | 레거시 혼란 |
+| B3 | `src.js` campaign/attempt 문구 | "처치", "기지 도달", "경로 차단" 표기 | 동일 |
+| B4 | `index.html` 하단 안내 | "타워는 지면 바로 위에 설치" (사이드뷰 시절 문구) | 동일 |
+| B5 | `topview-engine.js` | `enemies`, `route`, `nextEnemyCell`, `previewRoutes` 미사용, `waveStats.leaks`=damage 중복 | 유지보수 부채 |
+| B6 | `src.js` | `showPath`/`routeOverlay`가 `if(false&&…)`로 꺼져 있는데 "🧭 물길 보기" 버튼은 노출 | 눌러도 아무 일 없음 |
+| B7 | 엔진 | 배치 시 `water+ice ≥ .25` 셀 금지 + 물이 단계 간 누적 → 후반엔 설치 가능한 칸이 줄어드는 데 대한 안내 없음 | 후반 좌절 |
+| B8 | `src.js` 메시지 | 일시정지 해제 시 "전투 진행 중" | 용어 |
+| B9 | 엔진 `step` | 웨이브 종료 시 잔류 수량 처리·보상 연동 없음 | 설계문서 P1 항목과 동일 |
+| B10 | 엔진 | 사망 판정이 HP 감소 1/틱 고정 → 수위가 임계값을 넘으면 회복 불가 수준으로 급락 | 절벽형 난이도 |
+
+### 1.4 구조적 설계 이슈
+1. **유일한 "소멸" 수단 = 펌프** → 모든 해법이 펌프 수로 귀결. 배출(맵 밖/하수구/증발) 수단의 다양성이 필요.
+2. **평지** → 제방은 "벽"일 뿐, "어디로 흘려보낼지"라는 TD의 경로 설계(mazing) 재미가 없다. 물은 경로가 아니라 **높이**로 미로를 만든다.
+3. **4방향 완전 대칭** → 매 판이 같은 정답. 방향별 강도/타이밍/유형 차이가 정보·예측의 재미를 만든다.
+4. **실패 피드백 부족** → 기지 수위가 임계값까지 얼마나 남았는지, 어느 방향 물이 원인인지 보이지 않는다.
+
+---
+
+## 2. 장르 벤치마크
+
+### 2.1 비교표
+
+| 게임 | 위협 모델 | 대응 수단 | 이 프로젝트에 주는 시사점 | 출처 |
+|---|---|---|---|---|
+| **Creeper World 3/4** (Knuckle Cracker) | 에미터에서 일정 주기·양으로 분출되는 유체가 지형 높이를 따라 확산 (CW4는 속도·파도까지) | 무기로 유체 **소멸**, 지형 굴착/성토(Terp), 에너지 네트워크, 공세(에미터 제거) | ① **높이맵 + 수원 리듬**이 장르의 핵심. ② 방어만이 아니라 **"수원 무력화" 공세 목표**로 승리 조건 다양화. ③ 리뷰: 아이디어 독창성·"유체와 싸우는 쾌감" 호평 / CW4는 "그래픽만 진화, 게임플레이 반복" 비판 | [PC Gamer](https://www.pcgamer.com/fighting-massive-waves-of-goo-in-creeper-world-4-is-oddly-blissful), [Steam 토론](https://steamcommunity.com/app/848480/discussions/0/2970645580591438675), [KC 포럼 UI 불만 44개](https://knucklecracker.com/forums/index.php?msg=195407), [Superjump 인터뷰](https://www.superjumpmagazine.com/crafting-creeper-world-an-interview-with-knuckle-cracker/) |
+| **Timberborn** | 수원·가뭄·배드타이드(오염수) 계절 사이클 | 댐(0.65 높이까지 차단, 넘치면 월류), 제방(Levee, 월류 없음), 수문, 저수탱크 | ① **"막기"를 단계화**: 월류형 댐 vs 완전 차단 제방(비쌈). ② 위협이 계절처럼 **예고되고 반복** → 대비의 재미. ③ 불만: "가뭄/배드타이드 후 회복이 너무 어려움", "두 댐 사이 진동 홍수" 등 물리 이상현상 | [Feature Upvote](https://timberborn.featureupvote.com/suggestions/508061/droughtsbadtides-are-too-hard-to-recover-from), [Steam 토론](https://steamcommunity.com/app/1062090/discussions/0/4129305318299062838), [위키 Drought](https://timberborn.wiki.gg/wiki/Drought) |
+| **Water TD** (Managagrau, 2026-11-13 출시 예정) | 수십만 개 물방울이 **경사를 따라 흘러내리며** 틈을 찾고 지형을 침식 | 강둑 포탑: 화염(증발), 얼음벽, 번개, **물을 되밀기** | 본 프로젝트와 컨셉이 가장 가깝다(설계문서가 언급한 벤치마크). 차별화 필요: 우리는 **모바일/웹·탑뷰·격자 퍼즐형**. 얼음벽·되밀기·증발은 현재 냉각탑/펌프와 대응 | [Steam](https://store.steampowered.com/app/5295330/Water_TD/), [SteamDB](https://steamdb.info/app/5295330/), [데모](https://steamdb.info/app/5496720/), [YouTube 플레이](https://www.youtube.com/watch?v=LeGt_pmyAR8) |
+| **Floodland** | 기후 홍수 이후 생존 도시 건설 | 자원·정화 | 홍수는 **배경**일 뿐 메커닉이 약하다는 평 → "홍수 자체가 플레이"여야 함. Steam Mixed(약 56%) | [Prima](https://primagames.com/reviews/floodland-review-pc), [SteamPulse](https://steampulse.org/game/1336180) |
+| **Emberward** | 일반 적, 테트로미노 벽으로 미로 건설 | 미로 + 타워 | **블록 형태 제한된 벽 배치**가 퍼즐성을 만든다(96% 긍정). 불만: 맵 다양성·리플레이성 부족 | [Emberward 요약](https://vaporlens.app/app/2459550/emberward) |
+| **Thronefall** | 낮 건설 / 밤 방어 | 소수 건물 + 영웅 | 미니멀·짧은 세션이 모바일과 궁합(96% 긍정, 2.2만 리뷰). 단 "지나치게 미니멀" 비판 | [StartMenu 리뷰](https://www.startmenu.co.uk/home/review-thronefall), [OpenCritic](https://opencritic.com/game/15319/thronefall/reviews) |
+| **Bloons TD 6 / Kingdom Rush** | 고정 경로 다수 적 | 타워 업그레이드 트리 | 장수 비결은 **콘텐츠 주기·업그레이드 조합**. 공통 불만: 반복성, 타워 밸런스 | [BTD6 요약](https://vaporlens.app/app/960090/bloons_td_6), [KR Vengeance](https://vaporlens.app/app/1367550/kingdom_rush_vengeance_tower_defense/stats/analysis) |
+| **Levee Patroller / Flood Resilience Challenge** (시리어스 게임) | 제방 점검·홍수 위험 관리 | 이상 징후 발견·보고, 대책 선택 | 실제 제방 실패 유형(누수·파이핑·월류·사면붕괴)을 **게임 이벤트로 차용** 가능. "재미-학습-사실성" 트레이드오프 | [Serious Games Society](https://seriousgamessociety.org/2016/09/22/levee-patroller-an-sg-on-safety-designed-at-delft-univ-of-technology/), [York CIFAL](https://www.yorku.ca/cifal/?p=2464) |
+
+### 2.2 장르에서 반복되는 성공 요인
+1. **보드 가독성**: 한눈에 위협·흐름·위험도를 읽을 수 있어야 한다(Defender's Quest 개발자 원칙으로 자주 인용) [외부, [Hive 가이드](https://www.hiveworkshop.com/threads/how-to-improve-your-tower-defense.146477/)].
+2. **경로를 플레이어가 바꿀 수 있을 것**: 고정 경로·좁은 맵은 대표 불만(MACE, Artisan TD 리뷰) — 물에서는 **흐름을 돌리는 것**이 이에 해당.
+3. **대응 수단의 질적 차이**: "타워가 TD의 품질을 결정" — 같은 기능의 숫자 차이가 아니라 역할 차이.
+4. **예고된 위협 + 대비 시간**: Timberborn 계절, CW 에미터 주기, Thronefall 낮/밤.
+5. **회복 가능성**: 한 번 실수로 끝나는 절벽형 구조는 불만(Timberborn 회복 난이도).
+
+---
+
+## 3. 플레이어 댓글·커뮤니티 아이디어 수집
+
+> ⚠️ 수집 한계: 이 세션의 네트워크 정책상 Steam 상점/리뷰, YouTube, Reddit, vaporlens 원문 페이지를 직접 열 수 없었다. 아래는 **검색 결과 스니펫·리뷰 요약 사이트(2차)** 기반이며 원문 인용이 아니다. 원문 수집이 필요하면 `store.steampowered.com`, `steamcommunity.com`, `www.youtube.com`, `www.reddit.com`, `vaporlens.app` 허용이 필요하다.
+
+### 3.1 수집된 반응 → 아이디어 매핑
+
+| 출처 | 댓글/리뷰 요지 | 우리 게임 적용 아이디어 |
+|---|---|---|
+| CW4 리뷰 | "유체와 싸운다는 발상 자체가 독창적이고 보는 맛이 있다" | 물 렌더링 품질(수심 그라데이션, 흐름 화살표, 물보라)을 **우선 투자 대상**으로 |
+| CW4 리뷰 | "3D로 바뀌었지만 게임플레이는 CW3와 거의 같다" | 비주얼보다 **메커닉 다양성**(수원 유형·시설 역할)으로 차별화 |
+| CW4 리뷰 | "방어만이 아니라 '공세'도 한다" | 수원(상류 저수지) **봉쇄/분산** 미션 — 유입구 근처 거점 확보 시 유입량 감소 |
+| CW4 커뮤니티 | 단축키·키바인딩·사운드 구분 등 UI 불만 44개 | 모바일 최우선: 시설 퀵슬롯, 길게 눌러 정보, **소리/진동으로 위험 경보** |
+| CW 시리즈 | 유저 맵이 수명 연장 | 맵 JSON + URL 공유(정적 사이트로도 가능) |
+| Timberborn 토론 | "가뭄/배드타이드 후 회복이 너무 어렵다" | 피해를 HP 즉사형이 아니라 **복구 비용/시간**으로 → 재기 가능 |
+| Timberborn 토론 | "두 댐 사이 물이 진동", "물이 수직으로 솟음" | 확산 계수·타임스텝 안정성 테스트(CFL 조건 유사) 추가 |
+| Timberborn 토론 | 오염수를 미리 우회시키면 그냥 가뭄과 같아짐 | 유형별 위협은 **대응 수단도 달라야** 의미 있음(예: 진흙물은 펌프 효율 ↓) |
+| Floodland 리뷰 | 마이크로매니지먼트가 지루, 홍수가 배경일 뿐 | 관리 요소 최소화, 홍수 = 핵심 플레이 |
+| Emberward 리뷰 | 미로 설계가 핵심 재미 / 맵 다양성 부족 | 제방을 **형태 블록**(I/L/T)으로 지급 + 맵 시드 랜덤화 |
+| Thronefall 리뷰 | 단순·짧은 세션이 강점 / "지나친 미니멀" | 1판 5~8분 목표, 대신 시설 간 **조합 시너지** 깊이 확보 |
+| BTD6 요약 | 장기적 반복성 불만 | 일일 시드 챌린지, 변이 규칙(무작위 강우 등) |
+| Levee Patroller | 실제 제방 실패 유형을 찾아내는 재미 | 제방에 **누수 징후 → 방치 시 붕괴** 이벤트, 점검 탭으로 보수 |
+
+### 3.2 아이디어 풀 (태그: 🟢 저비용 / 🟡 중간 / 🔴 대규모)
+- 🟢 기지 수위 게이지(현재값/임계값 1.2) + 방향별 기여도 표시
+- 🟢 다음 웨이브 예고에 **방향별 강도 차이** 표시(예: 북 ×1.5, 남 ×0.5)
+- 🟢 펌프 실제 반경 표시, 냉각탑 결빙 예상 영역 표시
+- 🟢 웨이브 종료 후 잔류 수량에 따른 보너스/페널티
+- 🟡 **높이맵**: 언덕·저지대, 물은 `수위+지면고` 차로 흐름 → 제방=성토, 굴착=수로
+- 🟡 **배출구(하천/배수구)**: 맵 가장자리 일부 셀은 물을 흡수 → "돌려보내기" 전략 성립
+- 🟡 **제방 내구도·월류**: 높이 h 초과 시 월류, 수압 누적 시 균열→붕괴(Timberborn 댐/제방 이원화)
+- 🟡 수문(Floodgate): 열고 닫는 능동 조작 — 모바일 탭 한 번 조작
+- 🟡 시설 업그레이드: 펌프 처리량↑ / 배출 방향 지정, 냉각탑 동결 범위↑
+- 🟡 재해 유형: 집중호우(전 맵 균일 강우), 상류 범람(1~2방향 대량), 해일(한 방향 단발 거대), 융설(얼음→물 대량)
+- 🟡 펌프 **전력** 제약 — 동시 가동 수 제한으로 펌프 스팸 방지
+- 🔴 수원 공세 미션, 맵 에디터·공유, 일일 시드
+- 🔴 쿼터뷰 렌더링(설계문서 P2와 동일 — 가독성 검증 후)
+
+---
+
+## 4. 개선 로드맵 (권장)
+
+### P0 — 정리·밸런스 (1~2일)
+1. 레거시 제거: `enemies/route/nextEnemyCell/previewRoutes/kills/blocked/leaks` 및 UI 표·문구(B1~B6, B8).
+2. 펌프 미리보기 반경 수정(B1) — 상수(`PUMP_RADIUS`, `COOLER_R2`)를 엔진에서 export해 UI와 공유.
+3. **난이도 곡선 재조정** 목표:
+   - W1: 무대응 시 경미한 피해(HP −5~10) → 대응 필요성 학습.
+   - W3: 무대응 시 패배.
+   - "펌프 1개" 승리 불가, "링 제방" 승리 불가(→ P1의 월류/내구도 필요).
+4. 기지 피해를 임계값 이진 판정 → **초과분 비례**(`dmg = k·max(0, flood−T)`)로 바꿔 절벽 완화.
+5. 밸런스 회귀 테스트: 부록 A 시나리오를 `tests/balance.test.js`로 고정(무대응 패배 웨이브, 단일 전략 승리 불가 등).
+
+### P1 — 물리·전략 깊이 (1~2주)
+1. 높이맵 + 지면고 기반 흐름 (`flow ∝ (h_i+w_i) − (h_j+w_j)`).
+2. 배출구 셀과 맵 경계 흡수.
+3. 제방 높이/내구도/월류, 수문.
+4. 방향별 비대칭 유입·재해 유형 패턴, 예고 UI.
+5. 흐름 시각화: 셀 간 순유량 벡터 → 화살표/입자. "🧭 물길 보기"를 이것으로 대체(B6 해소).
+
+### P2 — 메타·콘텐츠
+업그레이드, 다중 맵, 일일 시드, 별점(잔류수량·HP·비용), 저장/불러오기.
+
+### 성공 지표 (플레이테스트에서 측정)
+- 첫 판 W3 이전 패배율 30~50%, 재도전 후 승리율 > 60%
+- 승리 빌드의 다양성: 상위 3개 시설 구성 비율이 50% 미만
+- 모바일(중급기) 60FPS, 스텝 < 2ms (현재 HUD의 STEP 계측 활용)
+
+---
+
+## 5. 리스크·주의
+- *Water TD*가 2026-11-13 출시 → 컨셉 유사. **모바일 웹·격자 퍼즐·단기 세션**으로 포지셔닝 차별화 권장.
+- 높이맵 도입 시 40×24 격자는 표현력이 부족할 수 있음 → 80×48 등 확대 시 모바일 성능 측정 선행.
+- 3장의 커뮤니티 의견은 2차 요약 기반 — 의사결정 전 원문 확인 필요(설계문서 9장 "사실/가설 구분" 원칙 준수).
+
+---
+
+## 부록 A. 밸런스 실측 스크립트
+```js
+// node sim.mjs  (저장소 루트 기준 경로 조정)
+import * as E from './topview-engine.js';
+function run(setup,label){const g=E.createGame();setup(g);
+  for(let w=0;w<5;w++){E.startWave(g);let r;do r=E.step(g);while(r==='active');
+    let bw=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)bw+=g.water[E.index(20+dx,12+dy)];
+    console.log(label,g.wave,r,'hp',g.hp,'baseWater',bw.toFixed(2));
+    if(r!=='complete')break;}}
+run(()=>{},'none');
+run(g=>E.place(g,20,6,'tower'),'1pump');
+run(g=>{g.cash=9999;for(let x=18;x<=22;x++)for(let y=10;y<=14;y++)
+  if(Math.max(Math.abs(x-20),Math.abs(y-12))===2)E.place(g,x,y,'wall');},'ring');
+```
+
+## 부록 B. 참고 출처 (수집일 2026-11-08)
+- Creeper World 4: [PC Gamer](https://www.pcgamer.com/fighting-massive-waves-of-goo-in-creeper-world-4-is-oddly-blissful) · [Steam 토론](https://steamcommunity.com/app/848480/discussions/0/2970645580591438675) · [KC 포럼 UI 불만](https://knucklecracker.com/forums/index.php?msg=195407) · [Superjump 인터뷰](https://www.superjumpmagazine.com/crafting-creeper-world-an-interview-with-knuckle-cracker/) · [Scientific Gamer](https://scientificgamer.com/thoughts-creeper-world-4)
+- Timberborn: [Feature Upvote](https://timberborn.featureupvote.com/suggestions/508061/droughtsbadtides-are-too-hard-to-recover-from) · [Steam 토론](https://steamcommunity.com/app/1062090/discussions/0/4129305318299062838) · [Wiki](https://timberborn.wiki.gg/wiki/Drought)
+- Water TD: [Steam](https://store.steampowered.com/app/5295330/Water_TD/) · [SteamDB](https://steamdb.info/app/5295330/) · [YouTube](https://www.youtube.com/watch?v=LeGt_pmyAR8)
+- Floodland: [Prima](https://primagames.com/reviews/floodland-review-pc) · [SteamPulse](https://steampulse.org/game/1336180)
+- Emberward / Thronefall / BTD6: [Emberward](https://vaporlens.app/app/2459550/emberward) · [Thronefall 리뷰](https://www.startmenu.co.uk/home/review-thronefall) · [BTD6](https://vaporlens.app/app/960090/bloons_td_6)
+- TD 설계 일반: [Hive Workshop](https://www.hiveworkshop.com/threads/how-to-improve-your-tower-defense.146477/)
+- 시리어스 게임: [Levee Patroller](https://seriousgamessociety.org/2016/09/22/levee-patroller-an-sg-on-safety-designed-at-delft-univ-of-technology/) · [Flood Resilience Challenge](https://www.yorku.ca/cifal/?p=2464)

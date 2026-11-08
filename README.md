@@ -3,8 +3,22 @@
 모바일 우선 웹 기반 **탑뷰 자연재해 방어 시뮬레이션**. 중앙 기지를 네 방향의 홍수로부터 제방·배수펌프·냉각탑으로 보호합니다.
 
 - [웹 게임 실행](https://jflakeee.github.io/physics_td/)
+- **[v2 통합 설계서 (확정안)](docs/GAME_DESIGN_V2.md)**
+- **[v2 상세 설계서 (구현 명세)](docs/DETAILED_DESIGN_V2.md)**
+- [v2 설계 부족분 검토](docs/DESIGN_GAP_REVIEW_V2.md)
+- [v1 세션 기록 (ChatGPT)](docs/SESSION_HISTORY_V1_CHATGPT.md) — 아래 "2026-11-08 대화 세션 전체 기록"과 본문 동일, 출처·v2 연결 머리말 추가본
+- [스토리·세계 확장 설계](docs/STORY_WORLD_EXPANSION.md)
+- [TD 장르 딥리서치 (장단점·참신한 시스템·플레이어 요청)](docs/TD_GENRE_RESEARCH_2026-11.md)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [2026-11-08 대화 세션 전체 기록](docs/SESSION_TRANSCRIPT_2026-11-08.md)
+- [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
+- [모바일 중심 전면 재구현 검토](docs/MOBILE_REBUILD_REVIEW.md)
+- [배치 UX가 필요 없는 UI 브레인스토밍](docs/NO_PLACEMENT_UI_BRAINSTORM.md)
+- [4갈래 엔딩 UX·스토리 구성 검토](docs/ENDINGS_UX_STORY_REVIEW.md)
+- [목적별 맵 4개 + 종합 스테이지 UX 검토](docs/STAGE_SELECT_UX_REVIEW.md)
+- [캐릭터 선택 × 맵 스타일 UX 검토](docs/CHARACTER_MAP_UX_REVIEW.md)
+- [공통·특수 스킬 + 레벨업 교차 스킬 UX 검토](docs/SKILL_LEVELUP_UX_REVIEW.md)
+- 개발 워크플로: [Claude Code Game Studios](https://github.com/Donchitos/Claude-Code-Game-Studios) v1.2.0 템플릿 설치 (`.claude/`, `CLAUDE.md`, `project.yaml`) — 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - [소스 및 변경 이력](https://github.com/jflakeee/physics_td/commits/main/)
 - [자동 테스트 및 배포 결과](https://github.com/jflakeee/physics_td/actions)
 
