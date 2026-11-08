@@ -1,0 +1,13 @@
+{
+  "id": "dike-village",
+  "style": "plain",
+  "order": 1,
+  "tiles": ["PPPIPPPO", "PPFPPPPP", "PPPPPPFP", "PDPPPPPP", "PPPPPPPP", "IPPBBPPP", "PPPBBPPI", "PPPPPPPP", "PPFPPPDP", "PPPPPPPP", "PPPPFPPP", "OPPPIPPP"],
+  "pumps": [[2, 5], [5, 6]],
+  "gates": [],
+  "I1": 120,
+  "rain": 0.2,
+  "pulseEvery": 45,
+  "start": { "cash": 150, "hp": 100 },
+  "_note": "pumps/zones are placeholders until story 004 tunes map data"
+}

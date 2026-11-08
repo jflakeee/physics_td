@@ -20,8 +20,10 @@ jobs:
         with:
           node-version: '22'
       - run: |
+          npm ci
           node --check engine.js
           node --check src.js
+          npm run typecheck
           npm test
           npm run build
       - uses: actions/upload-pages-artifact@v3

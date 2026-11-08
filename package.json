@@ -6,9 +6,10 @@
   "scripts": {
     "test": "node --test",
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.nodom.json",
     "bench:sim": "node scripts/bench-sim.mjs",
-    "bench:sim:browser": "node scripts/bench-sim-browser.mjs"
+    "bench:sim:browser": "node scripts/bench-sim-browser.mjs",
+    "e2e": "npm run build && node tests/e2e/mobile.e2e.mjs"
   },
   "engines": {
     "node": ">=22.18"

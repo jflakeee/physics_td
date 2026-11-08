@@ -1,0 +1,51 @@
+/* v2 play screen — one screen, no document scroll (story 002). */
+:root { --bg: #0f1a28; --panel: #182a3e; --line: #3a5673; --text: #eef5ff; --muted: #a9bdd2; --accent: #2bb3a3; --danger: #e05a4f;
+  --hud-h: 48px; --gauge-h: 24px; --bar-h: 72px; --touch: 48px; --skill: 56px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+  font: 14px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; overscroll-behavior: none; }
+button { font: inherit; color: inherit; background: #24405c; border: 1px solid var(--line); border-radius: 10px; touch-action: manipulation;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button:focus-visible { outline: 2px solid #7de4ff; outline-offset: 1px; }
+button:disabled { opacity: .35; }
+#app.play { height: 100dvh; display: grid; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  grid-template-rows: var(--hud-h) var(--gauge-h) minmax(0, 1fr) var(--bar-h);
+  grid-template-areas: "hud" "gauge" "board" "bar"; }
+.panel { display: contents; }
+.hud { grid-area: hud; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 4px; background: var(--panel); }
+.stats { display: flex; gap: 8px; min-width: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat b { margin-left: 2px; }
+.lv { color: var(--text); font-weight: 600; }
+@media (max-width: 360px) { .stats { gap: 5px; font-size: 13px; } .hbtns { gap: 3px; } }
+.hbtns { display: flex; gap: 4px; }
+.hb { width: var(--touch); height: var(--touch); padding: 0; font-size: 18px; }
+.gauge-row { grid-area: gauge; display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 12px; color: var(--muted); }
+.gauge { flex: 1; height: 10px; background: #0b1420; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.gauge .fill { height: 100%; width: 0; background: linear-gradient(90deg, #4fb3ff, #e05a4f); }
+.gauge-text { font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
+.board-wrap { grid-area: board; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; }
+.board { display: block; touch-action: none; border-radius: 6px; }
+.board-wrap.shake { animation: shake 80ms linear; }
+@keyframes shake { 25% { transform: translateX(2px); } 75% { transform: translateX(-2px); } }
+.toasts { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 4px; pointer-events: none; width: max-content; max-width: 92%; }
+.toast { background: rgba(10, 18, 30, .88); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; text-align: center; }
+.start { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 64px; height: 64px; border-radius: 32px; font-size: 26px;
+  background: var(--accent); border-color: #7fe9dc; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.start[hidden] { display: none; }
+.bar { grid-area: bar; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 4px; background: var(--panel); }
+.sk { width: var(--skill); height: var(--skill); padding: 0; font-size: 24px; flex: none; }
+.sk.common { width: var(--touch); height: var(--touch); font-size: 20px; }
+.sk.selected { background: var(--accent); border-color: #c8fff7; }
+.sk.ult { border-style: double; border-width: 3px; }
+.sk.empty { background: transparent; border-style: dashed; }
+/* landscape (§13.1): board left, panel right — HUD, gauge, 2-column skills */
+@media (orientation: landscape) {
+  #app.play { grid-template-rows: minmax(0, 1fr); grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "board panel"; }
+  .board-wrap { aspect-ratio: 2 / 3; height: 100%; }
+  .panel { grid-area: panel; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px; min-width: 0; }
+  .hud { height: var(--hud-h); border-radius: 8px; flex: none; }
+  .gauge-row { height: var(--gauge-h); flex: none; padding: 0; }
+  .bar { display: grid; grid-template-columns: repeat(2, var(--skill)); justify-content: start; align-content: start; border-radius: 8px; padding: 6px; flex: none; }
+  .sk.common { width: var(--skill); height: var(--skill); }
+}
+@media (prefers-reduced-motion: reduce) { .board-wrap.shake { animation: none; } }
