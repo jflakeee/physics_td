@@ -58,6 +58,8 @@ export interface PlayScreenOptions {
   waveLine?: (wave: number) => string | null;
   /** Persist a snapshot (prepare entry, after a draft pick, background). */
   onSave?: (play: Play) => void;
+  /** Player settings: haptics off, reduced motion forced on/off, left-hand skill bar. */
+  settings?: { haptics: boolean; reducedMotion: 'auto' | 'on' | 'off'; leftHand: boolean };
   /** Runs after the play is created and before rendering starts (resume). */
   beforeMount?: (play: Play) => void;
   /** Notices to show once on entry (save problems). */
@@ -158,8 +160,12 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     toastBox.textContent = '';
     for (const it of toasts.items) toastBox.append(h('div', { class: 'toast' }, it.text));
   };
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rm = o.settings?.reducedMotion ?? 'auto';
+  const reduced = rm === 'on' || (rm === 'auto' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  root.classList.toggle('reduced-motion', reduced);
+  root.classList.toggle('left-hand', !!o.settings?.leftHand);
   const haptic = (pattern: number | number[]) => {
+    if (o.settings && !o.settings.haptics) return;
     if (typeof navigator.vibrate === 'function') navigator.vibrate(pattern);
     else if (!reduced) { boardWrap.classList.remove('shake'); void boardWrap.offsetWidth; boardWrap.classList.add('shake'); } // iOS: 2px shake
   };

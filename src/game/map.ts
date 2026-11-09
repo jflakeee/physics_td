@@ -37,7 +37,7 @@ export interface MapData {
   rain?: number;
   pulseEvery?: number;
   start: { cash: number; hp: number };
-  /** ⭐3 threshold on the result score (DETAILED §8.2; provisional until balance bots). */
+  /** ⭐3 threshold on the result score (DETAILED §8.2), from `npm run bots -- --star3`. */
   star3Score?: number;
 }
 

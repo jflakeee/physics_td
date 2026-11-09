@@ -15,6 +15,7 @@ export interface WorldMapOptions {
   regionName: (regionId: string) => string;
   onRegion: (regionId: string) => void;
   onCodex: () => void;
+  onSettings: () => void;
   notices?: string[];
 }
 
@@ -34,7 +35,10 @@ export function mountWorldMap(o: WorldMapOptions): { dispose(): void } {
   head.append(mk('h1', '', t('world.title')), mk('span', 'count', t('world.homestead', { n: o.cells.length })));
   const codex = mk('button', 'codex-btn', '📖 ' + t('world.codex')) as HTMLButtonElement;
   codex.addEventListener('click', o.onCodex);
-  head.append(codex);
+  const gear = mk('button', 'settings-btn', '⚙') as HTMLButtonElement;
+  gear.setAttribute('aria-label', t('world.settings'));
+  gear.addEventListener('click', o.onSettings);
+  head.append(codex, gear);
   const status = mk('p', 'world-status');
   status.setAttribute('role', 'status');
   status.textContent = (o.notices ?? []).join(' · ');

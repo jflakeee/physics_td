@@ -173,7 +173,7 @@ button:disabled { opacity: .35; }
   #app.world .resume { grid-column: 2; }
   .world-status { grid-column: 2; text-align: left; }
 }
-.map-select .back, .codex .back { min-height: 48px; padding: 0 12px; margin-bottom: 4px; }
+.map-select .back, .codex .back, .settings .back { min-height: 48px; padding: 0 12px; margin-bottom: 4px; }
 #app.codex { height: 100dvh; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 8px) 14px 16px; }
 .codex header { display: flex; align-items: center; gap: 10px; }
 .codex h1 { margin: 0; font-size: 20px; }
@@ -191,3 +191,21 @@ button:disabled { opacity: .35; }
 .recall .label { font-size: 12px; color: #ffd36b; }
 .recall p { margin: 4px 0 0; line-height: 1.5; }
 .memory-got { text-align: center; color: #9fe0ff; margin: 0; }
+
+/* settings (DETAILED §15.6) */
+.settings-btn { width: 48px; min-height: 48px; padding: 0; font-size: 20px; }
+#app.settings { height: 100dvh; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 8px) 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.settings header { display: flex; align-items: center; gap: 10px; }
+.settings h1 { margin: 0; font-size: 20px; }
+.settings .row { min-height: 52px; text-align: left; padding: 0 14px; font-size: 16px; display: flex; align-items: center; }
+.settings .row[aria-checked="true"] { border-color: var(--accent); }
+.settings .link { color: var(--text); text-decoration: none; background: #24405c; border: 1px solid var(--line); border-radius: 10px; }
+.settings .row-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.settings .row-group .label { width: 100%; color: var(--muted); }
+.settings .seg { flex: 1; min-height: 48px; }
+.settings .seg[aria-checked="true"] { background: var(--accent); border-color: #c8fff7; }
+.settings .hint { margin: 0; color: var(--muted); font-size: 13px; min-height: 1.2em; }
+/* left-hand mode mirrors the skill bar; reduced motion stops animations */
+#app.play.left-hand .bar { flex-direction: row-reverse; }
+@media (orientation: landscape) { #app.play.left-hand .bar { direction: rtl; } }
+#app.play.reduced-motion *, #app.play.reduced-motion *::after { animation: none !important; }

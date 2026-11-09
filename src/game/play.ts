@@ -117,7 +117,7 @@ const rulesHandler: SkillHandler = (p, id, zone, path) => {
 /** Create a play session in the prepare phase of wave 1. */
 export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
   const p: Play = {
-    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? map.data.waves ?? 5, level: 1,
+    map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? map.data.waves ?? map.world.cfg.growth.length, level: 1,
     queue: [], events: [], acc: 0, damaging: false, rules: null, checkpoint: null, retries: 0,
     score: null, draft: null, fusions: opt.fusions ?? [], seed: opt.seed ?? 1,
     story: { damage: 0, burstWaves: [], burstWaveClean: false },

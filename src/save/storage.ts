@@ -24,7 +24,7 @@ export interface SaveV1 {
     /** Tutorial step (7 = done). */
     tutorial: number;
   };
-  settings: { haptics: boolean; sound: boolean; reducedMotion: 'auto' | 'on' | 'off' };
+  settings: { haptics: boolean; sound: boolean; reducedMotion: 'auto' | 'on' | 'off'; /** Mirror the skill bar (DETAILED §15.6). */ leftHand: boolean };
   run?: { dataVersion: string; mapId: string; charId: string; seed: number; wave: number; snapshot: string };
 }
 
@@ -32,7 +32,7 @@ export interface StorageLike { getItem(k: string): string | null; setItem(k: str
 export type SaveIssue = 'memory' | 'corrupt' | 'discarded';
 
 export function defaultSave(): SaveV1 {
-  return { v: 1, progress: { maps: {}, endings: [], fusions: [], lastChar: null, tutorial: 1, memories: [], seen: [] }, settings: { haptics: true, sound: true, reducedMotion: 'auto' } };
+  return { v: 1, progress: { maps: {}, endings: [], fusions: [], lastChar: null, tutorial: 1, memories: [], seen: [] }, settings: { haptics: true, sound: true, reducedMotion: 'auto', leftHand: false } };
 }
 
 /** Bring any stored value up to the current schema. Returns null when it cannot be used. */

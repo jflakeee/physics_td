@@ -1,5 +1,5 @@
 // Story 002 e2e (DETAILED_DESIGN_V2 §20 E2E-01): iPhone SE / iPhone 13 / landscape.
-// Builds dist/v2 first (npm run build). Saves screenshots to production/qa/evidence/.
+// Builds dist/ first (npm run build). Saves screenshots to production/qa/evidence/.
 // Usage: node tests/e2e/mobile.e2e.mjs   (exit code 1 on any failed check)
 import { createRequire } from 'node:module';
 import { mkdir } from 'node:fs/promises';
@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)('playwright'); // may be a global install
-const BASE = pathToFileURL(resolve('dist/v2/index.html')).href + '?dev=1';
+const BASE = pathToFileURL(resolve('dist/index.html')).href + '?dev=1';
 const URL = BASE + '&kit=all&map=dike-village&tutorial=0';
 const OUT = 'production/qa/evidence';
 const DATE = '2026-11-08';
@@ -304,6 +304,34 @@ try {
     const codexBtns = await page.locator('#app.codex button').evaluateAll(els => els.every(e => e.getBoundingClientRect().height >= 48));
     check('codex targets ≥ 48px', codexBtns);
     await page.screenshot({ path: `${OUT}/story-007-codex-memories-${DATE}.png`, fullPage: true });
+    await ctx.close();
+  }
+
+  // settings: left-hand mode and tutorial replay (iPhone SE — the narrowest header)
+  console.log('\n# settings (iPhone SE)');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ctx.addInitScript(() => { if (!localStorage.getItem('physics-td:v2')) localStorage.setItem('physics-td:v2', JSON.stringify({ v: 1, progress: { maps: {}, endings: [], fusions: [], lastChar: null, tutorial: 7, memories: [], seen: ['prologue'] }, settings: {} })); });
+    const page = await ctx.newPage();
+    await page.goto(BASE);
+    await page.waitForSelector('#app.world');
+    const headOk = await page.locator('.world-head button').evaluateAll(els => els.every(e => { const r = e.getBoundingClientRect(); return r.right <= innerWidth && r.width >= 48 && r.height >= 48; }));
+    check('world header buttons fit at 320px', headOk);
+    await page.locator('.settings-btn').tap();
+    await page.waitForSelector('#app.settings');
+    const setOk = await page.locator('#app.settings button, #app.settings a').evaluateAll(els => els.every(e => e.getBoundingClientRect().height >= 48));
+    check('settings targets ≥ 48px', setOk);
+    await page.locator('.settings [role=switch]').nth(1).tap();
+    await page.locator('.settings .row', { hasText: '튜토리얼' }).tap();
+    check('tutorial replay resets the step', await page.evaluate(() => __ptd.store.load().progress.tutorial === 1));
+    await page.screenshot({ path: `${OUT}/settings-${DATE}.png` });
+    await page.goto(BASE + '&map=dike-village&tutorial=0&kit=all');
+    await page.waitForFunction(() => globalThis.__ptd?.play);
+    const xs = await page.locator('.bar .sk').evaluateAll(els => els.map(e => e.getBoundingClientRect().left));
+    check('left-hand mode mirrors the skill bar', xs[0] > xs[xs.length - 1]);
+    const legacy = await ctx.newPage();
+    await legacy.goto(pathToFileURL(resolve('dist/legacy/index.html')).href);
+    check('v1 still runs under /legacy', (await legacy.locator('canvas#game').count()) === 1);
     await ctx.close();
   }
 

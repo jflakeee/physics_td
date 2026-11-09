@@ -20,6 +20,7 @@ import { createStreams } from './core/rng.ts';
 import { mountScenes } from './ui/screens/prologue.ts';
 import { mountWorldMap } from './ui/screens/worldMap.ts';
 import { mountCodex } from './ui/screens/codex.ts';
+import { mountSettings } from './ui/screens/settings.ts';
 
 /**
  * v2 bootstrap and screen router: prologue → world map → region map list → play, codex
@@ -27,7 +28,7 @@ import { mountCodex } from './ui/screens/codex.ts';
  * URL params for development / e2e:
  *   map=<id> (skip map select) · char=<id> · kit=all (grant tactical + ultimate) · seed=<n> ·
  *   region=glacier (force regional skill variants) · tutorial=0 (off) · dev=1 (expose state) ·
- *   screen=maps (old flat map list)
+ *   screen=maps (old flat map list) · screen=codex · screen=settings
  */
 const q = new URLSearchParams(location.search);
 const t = createT(ko);
@@ -78,7 +79,7 @@ function showWorld(): void {
   });
   dispose = mountWorldMap({
     root, t, world: WORLD, cells, open: id => regionOpen(WORLD, id, cleared), regionName: id => t('region.' + id),
-    onRegion: id => showMapSelect(id), onCodex: showCodex,
+    onRegion: id => showMapSelect(id), onCodex: showCodex, onSettings: showSettings,
     notices: takeNotices(),
   }).dispose;
   if (res.run) {
@@ -101,6 +102,18 @@ function showCodex(): void {
     tab: (q.get('tab') as 'endings' | 'fusions' | 'memories' | null) ?? 'endings', onBack: showWorld,
   }).dispose;
   if (dev) (globalThis as Record<string, unknown>).__ptd = { screen: 'codex', store };
+}
+
+function showSettings(): void {
+  dispose?.();
+  const s = store.load();
+  dispose = mountSettings({
+    root, t, settings: s.settings, legacyHref: './legacy/index.html',
+    onChange: st => { const n = store.load(); n.settings = st; store.save(n); },
+    onReplayTutorial: () => { const n = store.load(); n.progress.tutorial = 1; store.save(n); },
+    onBack: showWorld,
+  }).dispose;
+  if (dev) (globalThis as Record<string, unknown>).__ptd = { screen: 'settings', store };
 }
 
 function showMapSelect(region?: string): void {
@@ -146,7 +159,7 @@ function play(mapId: string, run?: NonNullable<SaveV1['run']>, fromRegion?: stri
   const region = map.data.region ?? 'river';
   const next = MAPS[MAPS.indexOf(base) + 1];
   const screen = mountPlay({
-    root, map, t, chars: CHARACTERS, fusions: FUSIONS, seed,
+    root, map, t, chars: CHARACTERS, fusions: FUSIONS, seed, settings: save.settings,
     rules: p => {
       const rs = createRules(map, SKILLS, char, ECONOMY, () => p.phase === 'wave');
       if (q.get('kit') === 'all') { grant(rs, char.skills.tactical); grant(rs, char.skills.ultimate); }
@@ -192,4 +205,5 @@ function play(mapId: string, run?: NonNullable<SaveV1['run']>, fromRegion?: stri
 if (q.get('map')) play(q.get('map') as string);
 else if (q.get('screen') === 'maps') showMapSelect();
 else if (q.get('screen') === 'codex') showCodex();
+else if (q.get('screen') === 'settings') showSettings();
 else showWorld();
