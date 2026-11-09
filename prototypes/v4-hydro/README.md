@@ -45,6 +45,10 @@
   clears), 기록 (lifetime stats and per-stage records). Progress lives in `meta.ts` (no DOM).
   Scripted balance (miller, rain unlocked from stage 2): nothing → lost at 112 / 83 / 39 s;
   wheels only → lost at 239 / 147 / 151 s; wheels + reservoirs + walls → won with 3 / 3 / 1 hearts.
+- **After a clear: three buttons (2026-11-09):** 계속하기 keeps playing this map season after
+  season (the year cycles; each extra season raises the village demand 10% and pays a star's
+  worth of gems), 다음 스테이지, 메인으로. A clear is booked when it happens; when the endless run
+  ends only the extra power and seasons are paid and it is not counted as a lost run.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

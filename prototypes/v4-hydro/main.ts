@@ -1,5 +1,5 @@
 import {
-  canBuild, chooseCard, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, SITES, start,
+  canBuild, chooseCard, continueEndless, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, SITES, start,
   tick, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId, type CharId, type HydroWorld, type PowerupId,
 } from './core.ts';
 import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, seasonKey } from './art.ts';
@@ -24,10 +24,11 @@ const STR = {
   pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
   next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
   bonusHint: '버티면 레벨업 카드에 나와요', allClear: '모든 계곡을 지켰어요!',
+  keepGoing: '계속하기', keepHint: '다음 계절이 와요 · 마을이 더 커져요', survived: '도 버텼어요!', endlessOver: '계절을 더 버텼어요',
 };
 const STAT_ROWS: [keyof ReturnType<typeof loadMeta>['stats'], string][] = [
   ['runs', '플레이'], ['wins', '버틴 판'], ['losses', '진 판'], ['bestLevel', '최고 레벨'], ['power', '만든 전기'],
-  ['builds', '지은 건물'], ['floodHearts', '홍수로 잃은 하트'], ['blackoutHearts', '정전으로 잃은 하트'], ['seconds', '플레이 시간(초)'],
+  ['bestSeasons', '가장 오래 버틴 계절'], ['builds', '지은 건물'], ['floodHearts', '홍수로 잃은 하트'], ['blackoutHearts', '정전으로 잃은 하트'], ['seconds', '플레이 시간(초)'],
 ];
 const CHAR_ICON: Record<CharId, SpriteName> = { miller: 'wheel0', granny: 'sandSpirit', frost: 'iceSpirit' };
 const PU_ICON: Record<PowerupId, SpriteName> = { turbine: 'wheel0', purse: 'coin', builder: 'hammer', heart: 'heart' };
@@ -328,24 +329,31 @@ function showPlay(w: HydroWorld): void {
     const meta = loadMeta(store), res = finishRun(meta, w);
     saveMeta(store, meta); clearRun(store);
     const won = w.phase === 'won', last = w.stage + 1 >= STAGES.length;
-    const kids: HTMLElement[] = [el('h2', '', won ? (last ? STR.allClear : STR.won) : STR.lost)];
+    const title = won ? (last ? STR.allClear : STR.won) : w.endless ? `${w.extraSeasons} ${STR.endlessOver}` : STR.lost;
+    const kids: HTMLElement[] = [el('h2', '', title)];
     const hs = el('p', 'starline');
-    for (let k = 0; k < maxHearts; k++) hs.append(icon(k < w.hearts ? 'heart' : 'heartEmpty', 'x3'));
+    for (let k = 0; k < maxHearts; k++) hs.append(icon(k < w.hearts ? 'heart' : 'heartEmpty', 'x2'));
     const sum = el('p', 'sum'); sum.append(el('span', '', `Lv ${w.level}`), icon('wheel0'), el('span', '', String(w.plants.length)), icon('gem'), el('span', '', `+${res.gems}`));
     kids.push(hs, sum);
-    if (res.newSkill) { const c = el('div', 'card bonus'); c.append(icon(CARD[res.newSkill].icon, 'x3 ic'), el('b', '', `${STR.bonus} ${CARD[res.newSkill].name}`), el('span', 'desc', CARD[res.newSkill].desc)); kids.push(c); }
-    if (res.newChar) { const ch = CHARS.find(c => c.id === res.newChar)!; const c = el('div', 'card bonus'); c.append(icon(CHAR_ICON[ch.id], 'x3 ic'), el('b', '', `${STR.newChar} ${ch.name}`), el('span', 'desc', ch.desc)); kids.push(c); }
-    if (won && !last) {
-      const nx = el('button', 'big'); nx.append(icon('play', 'x2'), el('span', '', STR.next));
-      nx.addEventListener('click', () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage + 1, w.char))));
-      kids.push(nx);
-    } else if (!won) {
-      const again = el('button', 'big', '↻ ' + STR.again);
-      again.addEventListener('click', () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage, w.char))));
-      kids.push(again);
-    }
-    const home = el('button', 'big alt', STR.home); home.addEventListener('click', showMain);
-    kids.push(home);
+    if (res.newSkill) { const c = el('div', 'card bonus'); c.append(icon(CARD[res.newSkill].icon, 'x2 ic'), el('b', '', `${STR.bonus} ${CARD[res.newSkill].name}`), el('span', 'desc', CARD[res.newSkill].desc)); kids.push(c); }
+    if (res.newChar) { const ch = CHARS.find(c => c.id === res.newChar)!; const c = el('div', 'card bonus'); c.append(icon(CHAR_ICON[ch.id], 'x2 ic'), el('b', '', `${STR.newChar} ${ch.name}`), el('span', 'desc', ch.desc)); kids.push(c); }
+    // ways on, in one row: the main choice (다음 스테이지 when there is one) sits in the middle and is the biggest
+    const next = (won || w.endless) && !last;
+    const mk = (label: string, primary: boolean, fn: () => void, play = false) => {
+      const b = el('button', 'big' + (primary ? ' primary' : ' alt'));
+      if (play) b.append(icon('play', 'x2'));
+      b.append(el('span', '', label)); b.addEventListener('click', fn); return b;
+    };
+    const keepBtn = won ? mk(STR.keepGoing, !next, () => { continueEndless(w); clearOverlay(); lastOverlay = ''; terrainDirty = true; say(STR.keepHint, 'sun', 2600); buzz(15); }) : null;
+    const nextBtn = next ? mk(STR.next, true, () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage + 1, w.char)))) : null;
+    const againBtn = !won && !w.endless ? mk('↻ ' + STR.again, true, () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage, w.char)))) : null;
+    const homeBtn = mk(STR.home, false, showMain);
+    const main = nextBtn ?? keepBtn ?? againBtn;
+    const side = [keepBtn && keepBtn !== main ? keepBtn : null, homeBtn].filter(Boolean) as HTMLButtonElement[];
+    const rowEl = el('div', 'btnrow ' + (side.length === 2 ? 'three' : 'two'));
+    if (side.length === 2) rowEl.append(side[0], main!, side[1]);
+    else rowEl.append(main!, side[0]);
+    kids.push(rowEl);
     overlay(won ? 'won' : 'lost', ...kids);
   };
   const showPause = () => {
@@ -395,6 +403,7 @@ function showPlay(w: HydroWorld): void {
       while (acc >= 1 && n++ < 8 && w.phase === 'run') {
         tick(w); acc -= 1; needDraw = true;
         if (w.events.spirit) { flashes.push({ cells: w.events.spirit.cells, kind: w.events.spirit.kind, until: frame + 40 }); terrainDirty = true; }
+        if (w.events.seasonSurvived) { say(`${w.events.seasonSurvived}${STR.survived}`, 'star', 2600); buzz(20); terrainDirty = true; }
         if (w.events.lostHeart) { say(w.events.lostHeart === 'blackout' ? STR.lostBlackout : STR.lostFlood, w.events.lostHeart === 'blackout' ? 'houseDark' : 'drown', 2600); buzz(80); }
       }
       if (n >= 8) acc = 0;

@@ -75,6 +75,11 @@ const WINTER: Season = { name: '겨울', seconds: 120, weather: [
   { t: 66, mul: 0.5, kind: 'freeze', ramp: 4, freeze: 0.0024 },
   { t: 92, mul: 0.35, kind: 'freeze', ramp: 4, freeze: 0.0032, boss: true },
 ] };
+/** Seasons by name, and the one that follows (endless play after a clear cycles through the year). */
+export const SEASON_BY_NAME: Record<string, Season> = { 봄: SPRING, 여름: SUMMER, 가을: AUTUMN, 겨울: WINTER };
+export const NEXT_SEASON: Record<string, string> = { 봄: '여름', 여름: '가을', 가을: '겨울', 겨울: '봄' };
+/** Endless play: each extra season survived raises the village demand by this fraction. */
+export const ENDLESS = { demandStep: 0.1 } as const;
 /** Stage 1 seasons (kept for code that has no stage in hand). */
 export const SEASONS: Season[] = [SPRING, SUMMER];
 

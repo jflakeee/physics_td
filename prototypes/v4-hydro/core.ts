@@ -3,7 +3,7 @@ import { cloneGrid, createGrid } from '../../src/sim/grid.ts';
 import { createFluidScratch, fluidStep, type FluidScratch } from '../../src/sim/fluid.ts';
 import { freezeCells, meltIce } from '../../src/sim/ice.ts';
 import { createRng, seedState, type Rng } from '../../src/core/rng.ts';
-import { CHARS, SEASONS, STAGES, T, type CardId, type CharId, type PowerupId, type Season, type Weather } from './tuning.ts';
+import { CHARS, ENDLESS, NEXT_SEASON, SEASON_BY_NAME, SEASONS, STAGES, T, type CardId, type CharId, type PowerupId, type Season, type Weather } from './tuning.ts';
 export type { CardId, CharId, PowerupId } from './tuning.ts';
 
 /**
@@ -68,12 +68,16 @@ export interface HydroWorld {
   unlocked: CardId[];
   /** Run record for the stats screen. */
   record: { builds: number; floodHearts: number; blackoutHearts: number; power: number };
+  /** Endless play after a clear: extra seasons survived (0 = not endless). */
+  endless: boolean; extraSeasons: number;
+  /** Power already paid out in gems (a cleared run is booked before it goes on). */
+  bookedPower: number; bookedTicks: number;
   /** How this run was created (to rebuild it when a saved run is continued). */
   origin: { seed: number; opt: RunOptions };
   /** Temporary sandbag cells and their remaining ticks. */
   sandbags: Map<number, number>;
   cards: CardId[];
-  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice' | 'rain' | 'sun'; cells: number[] } | null };
+  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice' | 'rain' | 'sun'; cells: number[] } | null; seasonSurvived: string | null };
   /** Ticks before the next flood heart can be lost. */
   floodCooldown: number;
   /** Village edge cell where the last flood came in (−1 = none), for the arrow on screen. */
@@ -102,7 +106,8 @@ export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
     xp: 0, level: 1, coins: T.startCoins + 20 * (pu.purse ?? 0), hearts: T.hearts + (pu.heart ?? 0),
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
     skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
-    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null }, floodCooldown: 0, floodFrom: -1,
+    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null, seasonSurvived: null }, floodCooldown: 0, floodFrom: -1,
+    endless: false, extraSeasons: 0, bookedPower: 0, bookedTicks: 0,
     stage, seasons: st.seasons, totalSec: st.seasons.reduce((a, x) => a + x.seconds, 0), char: ch.id,
     etaBonus: ch.eta + 0.05 * (pu.turbine ?? 0),
     costMul: { wheel: ch.costMul.wheel * builder, reservoir: ch.costMul.reservoir * builder, wall: ch.costMul.wall * builder },
@@ -202,7 +207,21 @@ export function start(w: HydroWorld): void { if (w.phase === 'ready') w.phase = 
 export const xpNeed = (level: number) => Math.round(T.xpBase * T.xpGrowth ** (level - 1));
 export const eta = (w: HydroWorld) => T.eta * (1 + 0.1 * w.skill.eta + w.etaBonus);
 /** Village demand per second now. */
-export const demand = (w: HydroWorld) => (T.demand + T.demandGrow * seconds(w)) * STAGES[w.stage].demandMul;
+export const demand = (w: HydroWorld) => (T.demand + T.demandGrow * seconds(w)) * STAGES[w.stage].demandMul * (1 + ENDLESS.demandStep * w.extraSeasons);
+
+/** After a clear: keep playing on this map, season after season, until the village falls. */
+export function continueEndless(w: HydroWorld): boolean {
+  if (w.phase !== 'won') return false;
+  w.endless = true;
+  addSeason(w);
+  w.phase = 'run';
+  return true;
+}
+function addSeason(w: HydroWorld): void {
+  const next = SEASON_BY_NAME[NEXT_SEASON[w.seasons[w.seasons.length - 1].name]];
+  w.seasons = [...w.seasons, next];
+  w.totalSec += next.seconds;
+}
 
 /** Measure each plant: flow across its row (from the fluid step's own fluxes) × surface drop. */
 function plantPower(w: HydroWorld): number {
@@ -234,7 +253,7 @@ function plantPower(w: HydroWorld): number {
 export function tick(w: HydroWorld): void {
   if (w.phase !== 'run') return;
   const g = w.g, sec = seconds(w);
-  w.events.lostHeart = null; w.events.spirit = null;
+  w.events.lostHeart = null; w.events.spirit = null; w.events.seasonSurvived = null;
   const { mul, now } = weatherAt(sec, w.seasons);
   // inflow at the top of the channel
   const top: number[] = [];
@@ -278,7 +297,14 @@ export function tick(w: HydroWorld): void {
   for (let i = 0; i < W * H; i++) if (w.village[i] && g.w[i] > 0) { const d = Math.min(g.w[i], T.villagePump); g.w[i] -= d; w.drained += d; }
   w.tick++;
   if (w.hearts <= 0) { w.phase = 'lost'; return; }
-  if (seconds(w) >= w.totalSec) { w.phase = 'won'; return; }
+  if (seconds(w) >= w.totalSec) {
+    if (!w.endless) { w.phase = 'won'; return; }
+    // endless: the year goes on; each season survived makes the village hungrier
+    const done = w.seasons[w.seasons.length - 1].name;
+    addSeason(w);
+    w.extraSeasons++;
+    w.events.seasonSurvived = done;
+  }
   if (w.xp >= xpNeed(w.level)) levelUp(w);
 }
 function loseHeart(w: HydroWorld, why: 'blackout' | 'flood') {
@@ -397,7 +423,7 @@ export function cloneHydro(w: HydroWorld): HydroWorld {
     ...w, g: cloneGrid(w.g), sc: createFluidScratch(W * H), rng: createRng(w.rng.state()),
     built: w.built.slice(), plants: w.plants.map(p => ({ ...p })), skill: { ...w.skill }, spiritTimer: { ...w.spiritTimer },
     record: { ...w.record }, unlocked: w.unlocked.slice(), costMul: { ...w.costMul },
-    sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null },
+    sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null, seasonSurvived: null }, seasons: w.seasons.slice(),
   };
 }
 /** Run a copy ahead (level-ups are skipped) and report what happened. */

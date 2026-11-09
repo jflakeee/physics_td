@@ -115,3 +115,30 @@ test('winter_freezes_the_river_into_ice', () => {
   assert.ok(ice > 1, `river ice ${ice}`);
   assert.ok(Math.abs(balance(w)) < 1e-8);
 });
+
+test('after_a_clear_계속하기_goes_on_season_after_season_and_books_only_the_extra', async () => {
+  const { continueEndless, demand, seconds } = await import('../../../prototypes/v4-hydro/core.ts');
+  const m = defaultMeta(), w = createHydro(1, runOptions(m, 0, 'miller'));
+  w.phase = 'won'; w.record.power = 600; w.tick = w.totalSec * 30;
+  finishRun(m, w);
+  const runs = m.stats.runs, gems = m.gems, d0 = demand(w);
+  assert.ok(continueEndless(w));
+  assert.equal(w.phase, 'run');
+  assert.deepEqual(w.seasons.map(s => s.name), ['봄', '여름', '가을']);
+  assert.equal(w.totalSec, 360);
+  // survive autumn: winter comes and the village needs more
+  w.hearts = 99;
+  while (seconds(w) < 360.5 && w.phase === 'run') { tick(w); if (w.phase === 'levelup') chooseCard(w, w.cards[0]); }
+  assert.equal(w.extraSeasons, 1);
+  assert.equal(w.seasons[w.seasons.length - 1].name, '겨울');
+  assert.ok(demand(w) > d0);
+  // the endless run ends: not a second run, not a loss, paid for the extra power and seasons
+  const saved = restoreRun(snapshotRun(w));
+  assert.ok(saved && saved.endless && saved.seasons.length === 4 && saved.totalSec === w.totalSec);
+  w.phase = 'lost';
+  const r = finishRun(m, w);
+  assert.equal(m.stats.runs, runs);
+  assert.equal(m.stats.losses, 0);
+  assert.ok(r.gems >= GEMS.perStar && m.gems === gems + r.gems);
+  assert.equal(m.stats.bestSeasons, 3);
+});

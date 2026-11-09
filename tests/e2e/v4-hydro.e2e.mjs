@@ -125,9 +125,21 @@ try {
     await page.evaluate(() => { const v = __v4; v.w.phase = 'run'; v.w.tick = v.w.totalSec * 30 - 1; v.w.hearts = 3; v.tick(v.w); });
     await page.waitForSelector('.center.won');
     check('a clear shows the bonus skill and the new character', (await page.locator('.center.won .card.bonus').count()) === 2);
-    check('a clear offers 다음 스테이지 and 메인으로', (await page.locator('.center.won .big').count()) === 2);
+    const labels = await page.locator('.center.won .big').allInnerTexts();
+    check('a clear offers 계속하기, 다음 스테이지 and 메인으로', labels.length === 3 && labels[0].includes('계속하기') && labels[1].includes('다음 스테이지') && labels[2].includes('메인으로'), JSON.stringify(labels));
+    const boxes = await page.locator('.center.won .big').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, a: r.width * r.height }; }));
+    check('다음 스테이지 is in the middle and the biggest', boxes[0].x < boxes[1].x && boxes[1].x < boxes[2].x && boxes[1].a > boxes[0].a && boxes[1].a > boxes[2].a, JSON.stringify(boxes));
+    check('all three fit on screen', await page.evaluate(() => [...document.querySelectorAll('.center.won .big')].every(b => { const r = b.getBoundingClientRect(); return r.bottom <= innerHeight && r.right <= innerWidth && r.height >= 48; })));
     await page.screenshot({ path: `${OUT}/v4-clear-${DATE}.png` });
-    await page.locator('.center.won .big').first().tap();
+    await page.locator('.center.won .big', { hasText: '계속하기' }).tap();
+    await page.waitForFunction(() => __v4.w.phase === 'run');
+    check('계속하기 goes on into the next season', await page.evaluate(() => __v4.w.endless && __v4.w.seasons.at(-1).name === '가을'));
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/v4-endless-${DATE}.png` });
+    // end the endless run to get back to the result screen, then take 다음 스테이지
+    await page.evaluate(() => { const v = __v4; v.w.hearts = 0; v.tick(v.w); });
+    await page.waitForSelector('.center.lost');
+    await page.locator('.center.lost .big', { hasText: '다음 스테이지' }).tap();
     await page.waitForFunction(() => globalThis.__v4?.w.stage === 1);
     check('다음 스테이지 starts stage 2', await page.evaluate(() => __v4.w.seasons.map(s => s.name).join() === '여름,가을'));
     await page.locator('button.pause').tap();
