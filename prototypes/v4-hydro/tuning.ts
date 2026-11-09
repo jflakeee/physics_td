@@ -16,8 +16,10 @@ export const T = {
   demand: 2.4, demandGrow: 0.025, coinPerSec: 2,
   /** Seconds of blackout before a heart is lost. */
   blackoutSeconds: 8,
-  /** Water in the village cells that costs a heart (then it is pumped out). */
-  villageFloodLimit: 6,
+  /** Water in the village cells that costs a heart; at most one flood heart per cooldown. */
+  villageFloodLimit: 6, floodCooldownSeconds: 12,
+  /** Villagers pump flood water out of each village cell per tick (it leaves the board). */
+  villagePump: 0.00005,
   hearts: 3,
   startCoins: 80,
   cost: { wheel: 60, reservoir: 70, wall: 40 },

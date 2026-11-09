@@ -19,6 +19,13 @@
   sprites at the same pixel size, no emoji. Frame cost in Chromium (render + sim, 390×664 @2×):
   1× CPU p50 0.8 ms / p95 2.0 ms; 4× CPU throttle p50 3.1 ms / p95 8.3 ms. The art is repainted
   only after a sim tick (30/s) or while something animates.
+- **Play feedback (2026-11-09):** "the village floods with no water coming in" and "building a
+  wheel makes the water vanish" were both water that existed but was not drawn: rapids run
+  0.01–0.08 deep (below the old 0.04 draw threshold) and overflow crosses the banks as a thin
+  sheet; the village also deleted its flood water the moment it lost a heart. Now thin water is
+  drawn as a dithered film, fast water gets moving foam, flood water stays and is pumped out
+  slowly (one flood heart per 12 s), and a red arrow marks where it came in. Regression tests:
+  `tests/unit/v4-hydro/visible_water_test.ts` (fail on the old code, pass now).
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites.
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

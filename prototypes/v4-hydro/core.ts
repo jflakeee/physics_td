@@ -61,6 +61,10 @@ export interface HydroWorld {
   sandbags: Map<number, number>;
   cards: CardId[];
   events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice'; cells: number[] } | null };
+  /** Ticks before the next flood heart can be lost. */
+  floodCooldown: number;
+  /** Village edge cell where the last flood came in (−1 = none), for the arrow on screen. */
+  floodFrom: number;
 }
 
 /** New game. One wheel is already turning at the first rapid. */
@@ -79,7 +83,7 @@ export function createHydro(seed = 1): HydroWorld {
     xp: 0, level: 1, coins: T.startCoins, hearts: T.hearts,
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
     skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0 }, spiritTimer: { sand: 0, ice: 0 },
-    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null },
+    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null }, floodCooldown: 0, floodFrom: -1,
   };
   // start with a little water in the river so the first wheel turns at once
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (channel[at(x, y)]) g.w[at(x, y)] = 0.25;
@@ -225,13 +229,21 @@ export function tick(w: HydroWorld): void {
     else if (++w.blackout >= T.blackoutSeconds) { w.blackout = 0; loseHeart(w, 'blackout'); }
     w.secPower = 0;
   }
-  let flood = 0;
-  for (let i = 0; i < W * H; i++) if (w.village[i]) flood += g.w[i];
-  if (flood > T.villageFloodLimit) {
-    // the village pumps itself dry (water leaves the board) and loses a heart
-    for (let i = 0; i < W * H; i++) if (w.village[i]) { w.drained += g.w[i]; g.w[i] = 0; }
-    loseHeart(w, 'flood');
+  // the village: flood water stays (you can see the houses standing in it) and the villagers pump
+  // it out slowly (water leaves the board). Too much water costs a heart, at most one per cooldown.
+  let flood = 0, entry = -1, entryW = 0;
+  for (let i = 0; i < W * H; i++) {
+    if (!w.village[i]) continue;
+    flood += g.w[i];
+    if (g.w[i] > entryW && (!w.village[i - 1] || !w.village[i + 1] || !w.village[i - W] || !w.village[i + W])) { entryW = g.w[i]; entry = i; }
   }
+  if (w.floodCooldown > 0) w.floodCooldown--;
+  if (flood > T.villageFloodLimit && w.floodCooldown === 0) {
+    loseHeart(w, 'flood');
+    w.floodCooldown = T.floodCooldownSeconds * T.tps;
+    w.floodFrom = entry;
+  }
+  for (let i = 0; i < W * H; i++) if (w.village[i] && g.w[i] > 0) { const d = Math.min(g.w[i], T.villagePump); g.w[i] -= d; w.drained += d; }
   w.tick++;
   if (w.hearts <= 0) { w.phase = 'lost'; return; }
   if (seconds(w) >= totalSeconds) { w.phase = 'won'; return; }

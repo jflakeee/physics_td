@@ -93,6 +93,20 @@ try {
     await page.screenshot({ path: `${OUT}/v4-forecast-${name}-${DATE}.png` });
     await page.close();
   }
+  // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; for (const s of [0, 2, 3, 4]) v.placeBuilding(v.w, s, 'wheel'); v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/v4-rapids-${DATE}.png` });
+    const flooded = await page.evaluate(() => { const v = __v4; for (let k = 0; k < 30 * 240 && v.w.floodCooldown === 0 && v.w.phase !== 'won' && v.w.phase !== 'lost'; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } return v.w.floodCooldown > 0 && v.w.floodFrom >= 0; });
+    check('a wheels-only game floods the village and marks where the water came in', flooded);
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: `${OUT}/v4-village-flood-${DATE}.png` });
+    await page.close();
+  }
   // a whole game with nothing built ends in defeat with the end screen
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });

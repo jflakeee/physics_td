@@ -164,11 +164,12 @@ function showPlay(): void {
     needDraw = false;
     // repaint the ground only when it changes (building, spirits, a sandbag expiring)
     if (terrainDirty || w.sandbags.size !== shownBags) { paintTerrain(art, w); terrainDirty = false; shownBags = w.sandbags.size; }
-    paintWater(art, w);
+    paintWater(art, w, reduced ? 0 : Math.floor(w.tick / 2));
     for (let k = flashes.length - 1; k >= 0; k--) if (frame > flashes[k].until) flashes.splice(k, 1);
     paintSprites(art, w, {
       mode, rec, canBuild: s => (mode ? canBuild(w, s, mode) : false), frame, reduced,
       lit: w.lastSecPower >= demand(w) || w.tick < T.tps, flashes,
+      floodArrow: w.floodCooldown > 0 ? w.floodFrom : -1,
     });
     ctx.putImageData(frameImg, 0, 0);
   };
@@ -276,6 +277,7 @@ function showPlay(): void {
       if (want === 'ready') showReady(); else if (want === 'level') showLevel(); else if (want === 'end') showEnd();
       else if (want === '') clearOverlay();
     }
+    if (w.phase !== 'ready' && startBtn.isConnected) startBtn.remove();
     hud(); draw(frame++);
     raf = requestAnimationFrame(loop);
   };
