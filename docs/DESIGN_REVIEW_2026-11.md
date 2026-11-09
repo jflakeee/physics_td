@@ -78,12 +78,55 @@
 |---|---|---|---|---|
 | **Creeper World 3/4** (Knuckle Cracker) | 에미터에서 일정 주기·양으로 분출되는 유체가 지형 높이를 따라 확산 (CW4는 속도·파도까지) | 무기로 유체 **소멸**, 지형 굴착/성토(Terp), 에너지 네트워크, 공세(에미터 제거) | ① **높이맵 + 수원 리듬**이 장르의 핵심. ② 방어만이 아니라 **"수원 무력화" 공세 목표**로 승리 조건 다양화. ③ 리뷰: 아이디어 독창성·"유체와 싸우는 쾌감" 호평 / CW4는 "그래픽만 진화, 게임플레이 반복" 비판 | [PC Gamer](https://www.pcgamer.com/fighting-massive-waves-of-goo-in-creeper-world-4-is-oddly-blissful), [Steam 토론](https://steamcommunity.com/app/848480/discussions/0/2970645580591438675), [KC 포럼 UI 불만 44개](https://knucklecracker.com/forums/index.php?msg=195407), [Superjump 인터뷰](https://www.superjumpmagazine.com/crafting-creeper-world-an-interview-with-knuckle-cracker/) |
 | **Timberborn** | 수원·가뭄·배드타이드(오염수) 계절 사이클 | 댐(0.65 높이까지 차단, 넘치면 월류), 제방(Levee, 월류 없음), 수문, 저수탱크 | ① **"막기"를 단계화**: 월류형 댐 vs 완전 차단 제방(비쌈). ② 위협이 계절처럼 **예고되고 반복** → 대비의 재미. ③ 불만: "가뭄/배드타이드 후 회복이 너무 어려움", "두 댐 사이 진동 홍수" 등 물리 이상현상 | [Feature Upvote](https://timberborn.featureupvote.com/suggestions/508061/droughtsbadtides-are-too-hard-to-recover-from), [Steam 토론](https://steamcommunity.com/app/1062090/discussions/0/4129305318299062838), [위키 Drought](https://timberborn.wiki.gg/wiki/Drought) |
-| **Water TD** (Managagrau, 2026-11-13 출시 예정) | 수십만 개 물방울이 **경사를 따라 흘러내리며** 틈을 찾고 지형을 침식 | 강둑 포탑: 화염(증발), 얼음벽, 번개, **물을 되밀기** | 본 프로젝트와 컨셉이 가장 가깝다(설계문서가 언급한 벤치마크). 차별화 필요: 우리는 **모바일/웹·탑뷰·격자 퍼즐형**. 얼음벽·되밀기·증발은 현재 냉각탑/펌프와 대응 | [Steam](https://store.steampowered.com/app/5295330/Water_TD/), [SteamDB](https://steamdb.info/app/5295330/), [데모](https://steamdb.info/app/5496720/), [YouTube 플레이](https://www.youtube.com/watch?v=LeGt_pmyAR8) |
+| **Water TD** (Managagrau, 2026-11-13 출시 예정) | 수십만 개 물방울이 **경사를 따라 흘러내리며** 틈을 찾고 지형을 침식 | 강둑 포탑: 화염(증발), 얼음벽, 번개, **물을 되밀기** | 본 프로젝트와 컨셉이 가장 가깝다(설계문서가 언급한 벤치마크). 차별화 필요: 우리는 **모바일/웹·탑뷰·격자 퍼즐형**. 얼음벽·되밀기·증발은 현재 냉각탑/펌프와 대응. **상세: 2.1a (2026-11-09 보강)** | [Steam](https://store.steampowered.com/app/5295330/Water_TD/), [SteamDB](https://steamdb.info/app/5295330/), [데모](https://steamdb.info/app/5496720/), [YouTube 플레이](https://www.youtube.com/watch?v=LeGt_pmyAR8) |
 | **Floodland** | 기후 홍수 이후 생존 도시 건설 | 자원·정화 | 홍수는 **배경**일 뿐 메커닉이 약하다는 평 → "홍수 자체가 플레이"여야 함. Steam Mixed(약 56%) | [Prima](https://primagames.com/reviews/floodland-review-pc), [SteamPulse](https://steampulse.org/game/1336180) |
 | **Emberward** | 일반 적, 테트로미노 벽으로 미로 건설 | 미로 + 타워 | **블록 형태 제한된 벽 배치**가 퍼즐성을 만든다(96% 긍정). 불만: 맵 다양성·리플레이성 부족 | [Emberward 요약](https://vaporlens.app/app/2459550/emberward) |
 | **Thronefall** | 낮 건설 / 밤 방어 | 소수 건물 + 영웅 | 미니멀·짧은 세션이 모바일과 궁합(96% 긍정, 2.2만 리뷰). 단 "지나치게 미니멀" 비판 | [StartMenu 리뷰](https://www.startmenu.co.uk/home/review-thronefall), [OpenCritic](https://opencritic.com/game/15319/thronefall/reviews) |
 | **Bloons TD 6 / Kingdom Rush** | 고정 경로 다수 적 | 타워 업그레이드 트리 | 장수 비결은 **콘텐츠 주기·업그레이드 조합**. 공통 불만: 반복성, 타워 밸런스 | [BTD6 요약](https://vaporlens.app/app/960090/bloons_td_6), [KR Vengeance](https://vaporlens.app/app/1367550/kingdom_rush_vengeance_tower_defense/stats/analysis) |
 | **Levee Patroller / Flood Resilience Challenge** (시리어스 게임) | 제방 점검·홍수 위험 관리 | 이상 징후 발견·보고, 대책 선택 | 실제 제방 실패 유형(누수·파이핑·월류·사면붕괴)을 **게임 이벤트로 차용** 가능. "재미-학습-사실성" 트레이드오프 | [Serious Games Society](https://seriousgamessociety.org/2016/09/22/levee-patroller-an-sg-on-safety-designed-at-delft-univ-of-technology/), [York CIFAL](https://www.yorku.ca/cifal/?p=2464) |
+
+### 2.1a Water TD 상세 (보강 2026-11-09)
+
+> 출처 수준: **검색 결과 요약(2차)**. 이 세션에서 `store.steampowered.com`, `steamdb.info`, `trynextgame.com`, `gamedata.wtf`, `itch.io`는 네트워크 정책으로 직접 열리지 않았다. 출시 전(2026-11-13 예정)이라 **사용자 리뷰·평론은 아직 없다**(Metacritic 평론 0, Steam 리뷰 0).
+
+**기본 정보**
+| 항목 | 내용 | 확인 상태 |
+|---|---|---|
+| 개발·배급 | Managagrau (1인/소규모로 보임, 이전 작품 정보 없음) | 여러 출처 일치 |
+| 출시 | 2026-11-13 (Steam·SteamDB·GameFAQs·ReadyGame). GameData.wtf는 2026-10-09·무료로 표기 | **불일치** — Steam 표기를 우선 |
+| 플랫폼 | PC(Steam)만 | 일치 |
+| 가격 | 미확인 (한 집계 사이트만 "무료") | 미확인 |
+| 데모 | Steam 데모 앱(5496720) 존재, 공개 여부는 출처마다 다름 | 불확실 |
+| Steam 태그 | Strategy, Simulation, Tower Defense, **Physics**, Pixel Graphics, 2D, Real Time Tactics, **Top-Down**, Indie, Singleplayer, Atmospheric, Sci-fi | 검색 요약 기준 |
+
+**메커닉 (상점 설명 요약)**
+| 요소 | 내용 | 본 프로젝트와 대응 |
+|---|---|---|
+| 적 | **실제 홍수**: 물이 경사를 따라 내려오며 틈을 찾는다. 적 유닛이 아니라 물 자체가 위협 | 같음 (3장 물리, 위협 = 현상) |
+| 지형 침식 | 흐르는 물이 강둑을 깎아 **물길이 넓어지고 섬이 줄어든다**. 무너지는 강둑 위 포탑은 함께 무너진다 | **없음** — 우리는 지면 높이 고정(스킬로만 변경). 확장 후보 |
+| 방어 | 강둑에 짓는 **포탑 7종**: 쏘기·태우기(증발)·전기·레이저·**바람으로 되밀기**·**블랙홀로 삼키기**. **포탑마다 빌드 2종** | 우리는 배치형 포탑 대신 **구역 스킬**(제방·결빙·습지 등). 되밀기 ≈ 확장 "물길 돌리기", 삼키기 ≈ 펌프/습지 흡수 |
+| 비상 능력 | **4종**: 화염구, **얼음벽**, 번개, **홍수를 되돌려 보내기** | 얼음벽 ≈ 긴급 결빙(얼음 벽, Story 001/003 결정과 같은 방향) |
+| 업그레이드 | 90개 이상(Steam) / 170개 이상(TryNextGame) | 우리는 판 안 레벨업 카드(교차·융합·희귀도) |
+| 시점·표현 | 탑다운 2D 픽셀 | 우리도 탑뷰 2D — **시각적으로 가장 가까운 경쟁작** |
+
+**같은 이름의 다른 게임 주의**: itch.io의 *Water TD* (ilia19945)는 별개 작품이다(물 시뮬레이션 + 침식, 포탑 8종 × 빌드 2, 능력 6종, 맵 11장, 1:1 모드, 스킬 트리, 맵 에디터). Steam판과 섞어 인용하지 말 것.
+
+**차별화 점검 (본 프로젝트 v2 기준)**
+| 축 | Water TD | Physics TD v2 | 판단 |
+|---|---|---|---|
+| 플랫폼·세션 | PC, 길이 미상 | 모바일 웹, 5~7분 | 차별점 유지 |
+| 조작 | 포탑 배치 + 능력 | **배치 없음**, 구역 탭 스킬 | 차별점 (터치에 맞춤) |
+| 물리 | 대량 입자 + **침식** | 격자 유체(질량 보존·결정성) + **얼음·빙하호 붕괴** | 침식은 그쪽 강점, 빙하호·결정적 리플레이는 우리 강점 |
+| 대응 수단 | 파괴·증발 위주(쏘기·태우기·레이저) | 막기·흘려보내기·머금기(제방·범람원·습지) — 성향 축·엔딩과 연결 | **철학/공존 테마**가 가장 큰 차별점 |
+| 메타 | 업그레이드 90~170 | 교차 스킬 드래프트·융합·엔딩 4종·세계 지도·기억 조각 | 서사·성장 구조로 차별 |
+
+**시사점**
+1. 컨셉·시점이 겹치므로 상점 문구·스크린샷에서 **"막는 게 아니라 물과 사는 법을 고른다"**(성향·엔딩)를 앞세울 것.
+2. 침식은 장르 기대치가 될 수 있다 → 확장 지역 "산사태"(토사 = 유체)에서 **지형 변화**로 대응하는 기존 로드맵(STORY_WORLD_EXPANSION §3.2)을 유지.
+3. "얼음벽" "되밀기"는 겹치는 아이디어 → 우리는 얼음을 **빙하호(위협이자 자원)**로 확장해 차별화한 현재 방향이 맞다.
+4. 출시(11-13) 후 리뷰가 쌓이면 불만 패턴(물리 성능, 난이도, 반복성)을 다시 수집할 것 — 위 도메인 허용 필요.
+
+출처: [Steam 상점](https://store.steampowered.com/app/5295330/Water_TD/) · [SteamDB](https://steamdb.info/app/5295330/) · [SteamDB 데모](https://steamdb.info/app/5496720/) · [Metacritic](https://www.metacritic.com/game/water-td/) · [GameFAQs](https://gamefaqs.gamespot.com/pc/718033-water-td) · [ReadyGame](https://readygame.com/game/water-td) · [TryNextGame](https://trynextgame.com/index.php?game=5295330&lang=en) · [GameData.wtf](https://gamedata.wtf/5295330.html) · [YouTube 플레이 1](https://www.youtube.com/watch?v=LeGt_pmyAR8) · [YouTube 플레이 2](https://www.youtube.com/watch?v=Q5pHbMzNVWc) · [itch.io 동명 별개작](https://ilia19945.itch.io/water-td) (모두 검색 요약 기준, 2026-11-09)
 
 ### 2.2 장르에서 반복되는 성공 요인
 1. **보드 가독성**: 한눈에 위협·흐름·위험도를 읽을 수 있어야 한다(Defender's Quest 개발자 원칙으로 자주 인용) [외부, [Hive 가이드](https://www.hiveworkshop.com/threads/how-to-improve-your-tower-defense.146477/)].
