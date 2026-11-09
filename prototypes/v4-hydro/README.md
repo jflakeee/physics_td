@@ -26,6 +26,15 @@
   drawn as a dithered film, fast water gets moving foam, flood water stays and is pumped out
   slowly (one flood heart per 12 s), and a red arrow marks where it came in. Regression tests:
   `tests/unit/v4-hydro/visible_water_test.ts` (fail on the old code, pass now).
+- **No build menu (2026-11-09):** the build button and the wheel / reservoir / wall cards are gone.
+  Each spot on the map has one building (river → wheel, bank by a bend → reservoir, bank by the
+  village or a wheel → wall); tap a circle to build. Dim circles are spots you cannot pay for
+  yet; the star is the spot that helps most over the next 3 s, compared with building nothing
+  (look-ahead, one site per frame in the background). The bottom bar only holds 시작 and goes
+  away when the game starts, so the board grows.
+- **Seasons on the map:** spring (light green, flowers, blossom trees) → summer (deep green, green
+  trees); autumn and winter palettes are ready for when those seasons are added. The change
+  dithers in over the last 8 s of a season; trees switch one by one.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites.
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

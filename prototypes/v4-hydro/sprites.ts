@@ -22,6 +22,8 @@ export const PALETTE: Record<string, [number, number, number]> = {
   'd': [230, 201, 138], // sand
   'e': [242, 140, 56],  // orange
   'f': [29, 75, 143],   // deep blue
+  'g': [236, 128, 170], // blossom pink
+  'h': [255, 212, 228], // blossom light
 };
 
 export interface Sprite { w: number; h: number; px: Uint8Array /* palette code, 0 = transparent */ }
@@ -77,6 +79,34 @@ const house = make([
   '.0661166660.',
   '.0000000000.',
 ]);
+/** Build-spot marker, 11×11: a ring with a dark outline (and a plus when you can build). Rasterised once. */
+function ring(fill: string, plus: boolean): Sprite {
+  const n = 11, c = 5, px = new Uint8Array(n * n), F = codeOf(fill), O = codeOf('0');
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = x - c, dy = y - c, r = Math.hypot(dx, dy);
+    let v = 0;
+    if (r >= 4.4 && r < 5.5) v = O;
+    else if (r >= 3.3 && r < 4.4) v = F;
+    else if (r >= 2.6 && r < 3.3) v = O;
+    if (plus && ((dx === 0 && Math.abs(dy) <= 1) || (dy === 0 && Math.abs(dx) <= 1))) v = F;
+    px[y * n + x] = v;
+  }
+  return { w: n, h: n, px };
+}
+const tree = make([
+  '....0000....',
+  '..00bbbb00..',
+  '.0bbbbbbbb0.',
+  '0bbcbbbbcbb0',
+  '0bbbbbbbbbb0',
+  '0bcbbbbbbcb0',
+  '.0bbbbcbbb0.',
+  '..00bbbb00..',
+  '....0110....',
+  '....0110....',
+  '....0110....',
+  '...001100...',
+]);
 const heart = make([
   '.00...00.',
   '0770.0770',
@@ -90,6 +120,27 @@ const heart = make([
 ]);
 
 export const SPRITES = {
+  /** Trees by season: spring blossom, summer green, autumn leaves, winter bare with snow. */
+  trees: [
+    recolor(tree, { b: 'h', c: 'g' }),
+    tree,
+    recolor(tree, { b: 'e', c: '7' }),
+    make([
+      '...6....6...',
+      '..060..060..',
+      '...0.00.0...',
+      '.6..0000..6.',
+      '.06..00..06.',
+      '..0..00..0..',
+      '...0.00.0...',
+      '....0000....',
+      '....0110....',
+      '....0110....',
+      '....0110....',
+      '...001100...',
+    ]),
+  ],
+  siteWait: ring('4', false),
   wheel: [0, 1, 2, 3].map(k => wheel((k * Math.PI) / 16)),
   wheelBroken: wheel(0.3, true),
   house,
@@ -155,17 +206,7 @@ export const SPRITES = {
     '070...070',
     '00.....00',
   ]),
-  site: make([
-    '..6.6.6..',
-    '.........',
-    '6...6...6',
-    '....6....',
-    '6.66666.6',
-    '....6....',
-    '6...6...6',
-    '.........',
-    '..6.6.6..',
-  ]),
+  site: ring('6', true),
   star: make([
     '....0....',
     '...080...',
@@ -334,7 +375,7 @@ export const SPRITES = {
   ]),
 } as const;
 
-export type SpriteName = Exclude<keyof typeof SPRITES, 'wheel'> | 'wheel0';
+export type SpriteName = Exclude<keyof typeof SPRITES, 'wheel' | 'trees'> | 'wheel0';
 /** Look up a sprite by name (`wheel0` = first wheel frame). */
 export function sprite(name: SpriteName): Sprite {
   return name === 'wheel0' ? SPRITES.wheel[0] : SPRITES[name];

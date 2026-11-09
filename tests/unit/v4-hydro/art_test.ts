@@ -48,9 +48,10 @@ test('rendering_is_deterministic', () => {
 test('sprites_blit_opaque_pixels_only', () => {
   const a = createArt();
   a.rgba.fill(7);
-  blit(a.rgba, SPRITES.site, 0, 0);
+  blit(a.rgba, SPRITES.heart, 0, 0);
   assert.equal(a.rgba[0], 7, 'transparent corner stays');
-  const o = (0 * AW + 2) * 4; // '6' at (2,0)
-  assert.deepEqual([...a.rgba.slice(o, o + 3)], [246, 243, 232]);
+  const o = (1 * AW + 1) * 4; // '7' (red) at (1,1)
+  assert.deepEqual([...a.rgba.slice(o, o + 3)], [217, 72, 59]);
+  assert.equal(SPRITES.site.w, 11);
   for (const s of [SPRITES.house, ...SPRITES.wheel]) assert.equal(s.px.length, s.w * s.h);
 });
