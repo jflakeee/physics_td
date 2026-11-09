@@ -268,6 +268,26 @@
 
 ---
 
+### 11.1 프로토타입 1차 (2026-11-09)
+
+- 코드: `prototypes/v3-kids/` (규칙 `core.ts`, 수치 `tuning.ts`, 화면 `main.ts`). 유체는 v2 `src/sim/fluid.ts` 그대로.
+- 빌드: `npm run build` → `dist/v3/` (Pages 병합 후 `/physics_td/v3/`). `?char=keeper|mole`, `?dev=1`.
+- 범위: 작은 개울 1맵, 웨이브 3개, 둑지기(벽·모래·큰 울타리), 두더지 로봇(물길·저수지·대운하), 강화 카드 2장.
+- 검증: 단위 테스트 8개(`tests/unit/v3-kids/`, 물 보존 1e-9 이내 포함), e2e(`tests/e2e/v3-kids.e2e.mjs`: 버튼 3개 ≥72px, 상단에 숫자 없음, 끌어서 벽 세우기, 웨이브 진행, 강화 카드, 패배 시 무너진 곳 표시). 스크린샷 `production/qa/evidence/v3-*-2026-11-09.png`.
+- 봇 관찰(`node prototypes/v3-kids/calibrate.ts`):
+
+| 전략 | 결과 | 울타리 |
+|---|---|---|
+| 아무것도 안 함 | 웨이브 3에서 패배 | 0.15 |
+| 둑지기: 가로 벽 3번 + 모래 | 승리 ★2 | 0.67 |
+| 둑지기: 벽 1번 + 필살기 | 승리 ★2 | 0.62 |
+| 둑지기: 모래만 | 웨이브 3에서 패배 | 0.15 |
+| 두더지: 가로 물길 + 저수지 | 승리 ★1 | 0.37 |
+| 두더지: 저수지만 | 승리 ★1 (마을 일부 젖음) | 0.17 |
+
+- 해석: 웨이브 1–2는 아무것도 안 해도 버틴다(첫 성공 경험). 두더지 로봇이 둑지기보다 약하다 — 오른쪽 언덕이 가로 물길을 막는다. 플레이테스트 전에 언덕 위치나 물길 깊이를 조정할 후보.
+- 아직 없음: 소리, 얼리기(서리 마법사), 맵 2–6, 튜토리얼 손가락 그림.
+
 ## 출처
 
 - [GDC 2012: 10 tutorial tips from Plants vs. Zombies creator George Fan](https://www.gamedeveloper.com/design/gdc-2012-10-tutorial-tips-from-i-plants-vs-zombies-i-creator-george-fan)
