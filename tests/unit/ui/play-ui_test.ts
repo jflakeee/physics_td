@@ -17,6 +17,8 @@ import { expireToasts, pushToast, TOAST_MAX, TOAST_MS } from '../../../src/ui/wi
 import { createT } from '../../../src/ui/i18n.ts';
 import { fitBoard } from '../../../src/render/canvas.ts';
 import { villagerMood } from '../../../src/render/board.ts';
+import { SINK, markSinks, waterColor } from '../../../src/render/waterLayer.ts';
+import { ZT } from '../../../src/core/types.ts';
 import type { SkillView } from '../../../src/input/targeting.ts';
 
 // type-only skill views (targeting is tested without the rules layer here)
@@ -225,4 +227,26 @@ test('B1: villager mood follows the base water ratio', () => {
   assert.equal(villagerMood(0.49, false), 'calm');
   assert.equal(villagerMood(0.5, false), 'uneasy');
   assert.equal(villagerMood(1, true), 'alarmed');
+});
+
+test('B3: water being pumped or soaked up is tinted; still water is not', () => {
+  const m = loadMap(MAP);
+  const L = { sink: new Uint8Array(64 * 96) };
+  m.world.pumps[0].on = true;
+  markSinks(L.sink, m.world);
+  assert.equal(L.sink[m.world.pumps[0].cell], SINK.pump);
+  assert.equal(L.sink[0], SINK.none);
+  m.world.mods.absorbMul = 1;
+  const wet = 10 * 64 + 10;
+  m.world.grid.ztype[wet] = ZT.wetland;
+  markSinks(L.sink, m.world);
+  assert.equal(L.sink[wet], SINK.soak);
+  const plain = [0, 0, 0, 0], pumped = [0, 0, 0, 0];
+  waterColor(0.2, 0, false, plain);
+  waterColor(0.2, 0, false, pumped, SINK.pump);
+  const dist = Math.hypot(pumped[0] - plain[0], pumped[1] - plain[1], pumped[2] - plain[2]);
+  assert.ok(dist >= 60, `pumped water is visibly teal (distance ${dist.toFixed(0)})`);
+  const dry = [0, 0, 0, 0];
+  waterColor(0, 0, false, dry, SINK.pump);
+  assert.equal(dry[3], 0, 'no tint without water');
 });

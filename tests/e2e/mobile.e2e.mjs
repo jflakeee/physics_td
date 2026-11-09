@@ -99,6 +99,13 @@ try {
     check('start button starts the wave', (await S(() => __ptd.play.phase)) === 'wave');
     await page.waitForTimeout(1500);
     await shot('4-wave');
+    if (name === 'iphone-13') {
+      // B3: water around a running pump is tinted teal while it drains
+      await S(() => { const w = __ptd.play.world, p = w.pumps[0]; p.on = true; const W = 64, cx = p.cell % W, cy = (p.cell / W) | 0;
+        for (let y = cy - 6; y <= cy + 6; y++) for (let x = cx - 6; x <= cx + 6; x++) w.grid.w[y * W + x] = 0.25; });
+      await page.waitForTimeout(120);
+      await page.screenshot({ path: `${OUT}/b3-pump-tint-${DATE}.png` });
+    }
     const speed = page.locator('.hbtns button').nth(2);
     await speed.tap();
     check('speed toggles to 2×', (await S(() => __ptd.play.speed)) === 2 && (await speed.textContent()) === '2×');

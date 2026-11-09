@@ -80,7 +80,7 @@ export function drawBoard(b: Board, v: BoardView): void {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(b.terrain as CanvasImageSource, 0, 0, cw, ch);
-  updateWater(b.water, g);
+  updateWater(b.water, world, Math.floor(v.time / 250));
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(b.water.canvas as CanvasImageSource, 0, 0, cw, ch);
 
