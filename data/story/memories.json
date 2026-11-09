@@ -1,0 +1,98 @@
+{
+  "recallAt": 2,
+  "philosophies": [
+    {
+      "id": "love",
+      "char": "dike-keeper",
+      "icon": "🛡",
+      "i18n": "memory.love"
+    },
+    {
+      "id": "nature",
+      "char": "wetland-researcher",
+      "icon": "🌿",
+      "i18n": "memory.nature"
+    },
+    {
+      "id": "exchange",
+      "char": "engineer",
+      "icon": "⛏",
+      "i18n": "memory.exchange"
+    },
+    {
+      "id": "lesson",
+      "char": "hydro-tech",
+      "icon": "💧",
+      "i18n": "memory.lesson"
+    }
+  ],
+  "fragments": [
+    {
+      "id": "love-river",
+      "philosophy": "love",
+      "region": "river",
+      "when": {
+        "char": "dike-keeper",
+        "noDamage": true
+      }
+    },
+    {
+      "id": "nature-river",
+      "philosophy": "nature",
+      "region": "river",
+      "when": {
+        "ecologyAtLeast": 120
+      }
+    },
+    {
+      "id": "exchange-river",
+      "philosophy": "exchange",
+      "region": "river",
+      "when": {
+        "openedField": true
+      }
+    },
+    {
+      "id": "lesson-river",
+      "philosophy": "lesson",
+      "region": "river",
+      "when": {
+        "retried": true
+      }
+    },
+    {
+      "id": "love-glacier",
+      "philosophy": "love",
+      "region": "glacier",
+      "when": {
+        "char": "dike-keeper",
+        "burstWaveClean": true
+      }
+    },
+    {
+      "id": "nature-glacier",
+      "philosophy": "nature",
+      "region": "glacier",
+      "when": {
+        "char": "wetland-researcher",
+        "ecologyAtLeast": 110
+      }
+    },
+    {
+      "id": "exchange-glacier",
+      "philosophy": "exchange",
+      "region": "glacier",
+      "when": {
+        "lakeHeld": true
+      }
+    },
+    {
+      "id": "lesson-glacier",
+      "philosophy": "lesson",
+      "region": "glacier",
+      "when": {
+        "retried": true
+      }
+    }
+  ]
+}

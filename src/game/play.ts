@@ -83,6 +83,8 @@ export interface Play {
   draft: DraftState | null;
   fusions: readonly FusionDef[];
   seed: number;
+  /** Run facts for the story layer (memory fragments). */
+  story: { damage: number; burstWaves: number[]; burstWaveClean: boolean };
 }
 
 export const TICK_MS = 1000 / 30;
@@ -118,6 +120,7 @@ export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
     map, world: map.world, phase: 'prepare', paused: false, speed: 1, waves: opt.waves ?? map.data.waves ?? 5, level: 1,
     queue: [], events: [], acc: 0, damaging: false, rules: null, checkpoint: null, retries: 0,
     score: null, draft: null, fusions: opt.fusions ?? [], seed: opt.seed ?? 1,
+    story: { damage: 0, burstWaves: [], burstWaveClean: false },
     skill: opt.skill ?? ((pp, id, zone) => { pp.events.push({ t: 'skill', id, zone }); return null; }),
   };
   if (opt.rules) {
@@ -213,7 +216,11 @@ export function tick(p: Play): void {
   if (p.phase !== 'wave' || p.paused) return;
   const r = stepSim(p.world);
   const w = p.world;
-  if (p.map.lakes.length) tickLakes(w, p.map.lakes, p.events as LakeEvent[]);
+  if (p.map.lakes.length) {
+    const n = p.events.length;
+    tickLakes(w, p.map.lakes, p.events as LakeEvent[]);
+    for (let k = n; k < p.events.length; k++) if (p.events[k].t === 'lakeBurst' && !p.story.burstWaves.includes(w.wave)) p.story.burstWaves.push(w.wave);
+  }
   const last = w.wave >= p.waves;
   if (p.rules) {
     rulesTick(p.rules);
@@ -227,6 +234,8 @@ export function tick(p: Play): void {
   if (r === 'defeat') { p.phase = 'defeat'; p.events.push({ t: 'defeat' }); }
   else if (r === 'waveEnd') {
     p.events.push({ t: 'waveEnd', wave: w.wave });
+    p.story.damage += w.metrics.waveDamage;
+    if (p.story.burstWaves.includes(w.wave) && w.metrics.waveDamage === 0) p.story.burstWaveClean = true;
     if (p.rules) p.events.push({ t: 'income', amount: rulesWaveEnd(p.rules) });
     if (p.score && p.rules) levelEvents(p, scoreWaveEnd(p.score, w, p.rules.eco, last), last);
     if (last) { p.phase = 'result'; p.events.push({ t: 'result' }); } else { p.phase = 'prepare'; nextDraft(p); }

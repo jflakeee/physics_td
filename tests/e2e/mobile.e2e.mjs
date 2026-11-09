@@ -153,7 +153,7 @@ try {
 
     // map select on a first run: "여기부터" on 둑마을
     const ms = await browser.newPage({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
-    await ms.goto(BASE);
+    await ms.goto(BASE + '&screen=maps');
     await ms.waitForSelector('.map-card');
     check('map select lists 4 maps', (await ms.locator('.map-card').count()) === 4);
     check('first run: 여기부터 badge on 둑마을', (await ms.locator('.map-card[data-map="dike-village"] .badge.here').count()) === 1 && (await ms.locator('.badge.here').count()) === 1);
@@ -168,7 +168,7 @@ try {
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     const page = await ctx.newPage();
-    await page.goto(BASE);
+    await page.goto(BASE + '&screen=maps');
     await page.locator('.map-card[data-map="dike-village"]').tap();
     await page.waitForSelector('.bubble:not([hidden])');
     check('tutorial step 1 shows on the first play', (await page.locator('.bubble p').textContent()).includes('네 방향'));
@@ -207,7 +207,7 @@ try {
     while ((await S(() => __ptd.play.phase)) === 'levelup') await page.locator('.levelup .skip').tap();
     await page.waitForTimeout(100);
     check('a run snapshot is saved at prepare entry', await S(() => !!__ptd.store.load().run && __ptd.store.load().run.wave === 1));
-    await page.goto(BASE);
+    await page.goto(BASE + '&screen=maps');
     await page.waitForSelector('.map-select .resume');
     check('map select offers 이어하기', (await page.locator('.resume').textContent()).includes('W2'));
     await page.screenshot({ path: `${OUT}/story-006-resume-${DATE}.png` });
@@ -241,12 +241,69 @@ try {
     const page = await ctx.newPage();
     const errs = []; page.on('pageerror', e => errs.push(e.message));
     await ctx.addInitScript(init);
-    await page.goto(BASE);
+    await page.goto(BASE + '&screen=maps');
     await page.waitForSelector('.map-card');
     check(`${label}: no crash, one notice`, errs.length === 0 && (await page.locator('.notice').count()) === 1, errs.join('|'));
     await page.locator('.map-card[data-map="dike-village"]').click();
     await page.waitForFunction(() => globalThis.__ptd?.play);
     check(`${label}: the game still starts`, await page.evaluate(() => __ptd.play.phase === 'prepare'));
+    await ctx.close();
+  }
+
+  // story 007: prologue → world map → codex, at every viewport
+  console.log('\n# world map & codex');
+  for (const [name, viewport] of VIEWPORTS) {
+    const ctx = await browser.newContext({ viewport, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const page = await ctx.newPage();
+    const errs = []; page.on('pageerror', e => errs.push(e.message));
+    await page.goto(BASE);
+    await page.waitForSelector('#app.scenes');
+    check(`${name}: first launch shows the prologue`, (await page.locator('.scene-text').textContent()).includes('강'));
+    if (name === 'iphone-13') await page.screenshot({ path: `${OUT}/story-007-prologue-${DATE}.png` });
+    for (let k = 0; k < 3; k++) await page.locator('.scene-next').tap();
+    await page.waitForSelector('#app.world');
+    const noScroll = await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth);
+    check(`${name}: world map has no scroll`, noScroll);
+    const sizes = await page.locator('.world-svg [role=button], #app.world button').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }));
+    check(`${name}: world map targets ≥ 48px`, sizes.length > 0 && sizes.every(v => v >= 48), JSON.stringify(sizes.map(Math.round)));
+    await page.locator('.world-svg [data-region="glacier"]').click();
+    check(`${name}: glacier is locked until the river is cleared`, (await page.locator('.world-status').textContent()).includes('닫혀'));
+    await page.screenshot({ path: `${OUT}/story-007-world-${name}-${DATE}.png` });
+    await page.locator('.world-svg [data-region="river"]').click();
+    await page.waitForSelector('.map-card');
+    check(`${name}: river opens its map list`, (await page.locator('.map-card').count()) === 2);
+    check(`${name}: no page errors`, errs.length === 0, errs.join('|'));
+    await ctx.close();
+  }
+  {
+    // a player who cleared the river: homestead grows, glacier opens (with its scene), memories + recall
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ctx.addInitScript(() => {
+      localStorage.setItem('physics-td:v2', JSON.stringify({ v: 1, progress: {
+        maps: { 'dike-village': { stars: 2, best: 1800, clearedBy: ['dike-keeper'], ending: 'dike-keeper' }, 'willow-fields': { stars: 1, best: 1500, clearedBy: ['wetland-researcher'], ending: 'wetland-researcher+safety' } },
+        endings: ['dike-keeper', 'wetland-researcher+safety'], fusions: ['green-levee'], lastChar: 'dike-keeper', tutorial: 7,
+        memories: ['love-river', 'love-glacier', 'nature-river'], seen: ['prologue'] }, settings: {} }));
+    });
+    const page = await ctx.newPage();
+    await page.goto(BASE);
+    await page.waitForSelector('#app.scenes');
+    check('clearing the river plays the glacier unlock scene', (await page.locator('.scene-text').textContent()).includes('얼음'));
+    for (let k = 0; k < 2; k++) await page.locator('.scene-next').tap();
+    await page.waitForSelector('#app.world');
+    check('homestead shows 3 cells (home + 2 cleared maps)', (await page.locator('.world-svg .home-cell').count()) === 2 && (await page.locator('.world-head .count').textContent()).includes('3'));
+    await page.locator('.world-svg .home-cell').first().click();
+    check('a homestead cell shows its record', (await page.locator('.world-status').textContent()).includes('버틴 자들'));
+    await page.screenshot({ path: `${OUT}/story-007-world-unlocked-${DATE}.png` });
+    await page.locator('.world-svg [data-region="glacier"]').click();
+    await page.waitForSelector('.map-card');
+    check('glacier maps are playable', (await page.locator('.map-card').count()) === 2);
+    await page.goto(BASE + '&screen=codex&tab=memories');
+    await page.waitForSelector('.philosophy');
+    check('memory tab: 3 fragments known, 5 silhouettes with hints', (await page.locator('.fragment.known').count()) === 3 && (await page.locator('.fragment.unknown').count()) === 5);
+    check('recall card open for 사랑 only', (await page.locator('.recall.open').count()) === 1 && (await page.locator('.recall.open p').textContent()).includes('둑'));
+    const codexBtns = await page.locator('#app.codex button').evaluateAll(els => els.every(e => e.getBoundingClientRect().height >= 48));
+    check('codex targets ≥ 48px', codexBtns);
+    await page.screenshot({ path: `${OUT}/story-007-codex-memories-${DATE}.png`, fullPage: true });
     await ctx.close();
   }
 

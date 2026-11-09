@@ -18,6 +18,9 @@ export interface MapSelectOptions {
   resume?: { label: string; go: () => void } | null;
   /** One-time notices (save problems). */
   notices?: string[];
+  /** Only this region's maps (from the world map), with a back button. */
+  region?: string;
+  onBack?: () => void;
   onPick: (mapId: string, charId: string) => void;
 }
 
@@ -28,6 +31,11 @@ export function mountMapSelect(o: MapSelectOptions): { dispose(): void } {
   let charId = o.charId;
   const el = (tag: string, cls = '', text = '') => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
 
+  if (o.onBack) {
+    const back = el('button', 'back', t('mapSelect.back')) as HTMLButtonElement;
+    back.addEventListener('click', o.onBack);
+    root.append(back);
+  }
   root.append(el('h1', '', t('mapSelect.title')));
   if (o.notices?.length) {
     const n = el('div', 'notice');
@@ -57,7 +65,7 @@ export function mountMapSelect(o: MapSelectOptions): { dispose(): void } {
 
   const list = el('div', 'maps');
   const first = [...o.maps].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0];
-  for (const region of [...new Set(o.maps.map(m => m.region ?? 'river'))]) {
+  for (const region of [...new Set(o.maps.map(m => m.region ?? 'river'))].filter(r => !o.region || r === o.region)) {
     list.append(el('h2', 'region', t('region.' + region)));
     for (const m of o.maps.filter(x => (x.region ?? 'river') === region).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
       const card = el('button', 'map-card') as HTMLButtonElement;

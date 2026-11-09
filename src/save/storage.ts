@@ -8,7 +8,7 @@
 export const SAVE_KEY = 'physics-td:v2';
 const LEGACY_KEY = 'ptd.v2.progress';
 
-export interface MapRecord { stars: number; best: number; clearedBy: string[]; }
+export interface MapRecord { stars: number; best: number; clearedBy: string[]; /** Last ending reached here (world map record). */ ending?: string; }
 
 export interface SaveV1 {
   v: 1;
@@ -17,6 +17,10 @@ export interface SaveV1 {
     endings: string[];
     fusions: string[];
     lastChar: string | null;
+    /** Memory fragments collected (story 007). */
+    memories: string[];
+    /** Story scenes already shown (prologue, region unlocks). */
+    seen: string[];
     /** Tutorial step (7 = done). */
     tutorial: number;
   };
@@ -28,7 +32,7 @@ export interface StorageLike { getItem(k: string): string | null; setItem(k: str
 export type SaveIssue = 'memory' | 'corrupt' | 'discarded';
 
 export function defaultSave(): SaveV1 {
-  return { v: 1, progress: { maps: {}, endings: [], fusions: [], lastChar: null, tutorial: 1 }, settings: { haptics: true, sound: true, reducedMotion: 'auto' } };
+  return { v: 1, progress: { maps: {}, endings: [], fusions: [], lastChar: null, tutorial: 1, memories: [], seen: [] }, settings: { haptics: true, sound: true, reducedMotion: 'auto' } };
 }
 
 /** Bring any stored value up to the current schema. Returns null when it cannot be used. */

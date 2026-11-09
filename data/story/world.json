@@ -1,0 +1,115 @@
+{
+  "home": "river",
+  "regions": [
+    {
+      "id": "river",
+      "icon": "🏞",
+      "hex": [
+        0,
+        0
+      ],
+      "maps": [
+        "dike-village",
+        "willow-fields"
+      ],
+      "released": true
+    },
+    {
+      "id": "glacier",
+      "icon": "❄",
+      "hex": [
+        0,
+        -3
+      ],
+      "maps": [
+        "glacier-meadow",
+        "glacier-lake-valley"
+      ],
+      "released": true,
+      "unlock": {
+        "clearRegion": "river"
+      }
+    },
+    {
+      "id": "volcano",
+      "icon": "🌋",
+      "hex": [
+        -3,
+        1
+      ],
+      "released": false
+    },
+    {
+      "id": "sea",
+      "icon": "🌊",
+      "hex": [
+        3,
+        -1
+      ],
+      "released": false
+    },
+    {
+      "id": "landslide",
+      "icon": "⛰",
+      "hex": [
+        0,
+        3
+      ],
+      "released": false
+    },
+    {
+      "id": "alien",
+      "icon": "🛸",
+      "hex": [
+        -4,
+        -1
+      ],
+      "released": false,
+      "far": true
+    },
+    {
+      "id": "machine",
+      "icon": "🤖",
+      "hex": [
+        4,
+        2
+      ],
+      "released": false,
+      "far": true
+    }
+  ],
+  "homestead": [
+    [
+      0,
+      -1
+    ],
+    [
+      1,
+      -1
+    ],
+    [
+      -1,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      -1,
+      1
+    ],
+    [
+      0,
+      -2
+    ],
+    [
+      1,
+      -2
+    ]
+  ]
+}

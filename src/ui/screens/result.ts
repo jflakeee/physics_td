@@ -8,7 +8,7 @@ import type { T } from '../i18n.ts';
  */
 export interface ResultActions { again(): void; otherChar(): void; nextMap(): void; mapSelect(): void; }
 
-export function renderResult(host: HTMLElement, r: RunResult, t: T, codex: { n: number; max: number }, act: ResultActions, hasNext: boolean): void {
+export function renderResult(host: HTMLElement, r: RunResult, t: T, codex: { n: number; max: number }, act: ResultActions, hasNext: boolean, extras: string[] = []): void {
   const mk = (tag: string, cls = '', text = '') => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
   host.textContent = '';
   host.className = 'result-screen';
@@ -55,6 +55,8 @@ export function renderResult(host: HTMLElement, r: RunResult, t: T, codex: { n: 
     st.setAttribute('aria-label', t('result.stars', { n: r.stars }));
     const goal = mk('div', 'goal');
     goal.append(mk('span', 'label', t('goal.title')), mk('p', '', t(r.goal.key, r.goal.params)));
-    host.append(table, st, goal, mk('p', 'codex', t('codex.endings', codex)));
+    host.append(table, st, goal);
+    for (const x of extras) host.append(mk('p', 'memory-got', x));
+    host.append(mk('p', 'codex', t('codex.endings', codex)));
   };
 }

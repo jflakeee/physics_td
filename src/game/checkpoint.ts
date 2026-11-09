@@ -27,6 +27,7 @@ export interface Checkpoint {
   rules: Partial<RulesState> | null;
   level: number;
   score: ScoreState | null;
+  story: Play['story'];
   draft: { rng: RngState; rerollsLeft: number; sinceFusion: number; skips: number; drafted: number } | null;
 }
 
@@ -54,6 +55,7 @@ export function takeCheckpoint(p: Play): Checkpoint {
     rules: p.rules ? snapRules(p.rules) : null,
     level: p.level,
     score: p.score ? structuredClone(p.score) : null,
+    story: structuredClone(p.story),
     draft: p.draft ? { rng: p.draft.rng.state(), rerollsLeft: p.draft.rerollsLeft, sinceFusion: p.draft.sinceFusion, skips: p.draft.skips, drafted: p.draft.drafted } : null,
   };
 }
@@ -70,6 +72,7 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   if (p.rules && c.rules) { Object.assign(p.rules, structuredClone(c.rules)); p.rules.refreshMods(); }
   p.level = c.level;
   if (p.score && c.score) Object.assign(p.score, structuredClone(c.score));
+  if (c.story) p.story = structuredClone(c.story);
   if (p.draft && c.draft) { const { rng, ...rest } = c.draft; Object.assign(p.draft, rest, { rng: createRng(rng), offer: null }); }
   p.queue.length = 0; p.acc = 0; p.damaging = false;
 }

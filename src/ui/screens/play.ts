@@ -53,7 +53,9 @@ export interface PlayScreenOptions {
   /** Leave the screen: map select, the same map again, the other character, or the next map. */
   onExit?: (to: 'mapSelect' | 'restart' | 'otherChar' | 'nextMap') => void;
   /** All waves cleared: compute + record the result; returns what the result screen shows. */
-  onResult?: (play: Play) => { result: RunResult; codex: { n: number; max: number }; hasNext: boolean };
+  onResult?: (play: Play) => { result: RunResult; codex: { n: number; max: number }; hasNext: boolean; extras?: string[] };
+  /** Story line shown when a wave starts (i18n text, or null). */
+  waveLine?: (wave: number) => string | null;
   /** Persist a snapshot (prepare entry, after a draft pick, background). */
   onSave?: (play: Play) => void;
   /** Runs after the play is created and before rendering starts (resume). */
@@ -189,7 +191,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     renderResult(overlay, r.result, t, r.codex, {
       again: () => o.onExit?.('restart'), otherChar: () => o.onExit?.('otherChar'),
       nextMap: () => o.onExit?.('nextMap'), mapSelect: () => o.onExit?.('mapSelect'),
-    }, r.hasNext);
+    }, r.hasNext, r.extras);
   };
 
   // --- tutorial
@@ -225,7 +227,12 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       case 'zoneChanged': refreshTerrain(board, make); break;
       case 'toggled': toast(t(e.kind === 'pump' ? (e.on ? 'toast.pumpOn' : 'toast.pumpOff') : (e.on ? 'toast.gateOpen' : 'toast.gateClosed'))); haptic(10); break;
       case 'skill': toast(t('toast.skillUsed', { skill: skillName(e.id) })); break;
-      case 'waveStart': toast(t('toast.waveStart', { wave: e.wave })); target = IDLE; syncButtons(); o.onSave?.(play); break;
+      case 'waveStart': {
+        toast(t('toast.waveStart', { wave: e.wave }));
+        const line = o.waveLine?.(e.wave);
+        if (line) toast(line);
+        target = IDLE; syncButtons(); o.onSave?.(play); break;
+      }
       case 'waveEnd': toast(t('toast.waveEnd', { wave: e.wave })); target = IDLE; syncButtons(); break;
       case 'damageStart': toast(t('toast.damage')); haptic(100); break;
       case 'collapse': toast(t('toast.collapse')); haptic(60); break;

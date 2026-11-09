@@ -5,6 +5,7 @@ import type { Affinity, BuildType, Content, ScoreItem } from '../rules/scoring.t
 import { resolveEnding } from '../rules/endings.ts';
 import type { EndingDef, EndingsData } from '../rules/endings.ts';
 import type { SaveV1 } from '../save/storage.ts';
+import type { RunFacts } from '../rules/story.ts';
 
 /**
  * End of a run → result score, stars, ending, next goal, and the progress update (codex).
@@ -66,6 +67,7 @@ export function recordResult(save: SaveV1, p: Play, res: RunResult): SaveV1 {
     rec.stars = Math.max(rec.stars, res.stars);
     rec.best = Math.max(rec.best, res.total);
     if (!rec.clearedBy.includes(charId)) rec.clearedBy.push(charId);
+    rec.ending = res.ending.id;
     if (!s.progress.endings.includes(res.ending.id)) s.progress.endings.push(res.ending.id);
   }
   s.progress.maps[id] = rec;
@@ -76,3 +78,13 @@ export function recordResult(save: SaveV1, p: Play, res: RunResult): SaveV1 {
 }
 
 declare function structuredClone<V>(value: V): V;
+
+/** Facts the memory fragments are judged on. */
+export function runFacts(p: Play): RunFacts {
+  const rs = p.rules!;
+  return {
+    region: p.map.data.region ?? 'river', char: rs.char.id, cleared: p.phase === 'result', damage: p.story.damage,
+    ecologyBest: p.world.metrics.ecologyBest, openedField: rs.zones.some(z => z.opened), retries: p.retries,
+    burstWaveClean: p.story.burstWaveClean, lakeHeld: p.map.lakes.some(L => !L.broken),
+  };
+}
