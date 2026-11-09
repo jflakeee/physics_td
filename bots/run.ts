@@ -1,10 +1,11 @@
-// Balance bots: npm run bots [-- --map id] [-- I1=..]. Prints outcome per map × strategy and
+// Balance bots: npm run bots [-- --map id] [-- I1=..] [-- --star3] [-- --skill]. Prints outcome per map × strategy and
 // exits 1 if a single-means strategy clears or a mixed one fails (DETAILED §21).
 import { readFileSync } from 'node:fs';
 import { loadMap } from '../src/game/map.ts';
 import type { MapData } from '../src/game/map.ts';
 import { STRATEGIES, runStrategy } from './strategies.ts';
-import { ECONOMY } from '../src/data/catalog.ts';
+import { CHARACTERS, ECONOMY } from '../src/data/catalog.ts';
+import { runSkillBot } from './skillBot.ts';
 
 const args = process.argv.slice(2);
 const only = args.includes('--map') ? args[args.indexOf('--map') + 1] : null;
@@ -30,6 +31,19 @@ for (const id of ids) {
       console.log(`  ⭐3 suggestion: ${Math.floor(total / 50) * 50} (bot result ${total}, data ${data.star3Score})`);
     }
     console.log(`${ok ? '  ' : '✗ '}${name.padEnd(18)} ${r.result.padEnd(7)} W${r.wave} hp ${String(r.hp).padStart(3)} score ${String(r.score).padStart(5)} Lv${r.level}`);
+  }
+}
+if (args.includes('--skill')) {
+  // player-command bots: clear rate and HP per map × character over 5 seeds (GD §17 targets)
+  console.log('\nskill bots (5 seeds): clears / avg HP of clears');
+  for (const id of ids) {
+    const data = JSON.parse(readFileSync(`data/maps/${id}.json`, 'utf8')) as MapData;
+    for (const c of CHARACTERS) {
+      const rs = [1, 2, 3, 4, 5].map(s => runSkillBot(data, c, s));
+      const won = rs.filter(r => r.result === 'clear');
+      const hp = won.length ? Math.round(won.reduce((a, r) => a + r.hp, 0) / won.length) : 0;
+      console.log(`  ${id.padEnd(20)} ${c.id.padEnd(19)} ${won.length}/5  HP ${hp}`);
+    }
   }
 }
 console.log(bad ? `\n${bad} outcome(s) off target` : '\nall maps on target');

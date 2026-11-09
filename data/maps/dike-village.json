@@ -7,11 +7,11 @@
     "PPPIPPPO",
     "PPFPPPPP",
     "PPPPPPFP",
-    "PDPPPPPP",
-    "PPPPPPPP",
-    "IPPBBPPP",
-    "PPPBBPPI",
-    "PPPPPPPP",
+    "DDPPPPPD",
+    "DPPPPPPD",
+    "IPPBBPPD",
+    "DPPBBPPI",
+    "DPPPPPPD",
     "PPFPPPDP",
     "PPPPPPPP",
     "PPPPFPPP",
@@ -60,5 +60,31 @@
     "hp": 100
   },
   "style": "plain",
-  "star3Score": 2150
+  "star3Score": 2150,
+  "leveeLines": [
+    [
+      19,
+      35,
+      43,
+      35
+    ],
+    [
+      19,
+      59,
+      43,
+      59
+    ],
+    [
+      19,
+      36,
+      19,
+      58
+    ],
+    [
+      43,
+      36,
+      43,
+      58
+    ]
+  ]
 }

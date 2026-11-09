@@ -54,7 +54,7 @@ try {
     const tileCentre = (z) => at(tile(z)[0] * 8 + 4, tile(z)[1] * 8 + 4);
 
     // zone tap → highlight; on a plain zone with levee lines it also builds a levee ($20)
-    const leveeZone = await S(() => { const r = __ptd.play.rules; return __ptd.zones.find(z => r.map.leveeLines[z.id - 1].length > 0).id; });
+    const leveeZone = await S(() => { const r = __ptd.play.rules; return __ptd.zones.find(z => z.type === 'plain' && r.map.leveeLines[z.id - 1].length > 0).id; });
     const lz = zones.find(z => z.id === leveeZone);
     await page.touchscreen.tap(...tileCentre(lz));
     const hl = await S(() => __ptd.target());
@@ -175,7 +175,7 @@ try {
     await page.screenshot({ path: `${OUT}/story-004-tutorial-1-${DATE}.png` });
     await page.locator('.bubble .bnext').tap();
     check('step 2 asks for a levee', (await page.locator('.bubble p').textContent()).includes('제방'));
-    const z = await page.evaluate(() => { const r = __ptd.play.rules; const zz = __ptd.zones.find(z => r.map.leveeLines[z.id - 1].length > 0); return zz.tiles[0]; });
+    const z = await page.evaluate(() => { const r = __ptd.play.rules; const zz = __ptd.zones.find(z => z.type === 'plain' && r.map.leveeLines[z.id - 1].length > 0); return zz.tiles[0]; });
     const box = await page.locator('canvas.board').boundingBox();
     const px = box.width / 64;
     await page.touchscreen.tap(box.x + (z[0] * 8 + 4) * px, box.y + (z[1] * 8 + 4) * px);
@@ -322,13 +322,16 @@ try {
     const setOk = await page.locator('#app.settings button, #app.settings a').evaluateAll(els => els.every(e => e.getBoundingClientRect().height >= 48));
     check('settings targets ≥ 48px', setOk);
     await page.locator('.settings [role=switch]').nth(1).tap();
+    await page.waitForFunction(() => __ptd.store.load().settings.leftHand === true);
     await page.locator('.settings .row', { hasText: '튜토리얼' }).tap();
     check('tutorial replay resets the step', await page.evaluate(() => __ptd.store.load().progress.tutorial === 1));
     await page.screenshot({ path: `${OUT}/settings-${DATE}.png` });
+    // let Chromium flush localStorage before the next document reads it (cross-document race)
+    await page.waitForTimeout(500);
     await page.goto(BASE + '&map=dike-village&tutorial=0&kit=all');
     await page.waitForFunction(() => globalThis.__ptd?.play);
     const xs = await page.locator('.bar .sk').evaluateAll(els => els.map(e => e.getBoundingClientRect().left));
-    check('left-hand mode mirrors the skill bar', xs[0] > xs[xs.length - 1]);
+    check('left-hand mode mirrors the skill bar', xs[0] > xs[xs.length - 1], JSON.stringify(xs) + ' ' + JSON.stringify(await page.evaluate(() => __ptd.store.load().settings)));
     const legacy = await ctx.newPage();
     await legacy.goto(pathToFileURL(resolve('dist/legacy/index.html')).href);
     check('v1 still runs under /legacy', (await legacy.locator('canvas#game').count()) === 1);

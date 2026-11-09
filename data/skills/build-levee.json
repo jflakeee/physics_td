@@ -1,20 +1,54 @@
 {
-  "id": "build-levee", "owner": "dike-keeper", "slot": "basic", "axis": "safety", "target": "zone", "zoneTypes": ["plain"],
-  "cooldown": 0, "cost": 20, "borrowable": true, "needs": "leveeLine",
-  "ranks": [
-    { "ops": [{ "op": "buildLevee", "height": 0.3, "raise": 0.1, "cap": 0.6 }] },
-    { "ops": [{ "op": "buildLevee", "height": 0.4, "raise": 0.1, "cap": 0.6 }] },
-    { "ops": [{ "op": "buildLevee", "height": 0.5, "raise": 0.1, "cap": 0.6 }] }
+  "id": "build-levee",
+  "owner": "dike-keeper",
+  "slot": "basic",
+  "axis": "safety",
+  "target": "zone",
+  "zoneTypes": [
+    "plain"
   ],
-  "icon": "🧱", "i18n": "skill.buildLevee",
+  "cooldown": 0,
+  "cost": 20,
+  "borrowable": true,
+  "needs": "leveeLine",
+  "ranks": [
+    {
+      "ops": [
+        {
+          "op": "buildLevee",
+          "height": 0.3,
+          "raise": 0.1,
+          "cap": 0.6
+        }
+      ]
+    },
+    {
+      "ops": [
+        {
+          "op": "buildLevee",
+          "height": 0.4,
+          "raise": 0.1,
+          "cap": 0.6
+        }
+      ]
+    },
+    {
+      "ops": [
+        {
+          "op": "buildLevee",
+          "height": 0.5,
+          "raise": 0.1,
+          "cap": 0.6
+        }
+      ]
+    }
+  ],
+  "icon": "🧱",
+  "i18n": "skill.buildLevee",
   "regions": {
     "glacier": {
-      "icon": "🏔", "i18n": "skill.iceLevee",
-      "ranks": [
-        { "ops": [{ "op": "iceLevee", "height": 0.3 }] },
-        { "ops": [{ "op": "iceLevee", "height": 0.4 }] },
-        { "ops": [{ "op": "iceLevee", "height": 0.5 }] }
-      ]
+      "icon": "🏔",
+      "i18n": "skill.iceLevee"
     }
   }
 }

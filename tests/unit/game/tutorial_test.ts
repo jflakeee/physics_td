@@ -10,7 +10,7 @@ import type { MapData } from '../../../src/game/map.ts';
 import { advance, createPlay, send, TICK_MS } from '../../../src/game/play.ts';
 import type { Play } from '../../../src/game/play.ts';
 import { CHARACTERS, ECONOMY, SKILLS } from '../../../src/data/catalog.ts';
-import { createRules } from '../../../src/rules/skills.ts';
+import { createRules, zoneTargetable } from '../../../src/rules/skills.ts';
 import * as tut from '../../../src/game/tutorial.ts';
 import { defaultSave, isFirstRun } from '../../../src/save/storage.ts';
 
@@ -37,7 +37,7 @@ test('tutorial runs its 6 steps in order with their conditions', () => {
   send(p, { t: 'toggle', kind: 'pump', id: 0 }); pumpEvents(p, t);
   assert.equal(t.step, 2, 'pumps do not count yet');
   send(p, { t: 'toggle', kind: 'pump', id: 0 }); pumpEvents(p, t);
-  const z = p.map.zones.zones.find(zz => p.map.leveeLines[zz.id - 1].length)!;
+  const z = p.map.zones.zones.find(zz => zoneTargetable(p.rules!, 'build-levee', zz.id))!;
   send(p, { t: 'skill', id: 'build-levee', zone: z.id }); pumpEvents(p, t);
   assert.equal(t.step, 3);
   assert.equal(tut.visible(t, p), false, 'step 3 waits for the wave');
@@ -66,7 +66,7 @@ test('tutorial runs its 6 steps in order with their conditions', () => {
 test('tutorial: skip ends it; a defeat + retry keeps the step', () => {
   const { p, t } = setup();
   tut.onTap(t, p);
-  const z = p.map.zones.zones.find(zz => p.map.leveeLines[zz.id - 1].length)!;
+  const z = p.map.zones.zones.find(zz => zoneTargetable(p.rules!, 'build-levee', zz.id))!;
   send(p, { t: 'skill', id: 'build-levee', zone: z.id }); pumpEvents(p, t);
   send(p, { t: 'startWave' });
   for (let k = 0; k < tut.WATCH_TICKS; k++) frame(p, t);

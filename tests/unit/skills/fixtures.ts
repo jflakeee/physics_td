@@ -8,6 +8,16 @@ import type { RulesState } from '../../../src/rules/skills.ts';
 
 export const DIKE: MapData = dikeVillage as unknown as MapData;
 
+/**
+ * 둑마을 as it was when the skill rules were written: no field zone, automatic levee lines
+ * only (several per zone). Pins the rule tests to a fixed layout independent of map tuning.
+ */
+export const DIKE_AUTO: MapData = {
+  ...DIKE,
+  tiles: ['PPPIPPPO', 'PPFPPPPP', 'PPPPPPFP', 'PDPPPPPP', 'PPPPPPPP', 'IPPBBPPP', 'PPPBBPPI', 'PPPPPPPP', 'PPFPPPDP', 'PPPPPPPP', 'PPPPFPPP', 'OPPPIPPP'],
+  leveeLines: undefined,
+};
+
 /** 버드나무 들 tiles (§11.3) with an authored zone layer giving field and wetland zones. */
 export const WILLOW: MapData = {
   ...DIKE, id: 'willow-test',

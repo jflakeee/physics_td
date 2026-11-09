@@ -30,8 +30,9 @@ test('4 maps (river 2 + glacier 2) load from tiles + zone layers', () => {
   }
 });
 
-test('every map passes the design-guide validation', () => {
-  for (const d of MAPS) assert.deepEqual(validateMap(loadMap(d)), [], d.id);
+test('every map passes the design-guide validation (incl. ≥ 2 target zones per character)', () => {
+  const basics = CHARACTERS.map(c => SKILLS.find(s => s.id === c.skills.basic)!);
+  for (const d of MAPS) assert.deepEqual(validateMap(loadMap(d), basics), [], d.id);
 });
 
 test('waves: 5 per map, 40 → 70 s, inflow ×1.35 per wave, 20% rain', () => {
@@ -73,7 +74,7 @@ function newPlay(id: string): Play {
 }
 /** Prepare-phase inputs: a levee and a pump. */
 function prep(p: Play): void {
-  const z = p.map.zones.zones.find(zz => p.map.leveeLines[zz.id - 1].length)!;
+  const z = p.map.zones.zones.find(zz => zz.type === 'plain' && p.map.leveeLines[zz.id - 1].length)!;
   send(p, { t: 'skill', id: 'build-levee', zone: z.id });
   send(p, { t: 'toggle', kind: 'pump', id: 0 });
 }

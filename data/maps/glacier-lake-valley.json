@@ -7,10 +7,10 @@
     "PIPPPHHH",
     "PPPPPHHH",
     "PPPPPHHH",
-    "PPPPPPPP",
-    "PPPPPPPP",
-    "PPPBBPPP",
-    "PPPBBPPP",
+    "DPPPPPPD",
+    "DPPPPPPD",
+    "DPPBBPPD",
+    "DPPBBPPD",
     "PPPPPPPI",
     "PPPPPPPP",
     "HHHPPPPP",
@@ -79,5 +79,31 @@
     "hp": 100
   },
   "style": "glacier",
-  "star3Score": 2150
+  "star3Score": 2100,
+  "leveeLines": [
+    [
+      17,
+      33,
+      45,
+      33
+    ],
+    [
+      17,
+      61,
+      45,
+      61
+    ],
+    [
+      17,
+      34,
+      17,
+      60
+    ],
+    [
+      45,
+      34,
+      45,
+      60
+    ]
+  ]
 }

@@ -111,6 +111,7 @@ test('rare cards: own upgrade +2 ranks (max 3), new own skill at Rank 2', () => 
   let seenUp = false, seenNew = false;
   for (let seed = 1; seed < 400 && !(seenUp && seenNew); seed++) {
     const { rs, ds } = setup(dike, DK, seed);
+    ds.drafted = 2; // Lv4: no spike, so the own slot is random (upgrade or new)
     for (const c of skillCards(rollCards(ds, ctx(rs)))) {
       if (c.side !== 'own' || c.rarity !== 'rare') continue;
       if (c.upgrade) { assert.equal(c.rank, 3); seenUp = true; } else { assert.equal(c.rank, 2); seenNew = true; }
@@ -119,12 +120,13 @@ test('rare cards: own upgrade +2 ranks (max 3), new own skill at Rank 2', () => 
   assert.ok(seenUp && seenNew);
 });
 
-test('CRD-05: the Lv3 draft guarantees the own tactical, Lv5 the own ultimate (when not owned)', () => {
+test('CRD-05: spike drafts guarantee the own tactical / ultimate (when not owned)', () => {
+  const sp = ECONOMY.draft.spike;
   for (let seed = 1; seed <= 200; seed++) {
     const { rs, ds } = setup(dike, DK, seed);
-    ds.drafted = 1; // next draft is Lv3
+    ds.drafted = sp.tactical - 2; // next draft is the tactical spike level
     assert.ok(skillCards(rollCards(ds, ctx(rs))).some(c => c.skill === 'sandbag' && c.side === 'own'));
-    ds.drafted = 3; // Lv5
+    ds.drafted = sp.ultimate - 2;
     assert.ok(skillCards(rollCards(ds, ctx(rs))).some(c => c.skill === 'night-repair' && c.side === 'own'));
   }
 });

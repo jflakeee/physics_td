@@ -7,6 +7,7 @@ import { bresenham } from '../rules/effects.ts';
  * - inlets: 2–4, each inlet → base core ≥ 30 cells (4-neighbour path length)
  * - pump sites: 2–4, each 3–6 cells (Chebyshev) from the nearest inlet path and never on one
  * - glacier lakes: the settled lake surface stays below the lowest rim top (no spill at load)
+ * - character targets: each released character's basic skill has ≥ 2 target zones
  * Inlet path = the straight line from the inlet's middle cell to the base centre (the basin
  * is a cone, so water runs roughly radially).
  */
@@ -22,7 +23,7 @@ export function inletPaths(m: LoadedMap): number[][] {
   });
 }
 
-export function validateMap(m: LoadedMap): MapIssue[] {
+export function validateMap(m: LoadedMap, basics: { id: string; zoneTypes: string[] }[] = []): MapIssue[] {
   const out: MapIssue[] = [];
   const W = m.terrain.grid.width;
   const zones = m.zones.zones;
@@ -43,6 +44,10 @@ export function validateMap(m: LoadedMap): MapIssue[] {
     let d = Infinity;
     for (const path of paths) for (const c of path) d = Math.min(d, Math.max(Math.abs(c % W - px), Math.abs(((c / W) | 0) - py)));
     if (d < 3 || d > 6) out.push({ rule: 'pumpOffPath', detail: `pump ${p.id} is ${d} cells from the nearest inlet path (want 3–6)` });
+  }
+  for (const b of basics) {
+    const n = zones.filter(z => z.type !== 'base' && (b.zoneTypes.length === 0 || b.zoneTypes.includes(z.type))).length;
+    if (n < 2) out.push({ rule: 'characterTargets', detail: `${b.id} has ${n} target zone(s)` });
   }
   const g = m.terrain.grid;
   for (const L of m.lakes) {

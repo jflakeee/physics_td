@@ -13,7 +13,7 @@ import { swipeCells, threatDir } from '../../../src/rules/effects.ts';
 import { totalWater } from '../../../src/sim/grid.ts';
 import { startWave, stepSim } from '../../../src/sim/step.ts';
 import { FLAG, ZT } from '../../../src/core/types.ts';
-import { DIKE, WILLOW, dikeKeeper, setup, wetland, zonesOf } from './fixtures.ts';
+import { DIKE_AUTO as DIKE, WILLOW, dikeKeeper, setup, wetland, zonesOf } from './fixtures.ts';
 import { loadMap } from '../../../src/game/map.ts';
 import { advance, createPlay, send, TICK_MS } from '../../../src/game/play.ts';
 
@@ -244,22 +244,16 @@ test('axes: gain +3, rank up +1, use +cooldown/10 (cost-type +1), passive +1 per
 });
 
 // ---------------------------------------------------------------- regions
-test('glacier region: build-levee becomes 얼음 둑 (ice from zone water, mass conserving)', () => {
+test('glacier region: build-levee is presented as 얼음 둑 and still builds in the prepare phase', () => {
   const { rs, world, map } = setup({ ...DIKE, region: 'glacier' });
   const def = rs.defs.get('build-levee')!;
   const g = regional(def, 'glacier');
   assert.equal(g.i18n, 'skill.iceLevee');
-  assert.equal(g.ranks[0].ops[0].op, 'iceLevee');
+  assert.equal(g.icon, '🏔');
   assert.equal(regional(def, 'river').i18n, 'skill.buildLevee');
   const zone = map.zones.zones.find(z => map.leveeLines[z.id - 1].length)!;
-  for (const c of zone.cells) world.grid.w[c] = 0.2;
-  const before = totalWater(world.grid);
   assert.equal(useSkill(rs, 'build-levee', false, zone.id), null);
-  const line = map.leveeLines[zone.id - 1].find(l => world.grid.ice[l.cells[0]] > 0)!;
-  assert.ok(line, 'an ice wall was frozen on a levee line');
-  assert.ok(Math.abs(world.grid.ice[line.cells[0]] - 0.3) < 1e-9);
-  assert.equal(world.grid.wall[line.cells[0]], 0, 'no earth levee');
-  assert.ok(Math.abs(totalWater(world.grid) - before) < 1e-9);
+  assert.ok(map.leveeLines[zone.id - 1].some(l => world.grid.wall[l.cells[0]] > 0), 'a dry zone still gets its levee');
 });
 
 test('freeze builds an ice wall from the zone water on its levee line', () => {

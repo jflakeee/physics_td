@@ -42,6 +42,28 @@
 - ⭐3 thresholds per map from the 숙련 bot (`npm run bots -- --star3`): 둑마을 2150, 버드나무 들 2050, 얼음 목초지 2150, 빙하호 계곡 2150.
 - Settings screen: haptics, reduced motion (auto/on/off), left-hand skill bar, tutorial replay, link to v1.
 
+## Balance through player commands (2026-11-09)
+A skill-playing bot (`bots/skillBot.ts`, `npm run bots -- --skill`) plays only through zone skills,
+pump taps and cards. It showed the fixed-placement calibration did not carry over: with the
+automatic levee lines (outer edge of the inner zones, ~24 cells out) every map was lost in W3.
+Changes:
+- **Authored levee lines** (`leveeLines` in map data): a square around the base, radius 12
+  (빙하호 계곡 14). They replace the zone's automatic lines, so a second cast raises the line
+  (+0.1) instead of building a useless far edge. Rank 1 (0.3) overflows; 0.4 holds.
+- **Field zones on every map** (GD §26.2 "each character has ≥ 2 target zones", now validated):
+  둑마을 and both glacier maps got two edge columns of fields.
+- **얼음 둑** (glacier build-levee) is a presentation variant of the levee: freezing zone water
+  left nothing to freeze in the prepare phase.
+- **Tactical spike moved Lv3 → Lv2** (`economy.draft.spike.tactical`): the wetland researcher
+  needs 습지 복원 before W3 on maps without fields.
+
+Skill-bot results (5 seeds; clears / avg HP): 정석 둑지기 @ 둑마을 5/5 HP 68 · 정석 습지 @ 버드나무 5/5 HP 83 ·
+도전 습지 @ 둑마을 4/5 · 도전 둑지기 @ 버드나무 1/5 · 중립 둑지기 @ 목초지 5/5 HP 72 · 중립 습지 @ 목초지 5/5 HP 60 ·
+중립 둑지기 @ 계곡 5/5 HP ≈ 77 · 중립 습지 @ 계곡 0/5. Fixed-placement bots stay on target on all maps.
+
 ## Still open
+- **도전 둑지기 @ 버드나무 들 (1/5)** — the inner zones there are fields, so the levee square can
+  only be closed on one side. Options: plain inner zones on that map, or let build-levee target fields.
+- **습지 연구원 @ 빙하호 계곡 (0/5)** — two glacier lakes (≈ 120 units incl. rim ice) outweigh
+  wetland absorption; the bot does not upkeep the dams. Options: smaller lakes, or dam upkeep in play.
 - Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
-- Map-specific levee lines and real playtest balance (current numbers come from fixed-placement bots).
