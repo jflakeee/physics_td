@@ -102,3 +102,16 @@ test('the_fence_ultimate_restores_the_fence', () => {
   assert.equal(fenceHealth(w), 1);
   assert.equal(w.ult, 0);
 });
+
+test('auto_aim_is_deterministic_and_beats_doing_nothing_over_its_horizon', async () => {
+  const { autoAim, cloneWorld, threat } = await import('../../../prototypes/v3-kids/auto.ts');
+  const w = createKidsWorld('keeper');
+  startWave(w); w.phase = 'wave';
+  for (let k = 0; k < 400; k++) tick(w);
+  const a = autoAim(w, 'wall'), b = autoAim(w, 'wall');
+  assert.ok(a);
+  assert.deepEqual(a, b);
+  const run = (c: KidsWorld) => { for (let k = 0; k < 120; k++) tick(c); return threat(c); };
+  const placed = cloneWorld(w); useSkill(placed, 'wall', a);
+  assert.ok(run(placed) < run(cloneWorld(w)));
+});
