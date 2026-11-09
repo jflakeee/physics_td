@@ -22,6 +22,9 @@ import type { LakeEvent } from './lakes.ts';
  * No DOM. Commands queue and apply before the next tick; in `prepare` they apply at once.
  */
 
+/** Game speed: 0.5× (precision / accessibility, Water TD benchmark B2), 1×, 2×. */
+export type Speed = 0.5 | 1 | 2;
+
 export type Phase = 'prepare' | 'wave' | 'levelup' | 'result' | 'defeat';
 
 export type PlayCommand =
@@ -29,7 +32,7 @@ export type PlayCommand =
   | { t: 'pumpsOff' }
   | { t: 'startWave' }
   | { t: 'pause'; on: boolean }
-  | { t: 'speed'; x: 1 | 2 }
+  | { t: 'speed'; x: Speed }
   | { t: 'retry' }
   | { t: 'pick'; index: number; replace?: string }
   | { t: 'skip' }
@@ -62,7 +65,7 @@ export interface Play {
   world: SimWorld;
   phase: Phase;
   paused: boolean;
-  speed: 1 | 2;
+  speed: Speed;
   waves: number;
   /** Player level (leveling arrives with story 005). */
   level: number;
@@ -243,14 +246,14 @@ export function tick(p: Play): void {
 }
 
 /**
- * Advance by `dtMs` of real time. Steps are fixed (33.3 ms); at most 2 per frame at 1×,
- * 4 at 2×; the backlog is capped at 100 ms (§18). Returns the ticks run.
+ * Advance by `dtMs` of real time. Steps are fixed (33.3 ms); at most 1 per frame at 0.5×,
+ * 2 at 1×, 4 at 2×; the backlog is capped at 100 ms of real time (§18). Returns the ticks run.
  */
 export function advance(p: Play, dtMs: number): number {
   if (p.queue.length && (p.phase !== 'wave' || p.paused)) { for (const c of p.queue) apply(p, c); p.queue.length = 0; }
   if (p.phase !== 'wave' || p.paused) { p.acc = 0; return 0; }
   p.acc = Math.min(ACC_CAP_MS * p.speed, p.acc + dtMs * p.speed); // cap is 100 ms of real time
-  const max = p.speed === 2 ? 4 : 2;
+  const max = Math.max(1, Math.round(2 * p.speed)); // ticks per frame: 0.5× 1, 1× 2, 2× 4 (§18)
   let n = 0;
   while (p.acc >= TICK_MS && n < max && p.phase === 'wave') { tick(p); p.acc -= TICK_MS; n++; }
   if (n === max) p.acc = Math.min(p.acc, TICK_MS); // drop backlog beyond the frame budget

@@ -102,6 +102,12 @@ try {
     const speed = page.locator('.hbtns button').nth(2);
     await speed.tap();
     check('speed toggles to 2×', (await S(() => __ptd.play.speed)) === 2 && (await speed.textContent()) === '2×');
+    await speed.tap();
+    check('speed toggles to 0.5× (B2)', (await S(() => __ptd.play.speed)) === 0.5 && (await speed.textContent()) === '0.5×');
+    await S(() => { const w = __ptd.play.world; for (const c of w.baseCore) w.grid.w[c] = 0.2; });
+    await page.waitForTimeout(150);
+    if (name === 'iphone-13') await page.screenshot({ path: `${OUT}/b1-villagers-alarmed-${DATE}.png` });
+    await speed.tap(); await speed.tap();
     const pause = page.locator('.hbtns button').nth(1);
     await pause.tap();
     const t0 = await S(() => __ptd.play.world.tick);

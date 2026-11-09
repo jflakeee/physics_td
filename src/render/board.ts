@@ -19,6 +19,10 @@ export interface BoardView {
   arrows: boolean;
   /** Animation clock (ms) for pump blades; frozen when reduced motion. */
   time: number;
+  /** Base water / damage threshold (villager mood, B1); 0 outside waves. */
+  flood?: number;
+  /** A wave was just held (villagers relax). */
+  calm?: boolean;
 }
 
 export interface Board {
@@ -126,6 +130,7 @@ export function drawBoard(b: Board, v: BoardView): void {
     for (const id of v.bright) ctx.stroke(b.zoneOutlines[id - 1]);
   }
   if (v.highlight) { ctx.strokeStyle = HIGHLIGHT; ctx.lineWidth = 0.6; ctx.stroke(b.zoneOutlines[v.highlight - 1]); }
+  drawVillagers(ctx, world, v);
   if (v.arrows) {
     ctx.fillStyle = INLET_ARROW;
     const wv = Math.max(0, world.wave); // next wave index for weights
@@ -140,4 +145,48 @@ export function drawBoard(b: Board, v: BoardView): void {
     }
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/** Villager placement around the base centre, in cells (B1). */
+const VILLAGERS: readonly [number, number, string][] = [[-4, -3, '#c9473f'], [3.5, -2, '#3d6fb5'], [-2.5, 3.5, '#4f9a55'], [4, 3, '#d9a33a']];
+
+/** Villager mood from the base water ratio: calm → uneasy (≥ 0.5) → alarmed (≥ 1, taking damage). */
+export function villagerMood(flood: number, calm: boolean): 'happy' | 'calm' | 'uneasy' | 'alarmed' {
+  if (flood >= 1) return 'alarmed';
+  if (flood >= 0.5) return 'uneasy';
+  return calm ? 'happy' : 'calm';
+}
+
+const BUBBLE: Record<string, string> = { happy: '♥', uneasy: '…', alarmed: '!' };
+
+/**
+ * Base villagers with a mood bubble (Water TD benchmark B1): the base water level read as an
+ * emotion, alongside the gauge and toasts. Shape + symbol, not colour alone. Motion stops when
+ * `time` is frozen (reduced motion).
+ */
+function drawVillagers(ctx: CanvasRenderingContext2D, world: SimWorld, v: BoardView): void {
+  const W = world.grid.width, c = world.baseCore[4], bx = c % W + 0.5, by = ((c / W) | 0) + 0.5;
+  const mood = villagerMood(v.flood ?? 0, v.calm ?? false);
+  const t = v.time / 1000;
+  VILLAGERS.forEach(([dx, dy, color], k) => {
+    const hop = mood === 'alarmed' && v.time ? Math.abs(Math.sin(t * 8 + k)) * 0.6 : mood === 'happy' && v.time ? Math.abs(Math.sin(t * 3 + k)) * 0.3 : 0;
+    const x = bx + dx, y = by + dy - hop;
+    ctx.fillStyle = color;
+    ctx.fillRect(x - 0.7, y - 0.3, 1.4, 1.8);             // body
+    ctx.fillStyle = '#f2d2b0';
+    ctx.beginPath(); ctx.arc(x, y - 0.9, 0.68, 0, Math.PI * 2); ctx.fill(); // head
+  });
+  const sym = BUBBLE[mood];
+  if (!sym) return;
+  // one bubble above the first villager
+  const [dx, dy] = VILLAGERS[0], x = bx + dx + 1.9, y = by + dy - 3.9;
+  ctx.fillStyle = mood === 'alarmed' ? '#ffe2dc' : '#ffffff';
+  ctx.strokeStyle = mood === 'alarmed' ? '#c9473f' : '#1d2733';
+  ctx.lineWidth = 0.25;
+  ctx.beginPath(); ctx.roundRect(x - 2.0, y - 1.7, 4.0, 3.1, 0.9); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 1.1, y + 1.35); ctx.lineTo(x - 1.7, y + 2.3); ctx.lineTo(x - 0.2, y + 1.35); ctx.fill();
+  ctx.fillStyle = mood === 'alarmed' ? '#c9473f' : mood === 'happy' ? '#d94b6a' : '#1d2733';
+  ctx.font = 'bold 2.4px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(sym, x, y - 0.1);
 }

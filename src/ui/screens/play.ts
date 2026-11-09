@@ -1,6 +1,6 @@
 import type { LoadedMap } from '../../game/map.ts';
 import { advance, createPlay, send } from '../../game/play.ts';
-import type { Play, PlayEvent, PlayOptions, SkillHandler } from '../../game/play.ts';
+import type { Play, PlayEvent, PlayOptions, SkillHandler, Speed } from '../../game/play.ts';
 import { createBoard, drawBoard, refreshTerrain } from '../../render/board.ts';
 import { cooldownTicks } from '../../rules/skills.ts';
 import { REFUSAL_TOAST } from '../../rules/types.ts';
@@ -303,7 +303,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   };
   pauseBtn.addEventListener('click', () => setPaused(!play.paused));
   speedBtn.addEventListener('click', () => {
-    const x = play.speed === 1 ? 2 : 1;
+    const x: Speed = play.speed === 1 ? 2 : play.speed === 2 ? 0.5 : 1; // 1× → 2× → 0.5× → 1×
     send(play, { t: 'speed', x }); speedBtn.textContent = x + '×'; speedBtn.setAttribute('aria-label', t('hud.speed', { x }));
   });
   startBtn.addEventListener('click', () => send(play, { t: 'startWave' }));
@@ -375,6 +375,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       highlight: target.mode === 'idle' ? target.highlight : 0,
       bright: brightZones(target, skills, o.map.zones.zones) ?? tutorialBright(),
       arrows: play.phase === 'prepare', time: reduced ? 0 : now,
+      flood: play.phase === 'wave' || play.phase === 'defeat' ? baseFlood(world) / world.cfg.floodThreshold : 0,
+      calm: play.phase === 'prepare' && world.wave > 0,
     });
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });

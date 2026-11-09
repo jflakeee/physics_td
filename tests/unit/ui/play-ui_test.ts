@@ -16,6 +16,7 @@ import { createHud } from '../../../src/ui/widgets/hud.ts';
 import { expireToasts, pushToast, TOAST_MAX, TOAST_MS } from '../../../src/ui/widgets/toast.ts';
 import { createT } from '../../../src/ui/i18n.ts';
 import { fitBoard } from '../../../src/render/canvas.ts';
+import { villagerMood } from '../../../src/render/board.ts';
 import type { SkillView } from '../../../src/input/targeting.ts';
 
 // type-only skill views (targeting is tested without the rules layer here)
@@ -204,4 +205,24 @@ test('i18n: params fill; every toast key used by the play screen exists', () => 
   for (const k of ['toast.maxOn', 'toast.noCash', 'toast.paused', 'toast.cashEmptyPumps', 'toast.autoPaused', 'hud.speed', 'bar.start'])
     assert.notEqual(t(k), k, k);
   for (const s of SKILLS) assert.notEqual(t(s.i18n + '.name'), s.i18n + '.name');
+});
+
+// ---------------------------------------------------------------- Water TD benchmark B1/B2
+
+test('B2: 0.5× runs one tick per frame at half the clock rate', () => {
+  const p = createPlay(loadMap(MAP), {});
+  send(p, { t: 'startWave' });
+  send(p, { t: 'speed', x: 0.5 });
+  assert.equal(advance(p, 1000), 1, 'frame budget 1 at 0.5×');
+  p.acc = 0;
+  assert.equal(advance(p, TICK_MS), 0, 'one real tick = half a sim tick');
+  assert.equal(advance(p, TICK_MS), 1);
+});
+
+test('B1: villager mood follows the base water ratio', () => {
+  assert.equal(villagerMood(0, false), 'calm');
+  assert.equal(villagerMood(0, true), 'happy');
+  assert.equal(villagerMood(0.49, false), 'calm');
+  assert.equal(villagerMood(0.5, false), 'uneasy');
+  assert.equal(villagerMood(1, true), 'alarmed');
 });
