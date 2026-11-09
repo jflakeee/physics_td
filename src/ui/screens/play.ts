@@ -14,6 +14,7 @@ import { hitTest, toCell } from '../../input/hit.ts';
 import { IDLE, brightZones, onBoardSwipe, onBoardTap, onSkillButton } from '../../input/targeting.ts';
 import type { SkillView, TargetAction, TargetState } from '../../input/targeting.ts';
 import { baseFlood } from '../../sim/metrics.ts';
+import { damageShares } from '../../sim/trace.ts';
 import { createHud } from '../widgets/hud.ts';
 import { expireToasts, pushToast } from '../widgets/toast.ts';
 import type { ToastQueue } from '../widgets/toast.ts';
@@ -186,10 +187,24 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     for (const [id, b] of skillBtns) b.classList.toggle('selected', target.mode === 'selecting' && target.skill === id);
   };
 
+  // --- flood cause for the defeat screen (source tracer, §15.5)
+  const floodCauses = (): { label: string; share: number; kind: 'inlet' | 'rain' | 'ice' }[] => {
+    const tr = world.trace;
+    if (!tr) return [];
+    const sh = damageShares(tr), W = world.grid.width, H = world.grid.height;
+    return sh.map((share, k) => {
+      if (k === tr.rain) return { label: t('cause.rain'), share, kind: 'rain' as const };
+      if (k === tr.ice) return { label: t('cause.ice'), share, kind: 'ice' as const };
+      const c = world.inlets[k].cells[0], x = c % W, y = (c / W) | 0;
+      const dir = y === 0 ? 'N' : y === H - 1 ? 'S' : x === 0 ? 'W' : 'E';
+      return { label: t('cause.inlet', { dir: t('dir.' + dir) }), share, kind: 'inlet' as const };
+    });
+  };
+
   // --- defeat / result screens
   const showOverlay = (kind: 'defeat' | 'result') => {
     if (kind === 'defeat') {
-      renderDefeat(overlay, t, { retry: () => send(play, { t: 'retry' }), restart: () => o.onExit?.('restart'), mapSelect: () => o.onExit?.('mapSelect') });
+      renderDefeat(overlay, t, { retry: () => send(play, { t: 'retry' }), restart: () => o.onExit?.('restart'), mapSelect: () => o.onExit?.('mapSelect') }, floodCauses());
       return;
     }
     const r = o.onResult?.(play);

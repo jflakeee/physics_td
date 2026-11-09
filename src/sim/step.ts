@@ -6,7 +6,9 @@ import { fractureIce, meltIce } from './ice.ts';
 import { applyInflow } from './inflow.ts';
 import { applySinks, pumpBudget } from './sinks.ts';
 import { updateStructures } from './structures.ts';
-import { applyDamage, createMetrics, updateEcology } from './metrics.ts';
+import { applyDamage, baseFlood, createMetrics, updateEcology } from './metrics.ts';
+import { icedCells, traceAdded, traceDamage, traceFlow, traceMark, traceMarkCells } from './trace.ts';
+import { waveInflow } from './inflow.ts';
 
 /**
  * Sim tick pipeline (docs/DETAILED_DESIGN_V2.md §4.1), fixed order:
@@ -35,7 +37,7 @@ export function createWorld(t: Terrain, map: MapSimParams, opt: WorldOptions = {
     wave: 0, waveTick: 0, waveLen: 0, waveParams: { mul: 1, rain: m.rain },
     hp: opt.hp ?? 100, hpAcc: 0, cash: opt.cash === undefined ? 150 : opt.cash, cashAcc: 0,
     tick: 0, ecoBase: 0, metrics: createMetrics(), events: { collapsed: [], iceBroken: [], cashEmpty: false },
-    scratch: createFluidScratch(n),
+    scratch: createFluidScratch(n), trace: null,
   };
   world.pumpBudget = pumpBudget(world);
   return world;
@@ -50,6 +52,7 @@ export function startWave(world: SimWorld, wave: number, params: Partial<WavePar
   world.metrics.waveInflow = 0;
   world.metrics.waveDamage = 0;
   world.metrics.waveMaxFlood = 0;
+  world.trace?.damage.fill(0);
 }
 
 /** Advance one tick of an active wave. HP 0 wins over wave end on the same tick (FSM-02). */
@@ -58,15 +61,28 @@ export function stepSim(world: SimWorld): StepResult {
   world.events.collapsed.length = 0;
   world.events.iceBroken.length = 0;
   world.events.cashEmpty = false;
+  const tr = world.trace;
+  const pulse = world.waveTick % world.map.pulseEvery === 0;
+  if (tr && pulse) traceMark(tr, g.w); // inflow only lands on pulse ticks
   const added = applyInflow(world);
+  if (tr && pulse && added > 0) {
+    const N = Math.floor(world.waveLen / world.map.pulseEvery);
+    const rainCell = waveInflow(world.map.I1, cfg.growth, world.wave) * world.waveParams.mul * world.waveParams.rain / N / g.w.length;
+    traceAdded(tr, g.w, rainCell, i => tr.inletOf[i]);
+  }
   world.metrics.inflow += added;
   world.metrics.waveInflow += added;
   fluidStep(g, cfg.K, world.scratch);
+  if (tr) traceFlow(tr, world);
+  const iceCells = tr ? icedCells(g.ice, tr) : null;
+  if (tr && iceCells) traceMarkCells(tr, g.w, iceCells);
   meltIce(g, cfg.iceMelt, cfg.iceEpsilon, cfg.glacierMelt);
   fractureIce(g, cfg.iceFractureHead, world.events.iceBroken);
+  if (tr && iceCells) traceAdded(tr, g.w, 0, () => tr.ice, iceCells);
   applySinks(world);
   updateStructures(world);
   updateEcology(world);
+  if (tr) traceDamage(tr, world, baseFlood(world) - cfg.floodThreshold);
   applyDamage(world);
   world.tick++;
   world.waveTick++;

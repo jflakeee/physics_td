@@ -2,6 +2,7 @@ import type { SimWorld } from '../core/types.ts';
 import { TILE } from '../sim/grid.ts';
 import { placeIce } from '../sim/ice.ts';
 import { stepFluidOnly } from '../sim/step.ts';
+import { traceAdded, traceMark } from '../sim/trace.ts';
 
 /**
  * Glacier lakes (brief: 빙하호 붕괴; Story 001 decision 2). A lake is a tile rectangle
@@ -49,7 +50,10 @@ export function tickLakes(world: SimWorld, lakes: Lake[], out: LakeEvent[]): voi
     let m = Infinity;
     for (const c of L.rim) if (g.ice[c] < m) m = g.ice[c];
     if (m <= L.breakAt) {
+      const tr = world.trace;
+      if (tr) traceMark(tr, g.w);
       for (const c of L.rim) { g.w[c] += g.ice[c]; g.ice[c] = 0; }
+      if (tr) traceAdded(tr, g.w, 0, () => tr.ice);
       L.broken = true;
       out.push({ t: 'lakeBurst', lake: L.id });
       continue;

@@ -13,6 +13,7 @@ import { createDraft, pickCard, reroll, rollCards, skipDraft } from '../rules/ca
 import type { DraftState } from '../rules/cards.ts';
 import type { FusionDef } from '../rules/types.ts';
 import { createStreams } from '../core/rng.ts';
+import { createTrace } from '../sim/trace.ts';
 import { restoreCheckpoint, takeCheckpoint } from './checkpoint.ts';
 import type { Checkpoint } from './checkpoint.ts';
 import type { LakeEvent } from './lakes.ts';
@@ -128,6 +129,7 @@ export function createPlay(map: LoadedMap, opt: PlayOptions = {}): Play {
   };
   if (opt.rules) {
     p.rules = opt.rules(p); p.skill = rulesHandler;
+    p.world.trace = createTrace(p.world); // defeat screen: where the flood came from (§15.5)
     p.score = createScore(p.world);
     p.draft = createDraft(createStreams(p.seed).cards, p.rules, map.data.style, opt.chars ?? []);
   }

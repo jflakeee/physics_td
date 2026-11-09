@@ -81,7 +81,10 @@ Fixed-placement bots stay on target on all maps.
   it (7–8/10) but breaks the fixed-bot guide (ring + 1 pump fails from I1 145), so I1 stays 138.
 - (fixed) 습지 연구원 @ 빙하호 계곡 0/5 → 5/5 — it was the bot's cash, not the lakes (lake size
   ÷ 4 changed nothing).
-- Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
+- (done 2026-11-09) Defeat flood cause (DETAILED §15.5): a source tracer (`src/sim/trace.ts`, 2×2-cell
+  blocks so 4× CPU stays at 1.6 ms) attributes each wave's base damage to inlet directions, rain and
+  ice; the defeat screen shows the shares and an advice line. Shown as bars, not a board heatmap.
+- Text size 120% (§15.6), sound (no audio assets yet).
 - Water TD benchmark candidates (`docs/DESIGN_REVIEW_2026-11.md` §2.1b): **B1 villager mood and
   B2 0.5× speed, B3 water state tints, B6 card map previews are done (2026-11-09)**; B4 multi-base
   maps and B5 geometric map silhouettes remain (map/design work).

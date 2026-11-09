@@ -199,4 +199,6 @@ export interface SimWorld {
   metrics: SimMetrics;
   events: TickEvents;
   scratch: { head: Float64Array; out: Float64Array; s: Float64Array };
+  /** Optional water source tracer (sim/trace.ts); null = off. */
+  trace: import('../sim/trace.ts').Trace | null;
 }

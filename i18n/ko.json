@@ -252,5 +252,16 @@
   "settings.legacy": "이전 버전(v1) 열기",
   "common.on": "켜짐",
   "common.off": "꺼짐",
-  "world.settings": "설정"
+  "world.settings": "설정",
+  "cause.title": "침수 원인",
+  "cause.inlet": "{dir}쪽 물길",
+  "cause.rain": "비",
+  "cause.ice": "빙하·얼음",
+  "dir.N": "북",
+  "dir.S": "남",
+  "dir.W": "서",
+  "dir.E": "동",
+  "cause.hint": "다음엔 먼저 막아 보자 → {src}",
+  "cause.hintRain": "비는 막을 수 없다. 기지 가까이에서 빼내자 (펌프·습지)",
+  "cause.hintIce": "빙하호가 무너지기 전에 얼음을 다시 얼려 두자"
 }

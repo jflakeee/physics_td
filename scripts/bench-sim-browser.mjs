@@ -21,8 +21,10 @@ try {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate });
     await page.setContent('<!doctype html><title>bench</title>');
     await page.addScriptTag({ content: code });
-    const r = await page.evaluate(n => globalThis.Bench.runBench(n), N);
-    console.log(`chromium ${rate}x`, r);
+    for (const traced of [false, true]) {
+      const r = await page.evaluate(([n, t]) => globalThis.Bench.runBench(n, t), [N, traced]);
+      console.log(`chromium ${rate}x${traced ? ' traced' : '       '}`, r);
+    }
     await page.close();
   }
 } finally {

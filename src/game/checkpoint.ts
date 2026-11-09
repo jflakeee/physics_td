@@ -28,6 +28,8 @@ export interface Checkpoint {
   level: number;
   score: ScoreState | null;
   story: Play['story'];
+  /** Source-tracer mix (block fractions). */
+  traceF: Float64Array | null;
   draft: { rng: RngState; rerollsLeft: number; sinceFusion: number; skips: number; drafted: number } | null;
 }
 
@@ -56,6 +58,7 @@ export function takeCheckpoint(p: Play): Checkpoint {
     level: p.level,
     score: p.score ? structuredClone(p.score) : null,
     story: structuredClone(p.story),
+    traceF: p.world.trace ? p.world.trace.f.slice() : null,
     draft: p.draft ? { rng: p.draft.rng.state(), rerollsLeft: p.draft.rerollsLeft, sinceFusion: p.draft.sinceFusion, skips: p.draft.skips, drafted: p.draft.drafted } : null,
   };
 }
@@ -73,6 +76,7 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   p.level = c.level;
   if (p.score && c.score) Object.assign(p.score, structuredClone(c.score));
   if (c.story) p.story = structuredClone(c.story);
+  if (p.world.trace && c.traceF) { p.world.trace.f.set(c.traceF); p.world.trace.damage.fill(0); }
   if (p.draft && c.draft) { const { rng, ...rest } = c.draft; Object.assign(p.draft, rest, { rng: createRng(rng), offer: null }); }
   p.queue.length = 0; p.acc = 0; p.damaging = false;
 }

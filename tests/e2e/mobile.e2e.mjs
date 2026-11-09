@@ -157,9 +157,13 @@ try {
     check('render frame < 6 ms (mean)', fr.mean < 6, `n=${fr.n} mean=${fr.mean.toFixed(2)} p95=${fr.p95.toFixed(2)}`);
     // defeat → overlay → retry from the wave checkpoint
     const waveAtDefeat = await S(() => __ptd.play.world.wave);
+    // flood the base for a moment so this wave records damage (and its cause), then end it
+    await S(() => { const w = __ptd.play.world; for (const c of w.baseCore) w.grid.w[c] = 0.4; });
+    await page.waitForTimeout(400);
     await S(() => { __ptd.play.world.hp = 0; });
     await page.waitForSelector('.overlay:not([hidden])');
     await shot('5-defeat');
+    if (name === 'iphone-13') check('defeat shows the flood cause (§15.5)', (await page.locator('.causes .cause').count()) >= 1 && (await page.locator('.cause-hint').count()) === 1);
     await page.locator('.overlay button.primary').tap();
     check('retry returns to prepare of the same wave', (await S(() => __ptd.play.phase === 'prepare' && __ptd.play.world.hp > 0)) && (await S(() => __ptd.play.world.wave)) === waveAtDefeat - 1);
     check('no page errors', errors.length === 0, errors.join(' | '));

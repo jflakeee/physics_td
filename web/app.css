@@ -212,3 +212,11 @@ button:disabled { opacity: .35; }
 #app.play.left-hand .bar { flex-direction: row-reverse; }
 @media (orientation: landscape) { #app.play.left-hand .bar { direction: rtl; } }
 #app.play.reduced-motion *, #app.play.reduced-motion *::after { animation: none !important; }
+
+/* defeat: flood cause (§15.5) */
+.causes { width: min(92%, 360px); background: rgba(20, 32, 48, .9); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.causes h3 { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
+.cause { display: grid; grid-template-columns: 6.5em 1fr 3em; align-items: center; gap: 8px; font-size: 14px; margin: 3px 0; }
+.cause-bar { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #e05a4f var(--w), #0b1420 var(--w)); border: 1px solid var(--line); }
+.cause b { text-align: right; font-variant-numeric: tabular-nums; }
+.cause-hint { margin: 6px 0 0; font-size: 13px; color: #ffd36b; }

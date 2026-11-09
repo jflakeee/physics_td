@@ -3,11 +3,12 @@ import { buildTerrain } from '../src/sim/terrain.ts';
 import { createWorld, startWave, stepSim } from '../src/sim/step.ts';
 import { addPump, setPump } from '../src/sim/sinks.ts';
 import { buildLevee } from '../src/sim/structures.ts';
+import { createTrace } from '../src/sim/trace.ts';
 
 const DIKE = ['PPPIPPPO', 'PPFPPPPP', 'PPPPPPFP', 'PDPPPPPP', 'PPPPPPPP', 'IPPBBPPP', 'PPPBBPPI', 'PPPPPPPP', 'PPFPPPDP', 'PPPPPPPP', 'PPPPFPPP', 'OPPPIPPP'];
 
 /** Time `n` sim steps after a 300-tick warm-up. Returns ms statistics. */
-export function runBench(n = 3000) {
+export function runBench(n = 3000, traced = false) {
   const t = buildTerrain(DIKE);
   const w = createWorld(t, { I1: 120 }, { cash: null });
   const W = t.grid.width, ring = [];
@@ -16,6 +17,7 @@ export function runBench(n = 3000) {
   buildLevee(w, ring, 0.4);
   setPump(w, addPump(w, (t.baseY - 9) * W + t.baseX), true);
   setPump(w, addPump(w, (t.baseY + 9) * W + t.baseX), true);
+  if (traced) w.trace = createTrace(w); // the play screen runs with the source tracer on
   startWave(w, 5);
   for (let k = 0; k < 300; k++) stepSim(w); // JIT warm-up
   const times = new Float64Array(n);
