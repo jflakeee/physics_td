@@ -17,21 +17,8 @@ export type { CardId, CharId, PowerupId } from './tuning.ts';
 export const W = 64, H = 96;
 const at = (x: number, y: number) => y * W + x;
 
-// ---- map: 작은 계곡 ----------------------------------------------------------------
-/** River centre line. */
-export const riverX = (y: number) => 30 + 9 * Math.sin(y / 15);
-/** Valley floor (river bed) height: gentle with two rapids. */
-export function bed(y: number): number {
-  let z = 7 - 0.05 * y;
-  z -= 0.1 * Math.max(0, Math.min(y, 32) - 22); // rapid 1: rows 22–32
-  z -= 0.1 * Math.max(0, Math.min(y, 64) - 56); // rapid 2: rows 56–64
-  return z;
-}
+// ---- maps: one per stage ---------------------------------------------------------------
 export const BANK = 0.7;
-export const VILLAGE = { x0: 36, x1: 52, y0: 78, y1: 92 } as const;
-export const inChannel = (x: number, y: number) => Math.abs(x - riverX(y)) <= 2.5;
-export const inVillage = (x: number, y: number) => x >= VILLAGE.x0 && x <= VILLAGE.x1 && y >= VILLAGE.y0 && y <= VILLAGE.y1;
-
 export type SiteKind = 'river' | 'bank';
 export type BuildKind = 'wheel' | 'reservoir' | 'wall';
 /**
@@ -39,19 +26,65 @@ export type BuildKind = 'wheel' | 'reservoir' | 'wall';
  * water wheel, bank spots by a bend take a reservoir, bank spots by the village or a wheel take a wall.
  */
 export interface Site { id: number; kind: SiteKind; build: BuildKind; x: number; y: number; side: -1 | 1 }
-export const SITES: readonly Site[] = (() => {
-  const s: Site[] = [];
-  for (const y of [10, 27, 40, 60, 72, 86]) s.push({ id: s.length, kind: 'river', build: 'wheel', x: Math.round(riverX(y)), y, side: 1 });
-  for (const [y, side, build] of [[18, -1, 'reservoir'], [46, -1, 'reservoir'], [66, 1, 'reservoir'], [80, 1, 'wall'], [90, 1, 'wall'], [33, 1, 'wall']] as const) {
-    s.push({ id: s.length, kind: 'bank', build, x: Math.round(riverX(y) + side * 8), y, side });
-  }
-  return s;
-})();
+/** A valley: river centre line, bed height (with rapids), village, build spots, disaster rows. */
+export interface MapDef {
+  id: string;
+  river: (y: number) => number;
+  bed: (y: number) => number;
+  village: { x0: number; x1: number; y0: number; y1: number };
+  sites: readonly Site[];
+  /** River site that already has a wheel at the start. */
+  startSite: number;
+  /** Rows where an ice jam forms and where a landslide falls into the river. */
+  jamRow: number; slideRow: number;
+  /** Bank height above the bed (lower banks flood sooner). */
+  bank: number;
+}
+function mkMap(c: {
+  id: string; river: (y: number) => number; top: number; slope: number; rapids: [number, number][];
+  village: MapDef['village']; wheels: number[]; banks: [number, -1 | 1, BuildKind][]; startSite: number; jamRow: number; slideRow: number; bank?: number;
+}): MapDef {
+  const bed = (y: number) => { let z = c.top - c.slope * y; for (const [y0, y1] of c.rapids) z -= 0.1 * Math.max(0, Math.min(y, y1) - y0); return z; };
+  const sites: Site[] = [];
+  for (const y of c.wheels) sites.push({ id: sites.length, kind: 'river', build: 'wheel', x: Math.round(c.river(y)), y, side: 1 });
+  for (const [y, side, build] of c.banks) sites.push({ id: sites.length, kind: 'bank', build, x: Math.round(c.river(y) + side * 8), y, side });
+  return { id: c.id, river: c.river, bed, village: c.village, sites, startSite: c.startSite, jamRow: c.jamRow, slideRow: c.slideRow, bank: c.bank ?? BANK };
+}
+/** Stage n plays on MAPS[n]: each valley bends differently, has its rapids elsewhere and its village on another bank. */
+export const MAPS: readonly MapDef[] = [
+  mkMap({ // 작은 계곡: two rapids, village on the right bank
+    id: 'valley-1', river: y => 30 + 9 * Math.sin(y / 15), top: 7, slope: 0.05, rapids: [[22, 32], [56, 64]],
+    village: { x0: 36, x1: 52, y0: 78, y1: 92 }, wheels: [10, 27, 40, 60, 72, 86],
+    banks: [[18, -1, 'reservoir'], [46, -1, 'reservoir'], [66, 1, 'reservoir'], [80, 1, 'wall'], [90, 1, 'wall'], [33, 1, 'wall']],
+    startSite: 1, jamRow: 16, slideRow: 48,
+  }),
+  mkMap({ // 가을 계곡: tighter bends, two rapids, village mid-valley on the left bank beside a slow reach
+    id: 'valley-2', river: y => 34 - 8 * Math.sin(y / 12 + 0.5), top: 7, slope: 0.05, rapids: [[14, 21], [36, 46]],
+    village: { x0: 13, x1: 29, y0: 52, y1: 66 }, wheels: [8, 18, 30, 41, 72, 86],
+    banks: [[27, 1, 'reservoir'], [40, 1, 'reservoir'], [60, 1, 'reservoir'], [58, -1, 'wall'], [46, -1, 'wall'], [78, -1, 'wall']],
+    startSite: 1, jamRow: 26, slideRow: 50, bank: 0.62,
+  }),
+  mkMap({ // 겨울 계곡: one long rapid and a wide slow reach above the village (left bank)
+    id: 'valley-3', river: y => 32 + 11 * Math.sin(y / 18 + 2), top: 7, slope: 0.047, rapids: [[28, 42], [60, 66]],
+    village: { x0: 8, x1: 24, y0: 78, y1: 92 }, wheels: [12, 24, 36, 52, 63, 84],
+    banks: [[18, 1, 'reservoir'], [48, -1, 'reservoir'], [56, 1, 'reservoir'], [72, -1, 'wall'], [86, -1, 'wall'], [44, 1, 'wall']],
+    startSite: 2, jamRow: 20, slideRow: 50,
+  }),
+];
+// stage 1 map under its old names (tests, tools)
+export const riverX = MAPS[0].river;
+export const bed = MAPS[0].bed;
+export const VILLAGE = MAPS[0].village;
+export const SITES = MAPS[0].sites;
+export const inChannel = (x: number, y: number, m: MapDef = MAPS[0]) => Math.abs(x - m.river(y)) <= 2.5;
+export const inVillage = (x: number, y: number, m: MapDef = MAPS[0]) => x >= m.village.x0 && x <= m.village.x1 && y >= m.village.y0 && y <= m.village.y1;
 export interface Plant { site: number; hp: number; power: number; drown: number; spin: number }
 export type Phase = 'ready' | 'run' | 'levelup' | 'won' | 'lost';
 
 export interface HydroWorld {
   g: SimGrid; sc: FluidScratch; rng: Rng;
+  /** The valley this run plays on (MAPS[stage]). */
+  map: MapDef;
   channel: Uint8Array; village: Uint8Array;
   built: (BuildKind | null)[]; plants: Plant[];
   tick: number; phase: Phase;
@@ -77,7 +110,9 @@ export interface HydroWorld {
   /** Temporary sandbag cells and their remaining ticks. */
   sandbags: Map<number, number>;
   cards: CardId[];
-  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice' | 'rain' | 'sun'; cells: number[] } | null; seasonSurvived: string | null };
+  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice' | 'rain' | 'sun'; cells: number[] } | null; seasonSurvived: string | null; disaster: { kind: 'jam' | 'burst' | 'slide'; cells: number[] } | null };
+  /** Disasters: which weather entry was last entered, and ticks left of a forming ice jam. */
+  wxKey: string; jamTicks: number;
   /** Ticks before the next flood heart can be lost. */
   floodCooldown: number;
   /** Village edge cell where the last flood came in (−1 = none), for the arrow on screen. */
@@ -89,24 +124,24 @@ export interface RunOptions { stage?: number; char?: CharId; powerups?: Partial<
 
 /** New game. One wheel is already turning at the first rapid. */
 export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
-  const stage = Math.max(0, Math.min(STAGES.length - 1, opt.stage ?? 0)), st = STAGES[stage];
+  const stage = Math.max(0, Math.min(STAGES.length - 1, opt.stage ?? 0)), st = STAGES[stage], map = MAPS[Math.min(stage, MAPS.length - 1)];
   const ch = CHARS.find(c => c.id === (opt.char ?? 'miller')) ?? CHARS[0], pu = opt.powerups ?? {};
   const builder = 1 - 0.05 * (pu.builder ?? 0);
   const g = createGrid(W, H);
   const channel = new Uint8Array(W * H), village = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = at(x, y), z = bed(y), d = Math.abs(x - riverX(y));
-    if (inChannel(x, y)) { channel[i] = 1; g.h[i] = z; }
-    else if (inVillage(x, y)) { village[i] = 1; g.h[i] = z + BANK - 0.15; }
-    else g.h[i] = z + BANK + 0.012 * (d - 2.5);
+    const i = at(x, y), z = map.bed(y), d = Math.abs(x - map.river(y));
+    if (inChannel(x, y, map)) { channel[i] = 1; g.h[i] = z; }
+    else if (inVillage(x, y, map)) { village[i] = 1; g.h[i] = z + map.bank - 0.15; }
+    else g.h[i] = z + map.bank + 0.012 * (d - 2.5);
   }
   const w: HydroWorld = {
     g, sc: createFluidScratch(W * H), rng: createRng(seedState(seed, 4)), channel, village,
-    built: SITES.map(() => null), plants: [], tick: 0, phase: 'ready',
+    map, built: map.sites.map(() => null), plants: [], tick: 0, phase: 'ready',
     xp: 0, level: 1, coins: T.startCoins + 20 * (pu.purse ?? 0), hearts: T.hearts + (pu.heart ?? 0),
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
     skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
-    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null, seasonSurvived: null }, floodCooldown: 0, floodFrom: -1,
+    sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null, seasonSurvived: null, disaster: null }, floodCooldown: 0, floodFrom: -1, wxKey: '', jamTicks: 0,
     endless: false, extraSeasons: 0, bookedPower: 0, bookedTicks: 0,
     stage, seasons: st.seasons, totalSec: st.seasons.reduce((a, x) => a + x.seconds, 0), char: ch.id,
     etaBonus: ch.eta + 0.05 * (pu.turbine ?? 0),
@@ -118,7 +153,7 @@ export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
   // start with a little water in the river so the first wheel turns at once
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (channel[at(x, y)]) g.w[at(x, y)] = 0.25;
   for (let i = 0; i < W * H; i++) w.inflow += g.w[i];
-  placeBuilding(w, 1, 'wheel', true);
+  placeBuilding(w, map.startSite, 'wheel', true);
   return w;
 }
 
@@ -150,32 +185,32 @@ export const seconds = (w: HydroWorld) => w.tick / T.tps;
 // ---- building -----------------------------------------------------------------------
 export function cost(w: HydroWorld, k: BuildKind): number { return Math.round(T.cost[k] * w.costMul[k] * (1 - 0.15 * w.skill.cheap)); }
 /** True if `site` is free and takes `k` (its own building when omitted) and the coins are there. */
-export function canBuild(w: HydroWorld, site: number, k: BuildKind = SITES[site]?.build): boolean {
-  const s = SITES[site];
+export function canBuild(w: HydroWorld, site: number, k: BuildKind = w.map.sites[site]?.build): boolean {
+  const s = w.map.sites[site];
   if (!s || w.built[site] || w.phase === 'won' || w.phase === 'lost') return false;
   if (k !== s.build) return false;
   return w.coins >= cost(w, k);
 }
 /** A free site whose building you cannot pay for yet (drawn dimmed). */
-export const waiting = (w: HydroWorld, site: number) => !w.built[site] && w.phase !== 'won' && w.phase !== 'lost' && w.coins < cost(w, SITES[site].build);
+export const waiting = (w: HydroWorld, site: number) => !w.built[site] && w.phase !== 'won' && w.phase !== 'lost' && w.coins < cost(w, w.map.sites[site].build);
 /** Plant row cells (the channel across the site row). */
-export function plantCells(site: number): number[] {
-  const s = SITES[site], out: number[] = [];
-  for (let x = 0; x < W; x++) if (inChannel(x, s.y)) out.push(at(x, s.y));
+export function plantCells(site: number, m: MapDef = MAPS[0]): number[] {
+  const s = m.sites[site], out: number[] = [];
+  for (let x = 0; x < W; x++) if (inChannel(x, s.y, m)) out.push(at(x, s.y));
   return out;
 }
 
 /** Build on `site` (its own building unless `k` is given). `free` skips the cost (starting wheel). */
-export function placeBuilding(w: HydroWorld, site: number, k: BuildKind = SITES[site].build, free = false): boolean {
+export function placeBuilding(w: HydroWorld, site: number, k: BuildKind = w.map.sites[site].build, free = false): boolean {
   if (!free && !canBuild(w, site, k)) return false;
-  const s = SITES[site], g = w.g;
+  const s = w.map.sites[site], g = w.g, riverX = w.map.river;
   if (!free) { w.coins -= cost(w, k); w.record.builds++; }
   w.built[site] = k;
   if (k === 'wheel') w.plants.push({ site, hp: 1, power: 0, drown: 0, spin: 0 });
   else if (k === 'reservoir') {
     // a bowl beside the river, joined to it by a short cut whose floor sits a little above the bed:
     // high water spills in, and drains back out when the river falls (passive storage)
-    const r = 5, z = bed(s.y);
+    const r = 5, z = w.map.bed(s.y);
     for (let y = s.y - r; y <= s.y + r; y++) for (let x = s.x - r; x <= s.x + r; x++) {
       if (x < 1 || x > W - 2 || y < 1 || y > H - 2) continue;
       const i = at(x, y), d2 = (x - s.x) ** 2 + (y - s.y) ** 2;
@@ -190,6 +225,13 @@ export function placeBuilding(w: HydroWorld, site: number, k: BuildKind = SITES[
     for (let y = s.y - 7; y <= s.y + 7; y++) {
       const x = Math.round(riverX(y) + s.side * 3.5);
       for (const xx of [x, x + s.side]) if (xx > 0 && xx < W - 1) g.wall[at(xx, y)] = Math.max(g.wall[at(xx, y)], 0.5);
+    }
+    // tie the upstream end back to high ground (an L-shaped levee): otherwise water already on the
+    // land behind the wall cannot get back to the river and is funnelled down to the village
+    const y0 = Math.max(1, s.y - 8);
+    for (let x = Math.round(riverX(y0 + 1) + s.side * 3.5); x > 0 && x < W - 1; x += s.side) {
+      if (w.village[at(x, y0)] || w.channel[at(x, y0)]) break;
+      g.wall[at(x, y0)] = Math.max(g.wall[at(x, y0)], 0.5);
     }
   }
   return true;
@@ -228,10 +270,10 @@ function plantPower(w: HydroWorld): number {
   const g = w.g, { out, s } = w.sc;
   let total = 0;
   for (const p of w.plants) {
-    const row = SITES[p.site].y;
+    const row = w.map.sites[p.site].y;
     let q = 0, depth = 0, n = 0, up = 0, dn = 0;
     for (let x = 0; x < W; x++) {
-      if (!inChannel(x, row)) continue;
+      if (!w.channel[at(x, row)]) continue;
       const i = at(x, row), j = i + W;
       q += out[i * 4 + 2] * s[i] - out[j * 4 + 3] * s[j];
       depth += g.w[i]; n++;
@@ -243,17 +285,21 @@ function plantPower(w: HydroWorld): number {
     p.drown = Math.max(0, Math.min(1, (depth - T.drownFrom) / (T.drownTo - T.drownFrom)));
     if (p.drown > 0 && p.hp > 0) p.hp = Math.max(0, p.hp - T.plantWear * p.drown / (1 + 0.5 * w.skill.tough));
     p.power = p.hp > 0 ? T.powerScale * eta(w) * Math.max(0, q) * head * (1 - p.drown) : 0;
-    p.spin += p.power * 0.05;
     total += p.power;
   }
-  return total;
+  // shared grid: every extra working wheel lifts them all; a wheel turns as fast as it makes power
+  let working = 0;
+  for (const p of w.plants) if (p.power > 0) working++;
+  const boost = 1 + T.synergy * Math.max(0, working - 1);
+  for (const p of w.plants) { p.power *= boost; if (p.power > 0) p.spin += Math.min(1.2, 0.2 + p.power * 3); }
+  return total * boost;
 }
 
 /** Advance one tick (only while running). */
 export function tick(w: HydroWorld): void {
   if (w.phase !== 'run') return;
   const g = w.g, sec = seconds(w);
-  w.events.lostHeart = null; w.events.spirit = null; w.events.seasonSurvived = null;
+  w.events.lostHeart = null; w.events.spirit = null; w.events.seasonSurvived = null; w.events.disaster = null;
   const { mul, now } = weatherAt(sec, w.seasons);
   // inflow at the top of the channel
   const top: number[] = [];
@@ -261,6 +307,7 @@ export function tick(w: HydroWorld): void {
   const add = T.baseInflow * mul / top.length;
   for (const i of top) g.w[i] += add;
   w.inflow += add * top.length;
+  disasters(w, now);
   fluidStep(g, T.K, w.sc);
   const power = plantPower(w);
   // ice: in a freeze the river skins over (water → ice, no melting); otherwise it melts slowly,
@@ -307,6 +354,42 @@ export function tick(w: HydroWorld): void {
   }
   if (w.xp >= xpNeed(w.level)) levelUp(w);
 }
+/** Disasters other than plain high water: storm rain, ice jam and outburst, landslide. */
+function disasters(w: HydroWorld, now: Weather): void {
+  const g = w.g, m = w.map, key = `${seasonAt(seconds(w), w.seasons).si}:${now.t}`;
+  if (key !== w.wxKey) {
+    w.wxKey = key;
+    if (now.kind === 'jam') {
+      w.jamTicks = T.jam.seconds * T.tps;
+      w.events.disaster = { kind: 'jam', cells: rowCells(w, m.jamRow, T.jam.rows) };
+    } else if (now.kind === 'slide') {
+      // earth slides into the river: the bed is blocked until the water wears it away
+      const cells = rowCells(w, m.slideRow, T.slide.rows);
+      for (const i of cells) { g.tmp[i] = Math.max(g.tmp[i], T.slide.height); w.sandbags.set(i, T.slide.seconds * T.tps); }
+      w.events.disaster = { kind: 'slide', cells };
+    }
+  }
+  if (now.kind === 'storm') {
+    // the storm rains on the whole valley, not only upstream
+    const per = T.storm.rainPerTick / (W * H);
+    for (let i = 0; i < W * H; i++) g.w[i] += per;
+    w.inflow += T.storm.rainPerTick;
+  }
+  if (w.jamTicks > 0) {
+    // drifting ice packs into a dam (water → ice, nothing lost); when it gives way it all comes at once
+    freezeCells(g, rowCells(w, m.jamRow, T.jam.rows), T.jam.frac);
+    if (--w.jamTicks === 0) {
+      const cells: number[] = [];
+      for (let y = m.jamRow - 1; y <= m.jamRow + T.jam.rows; y++) for (let x = 0; x < W; x++) { const i = at(x, y); if (g.ice[i] > 0) { g.w[i] += g.ice[i]; g.ice[i] = 0; cells.push(i); } }
+      w.events.disaster = { kind: 'burst', cells };
+    }
+  }
+}
+function rowCells(w: HydroWorld, row: number, rows: number): number[] {
+  const out: number[] = [];
+  for (let y = row; y < row + rows; y++) for (let x = 0; x < W; x++) if (w.channel[at(x, y)]) out.push(at(x, y));
+  return out;
+}
 function loseHeart(w: HydroWorld, why: 'blackout' | 'flood') {
   w.hearts--; w.events.lostHeart = why;
   if (why === 'flood') w.record.floodHearts++; else w.record.blackoutHearts++;
@@ -314,7 +397,7 @@ function loseHeart(w: HydroWorld, why: 'blackout' | 'flood') {
 
 // ---- spirits (auto skills) -----------------------------------------------------------
 function spirits(w: HydroWorld, mul: number): void {
-  const g = w.g;
+  const g = w.g, VILLAGE = w.map.village, riverX = w.map.river;
   if (w.skill.sand > 0 && --w.spiritTimer.sand <= 0) {
     const L = w.skill.sand - 1;
     w.spiritTimer.sand = T.sand.every[L] * T.tps;
@@ -423,7 +506,7 @@ export function cloneHydro(w: HydroWorld): HydroWorld {
     ...w, g: cloneGrid(w.g), sc: createFluidScratch(W * H), rng: createRng(w.rng.state()),
     built: w.built.slice(), plants: w.plants.map(p => ({ ...p })), skill: { ...w.skill }, spiritTimer: { ...w.spiritTimer },
     record: { ...w.record }, unlocked: w.unlocked.slice(), costMul: { ...w.costMul },
-    sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null, seasonSurvived: null }, seasons: w.seasons.slice(),
+    sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null, seasonSurvived: null, disaster: null }, seasons: w.seasons.slice(),
   };
 }
 /** Run a copy ahead (level-ups are skipped) and report what happened. */
@@ -441,7 +524,7 @@ function lookAhead(w: HydroWorld, ticks: number): { power: number; hearts: numbe
 /** Recommended site for `k`: wheels where they make the most power, the rest where they spare the village most. */
 export function recommend(w: HydroWorld, k: BuildKind, ticks: number = T.horizon): number | null {
   let best: number | null = null, score = -Infinity;
-  for (const s of SITES) {
+  for (const s of w.map.sites) {
     if (w.built[s.id] || s.build !== k) continue;
     const c = cloneHydro(w);
     c.coins = 1e9;
@@ -463,7 +546,7 @@ export function* recommendSteps(w: HydroWorld, ticks: number = T.horizon): Gener
   const base = lookAhead(w, ticks);
   yield;
   let best: number | null = null, score = 0;
-  for (const s of SITES) {
+  for (const s of w.map.sites) {
     if (!canBuild(w, s.id)) continue;
     const c = cloneHydro(w);
     placeBuilding(c, s.id);

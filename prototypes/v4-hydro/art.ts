@@ -1,4 +1,4 @@
-import { H, riverX, seasonAt, seconds, SITES, VILLAGE, W, type HydroWorld } from './core.ts';
+import { H, seasonAt, seconds, W, type HydroWorld, type MapDef } from './core.ts';
 import type { Season } from './tuning.ts';
 import { rgbOf, SPRITES, type Sprite } from './sprites.ts';
 import { T } from './tuning.ts';
@@ -49,8 +49,10 @@ export function seasonMix(sec: number, SEASONS: Season[]): { a: number; b: numbe
 export const seasonKey = (sec: number, seasons: Season[]) => { const m = seasonMix(sec, seasons); return m.a * 100 + m.b * 10 + Math.round(m.f * 16); };
 
 /** Fixed tree spots: on the banks, away from the river, the village and the build spots. */
-export const TREE_SPOTS: readonly number[] = (() => {
-  const out: number[] = [];
+const treeCache = new Map<string, readonly number[]>();
+export function treeSpots(m: MapDef): readonly number[] {
+  const hit = treeCache.get(m.id); if (hit) return hit;
+  const out: number[] = [], riverX = m.river, VILLAGE = m.village, SITES = m.sites;
   for (let y = 3; y < H - 3; y += 2) for (let x = 2; x < W - 2; x++) {
     if (hash(x * 7 + 3, y * 11 + 5) > 14) continue;
     if (Math.abs(x - riverX(y)) < 8) continue;
@@ -59,8 +61,9 @@ export const TREE_SPOTS: readonly number[] = (() => {
     if (out.some(c => ((c % W) - x) ** 2 + (((c / W) | 0) - y) ** 2 < 16)) continue;
     out.push(y * W + x);
   }
+  treeCache.set(m.id, out);
   return out;
-})();
+}
 
 /** Ground, river bed, village, walls, sandbags, seasonal grass — repaint when the terrain changes. */
 export function paintTerrain(a: ArtBuffers, w: HydroWorld): void {
@@ -78,7 +81,7 @@ export function paintTerrain(a: ArtBuffers, w: HydroWorld): void {
         r = 120; gg = 104; b = 80;
         if (n < 40) { r += 22; gg += 20; b += 16; } else if (n > 220) { r -= 20; gg -= 20; b -= 16; }
       } else {
-        const rowBed = g.h[cy * W + Math.max(0, Math.min(W - 1, Math.round(30 + 9 * Math.sin(cy / 15))))];
+        const rowBed = g.h[cy * W + Math.max(0, Math.min(W - 1, Math.round(w.map.river(cy))))];
         if (g.h[i] - rowBed < 0.45) { r = 132; gg = 104; b = 70; if (n < 30) { r -= 18; gg -= 16; b -= 12; } } // dug earth
         else {
           // season, dithered across the change so the map turns pixel by pixel
@@ -96,7 +99,8 @@ export function paintTerrain(a: ArtBuffers, w: HydroWorld): void {
         else if (d < -0.12) { r -= 28; gg -= 28; b -= 24; }
       }
       if (g.wall[i] > 0) { r = 150; gg = 104; b = 60; if (ay % S === 0) { r = 196; gg = 146; b = 92; } if (ay % S === S - 1) { r = 96; gg = 64; b = 36; } }
-      if (g.tmp[i] > 0) { const chk = ((ax >> 1) + (ay >> 1)) & 1; r = chk ? 230 : 196; gg = chk ? 201 : 166; b = chk ? 138 : 104; }
+      if (g.tmp[i] > 0 && w.channel[i]) { const k = n % 3; r = [112, 84, 140][k]; gg = [78, 58, 104][k]; b = [48, 36, 70][k]; } // landslide rubble
+      else if (g.tmp[i] > 0) { const chk = ((ax >> 1) + (ay >> 1)) & 1; r = chk ? 230 : 196; gg = chk ? 201 : 166; b = chk ? 138 : 104; }
       const o = (ay * AW + ax) * 4;
       t[o] = r; t[o + 1] = gg; t[o + 2] = b; t[o + 3] = 255;
     }
@@ -190,13 +194,15 @@ export interface Overlay {
   flashes: { cells: number[]; kind: 'sand' | 'ice' | 'rain' | 'sun' }[];
   /** Village edge cell where flood water came in (−1 = none). */
   floodArrow: number;
+  /** Storm now: rain streaks over the whole map. */
+  storm: boolean;
 }
 
 /** Everything that sits on the water: village, sites, buildings, badges, spirits. */
 export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
   const rgba = a.rgba;
   // trees: each switches to the next season's look at its own moment during the change
-  const mix = seasonMix(seconds(w), w.seasons);
+  const mix = seasonMix(seconds(w), w.seasons), TREE_SPOTS = treeSpots(w.map), VILLAGE = w.map.village, SITES = w.map.sites;
   TREE_SPOTS.forEach((c, k) => {
     const si = mix.f * TREE_SPOTS.length > ((k * 7) % TREE_SPOTS.length) ? mix.b : mix.a;
     const tr = SPRITES.trees[si];
@@ -223,7 +229,7 @@ export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
     const k = w.built[st.id];
     if (k === 'wheel') {
       const p = w.plants.find(q => q.site === st.id)!;
-      const frame = o.reduced ? 0 : Math.floor(p.spin) & 3;
+      const frame = o.reduced ? 0 : Math.floor(p.spin) % SPRITES.wheel.length;
       centred(rgba, p.hp > 0 ? SPRITES.wheel[frame] : SPRITES.wheelBroken, st.x, st.y);
       // health strip under the wheel (3 colours, art pixels)
       const bx = artOf(st.x) - 8, by = artOf(st.y) + 10, fill = Math.round(16 * p.hp);
@@ -242,6 +248,14 @@ export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
       const pulse = isRec && !o.reduced && ((o.frame >> 3) & 1) === 1;
       centred(rgba, isRec ? SPRITES.star : SPRITES.site, st.x, st.y - (pulse ? 1 : 0));
     } else if (o.waiting(st.id)) centred(rgba, SPRITES.siteWait, st.x, st.y);
+  }
+  if (o.storm) {
+    // slanted rain, moving with the frame (still when motion is reduced)
+    const t = o.reduced ? 0 : o.frame * 3;
+    for (let k = 0; k < 420; k++) {
+      const x = (hash(k, 7) * 3 + t) % AW, y = (hash(k, 13) * 5 + t * 2) % AH;
+      for (let d = 0; d < 3; d++) { const xx = (x + d) % AW, yy = (y + d * 2) % AH, q = (yy * AW + xx) * 4; rgba[q] = 200; rgba[q + 1] = 226; rgba[q + 2] = 255; }
+    }
   }
   // spirit flashes: lit cells + the spirit next to them
   for (const f of o.flashes) {

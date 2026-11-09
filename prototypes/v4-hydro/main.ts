@@ -1,5 +1,5 @@
 import {
-  canBuild, chooseCard, continueEndless, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, SITES, start,
+  canBuild, chooseCard, continueEndless, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, start,
   tick, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId, type CharId, type HydroWorld, type PowerupId,
 } from './core.ts';
 import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, seasonKey } from './art.ts';
@@ -24,6 +24,7 @@ const STR = {
   pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
   next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
   bonusHint: '버티면 레벨업 카드에 나와요', allClear: '모든 계곡을 지켰어요!',
+  jam: '얼음 댐이 강을 막았어요!', burst: '얼음 댐이 터졌어요! 큰물이 와요', slide: '산사태! 강이 막혀 넘쳐요', grid: '물레방아',
   keepGoing: '계속하기', keepHint: '다음 계절이 와요 · 마을이 더 커져요', survived: '도 버텼어요!', endlessOver: '계절을 더 버텼어요',
 };
 const STAT_ROWS: [keyof ReturnType<typeof loadMeta>['stats'], string][] = [
@@ -46,7 +47,8 @@ const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
 };
 const WX: Record<string, { icon: SpriteName; name: string }> = {
   clear: { icon: 'sun', name: '맑음' }, rain: { icon: 'rain', name: '장마' }, drought: { icon: 'drought', name: '가뭄' },
-  thaw: { icon: 'thaw', name: '눈 녹음' }, storm: { icon: 'storm', name: '태풍' }, freeze: { icon: 'snow', name: '얼음' },
+  thaw: { icon: 'thaw', name: '눈 녹음' }, storm: { icon: 'storm', name: '태풍' }, freeze: { icon: 'snow', name: '한파' },
+  jam: { icon: 'jam', name: '얼음 댐' }, slide: { icon: 'slide', name: '산사태' },
 };
 
 const q = new URLSearchParams(location.search);
@@ -244,7 +246,7 @@ function showPlay(w: HydroWorld): void {
   };
   // the star: recomputed in the background (one look-ahead per frame) when coins or buildings change
   let recJob: Generator<void, number | null> | null = null, recKey = '', recAt = -1e9;
-  const recKeyNow = () => `${w.built.join()}|${SITES.filter(st => canBuild(w, st.id)).map(st => st.id).join()}`;
+  const recKeyNow = () => `${w.built.join()}|${w.map.sites.filter(st => canBuild(w, st.id)).map(st => st.id).join()}`;
   const stepRecommendation = (now: number) => {
     const key = recKeyNow();
     if (!recJob && (key !== recKey || now - recAt > 3000) && w.phase !== 'won' && w.phase !== 'lost') { recJob = recommendSteps(w); recKey = key; recAt = now; }
@@ -285,6 +287,7 @@ function showPlay(w: HydroWorld): void {
       rec: rec !== null && canBuild(w, rec) ? rec : null, canBuild: st => canBuild(w, st), waiting: st => waiting(w, st), frame, reduced,
       lit: w.lastSecPower >= demand(w) || w.tick < T.tps, flashes,
       floodArrow: w.floodCooldown > 0 ? w.floodFrom : -1,
+      storm: w.phase === 'run' && weatherAt(Math.min(seconds(w), w.totalSec - 1e-6), w.seasons).now.kind === 'storm',
     });
     ctx.putImageData(frameImg, 0, 0);
   };
@@ -294,11 +297,11 @@ function showPlay(w: HydroWorld): void {
     const r = cv.getBoundingClientRect();
     const gx = ((e.clientX - r.left) / r.width) * W, gy = ((e.clientY - r.top) / r.height) * H;
     let best = -1, bd = 25;
-    for (const st of SITES) { const d = (st.x - gx) ** 2 + (st.y - gy) ** 2; if (d < bd) { bd = d; best = st.id; } }
+    for (const st of w.map.sites) { const d = (st.x - gx) ** 2 + (st.y - gy) ** 2; if (d < bd) { bd = d; best = st.id; } }
     if (best < 0) return;
-    const st = SITES[best];
+    const st = w.map.sites[best];
     if (!w.built[best]) {
-      if (placeBuilding(w, best)) { say(STR.built[st.build], B[st.build]); buzz(15); terrainDirty = true; needDraw = true; rec = null; }
+      if (placeBuilding(w, best)) { const nw = w.plants.length; say(st.build === 'wheel' && nw > 1 ? `${STR.grid} ${nw}개 · 전기 +${Math.round(T.synergy * (nw - 1) * 100)}%` : STR.built[st.build], B[st.build]); buzz(15); terrainDirty = true; needDraw = true; rec = null; }
       else if (w.phase !== 'won' && w.phase !== 'lost') { say(`${STR.noCoins} · ${cost(w, st.build)}`, 'coin'); buzz(30); }
       return;
     }
@@ -403,6 +406,11 @@ function showPlay(w: HydroWorld): void {
       while (acc >= 1 && n++ < 8 && w.phase === 'run') {
         tick(w); acc -= 1; needDraw = true;
         if (w.events.spirit) { flashes.push({ cells: w.events.spirit.cells, kind: w.events.spirit.kind, until: frame + 40 }); terrainDirty = true; }
+        if (w.events.disaster) {
+          const d = w.events.disaster;
+          say(d.kind === 'jam' ? STR.jam : d.kind === 'burst' ? STR.burst : STR.slide, d.kind === 'slide' ? 'slide' : 'jam', 2800);
+          flashes.push({ cells: d.cells, kind: d.kind === 'slide' ? 'sand' : 'ice', until: frame + 30 }); terrainDirty = true; buzz(60);
+        }
         if (w.events.seasonSurvived) { say(`${w.events.seasonSurvived}${STR.survived}`, 'star', 2600); buzz(20); terrainDirty = true; }
         if (w.events.lostHeart) { say(w.events.lostHeart === 'blackout' ? STR.lostBlackout : STR.lostFlood, w.events.lostHeart === 'blackout' ? 'houseDark' : 'drown', 2600); buzz(80); }
       }

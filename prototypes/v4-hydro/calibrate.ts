@@ -17,7 +17,7 @@ function run(name: string, plan: Plan, log = false, stage = 0) {
       if (log && s % 10 === 0) console.log(`  t${String(s).padStart(3)} mul ${weatherAt(s, w.seasons).mul.toFixed(2)} pow/s ${w.lastSecPower.toFixed(1)} Lv${w.level} coins ${w.coins} ♥${w.hearts} plants ${w.plants.map(p => `${p.hp.toFixed(1)}/${p.drown.toFixed(1)}`).join(' ')}`);
     }
   }
-  console.log(name.padEnd(28), w.phase, `t${seconds(w).toFixed(0)} Lv${w.level} ♥${w.hearts} coins ${w.coins} plants ${w.plants.length} pow/s ${minPow.toFixed(1)}..${maxPow.toFixed(1)} bal ${balance(w).toExponential(1)}`);
+  console.log(name.padEnd(28), w.phase, `t${seconds(w).toFixed(0)} Lv${w.level} ♥${w.hearts} coins ${w.coins} plants ${w.plants.length} pow/s ${minPow.toFixed(1)}..${maxPow.toFixed(1)} bal ${balance(w).toExponential(1)} flood♥${w.record.floodHearts} dark♥${w.record.blackoutHearts} built ${w.built.map((b, i) => b ? i : "").filter(x => x !== "").join(",")}`);
 }
 const buildWhenRich = (order: BuildKind[]): Plan => { let k = 0; return w => {
   if (k >= order.length) return;

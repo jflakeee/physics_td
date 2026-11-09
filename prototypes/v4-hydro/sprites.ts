@@ -58,7 +58,9 @@ function wheel(angle: number, broken = false): Sprite {
       let a = Math.atan2(dy, dx) - angle;
       a = ((a % (Math.PI / 4)) + Math.PI / 4) % (Math.PI / 4);
       const d = Math.min(a, Math.PI / 4 - a) * r;
-      if (d < 0.75) v = D;
+      // one light paddle so the turning is easy to see
+      let full = Math.atan2(dy, dx) - angle; full = ((full % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      if (d < 0.75) v = Math.round(full / (Math.PI / 4)) % 8 === 0 ? L : D;
     }
     px[y * n + x] = v;
   }
@@ -141,7 +143,8 @@ export const SPRITES = {
     ]),
   ],
   siteWait: ring('4', false),
-  wheel: [0, 1, 2, 3].map(k => wheel((k * Math.PI) / 16)),
+  /** A full turn in 32 frames. */
+  wheel: Array.from({ length: 32 }, (_, k) => wheel((k * Math.PI) / 16)),
   wheelBroken: wheel(0.3, true),
   house,
   houseDark: recolor(house, { '8': '4', '7': '1', '6': '5' }),
@@ -355,6 +358,34 @@ export const SPRITES = {
     '............',
     '000000000000',
     '0aaaaaaaaaa0',
+  ]),
+  jam: make([
+    '............',
+    '..9..9..9...',
+    '.999999999..',
+    '000000000000',
+    '0a6aa0a6aaa0',
+    '0aaaa0aaaaa0',
+    '000000000000',
+    '0aa6a0aa6aa0',
+    '000000000000',
+    '....9..9....',
+    '...9..9.....',
+    '............',
+  ]),
+  slide: make([
+    '........00..',
+    '......00bb0.',
+    '....00bbbb0.',
+    '..00bbb1bb0.',
+    '.0bbb11110..',
+    '0bb1112210..',
+    '0b11221110..',
+    '.01122110...',
+    '..0111100...',
+    '.02.01.020..',
+    '0220..02220.',
+    '.00....000..',
   ]),
   play: make([
     '00.......',

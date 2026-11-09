@@ -119,7 +119,7 @@ export function snapshotRun(w: HydroWorld): string {
       built: w.built, plants: w.plants, tick: w.tick, phase: w.phase, xp: w.xp, level: w.level, coins: w.coins, hearts: w.hearts,
       secPower: w.secPower, lastSecPower: w.lastSecPower, blackout: w.blackout, inflow: w.inflow, drained: w.drained,
       skill: w.skill, spiritTimer: w.spiritTimer, cards: w.cards, floodCooldown: w.floodCooldown, floodFrom: w.floodFrom, record: w.record,
-      endless: w.endless, extraSeasons: w.extraSeasons, bookedPower: w.bookedPower, bookedTicks: w.bookedTicks, totalSec: w.totalSec,
+      wxKey: w.wxKey, jamTicks: w.jamTicks, endless: w.endless, extraSeasons: w.extraSeasons, bookedPower: w.bookedPower, bookedTicks: w.bookedTicks, totalSec: w.totalSec,
     },
     seasons: w.seasons.map(x => x.name),
   });

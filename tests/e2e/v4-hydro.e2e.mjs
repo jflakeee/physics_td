@@ -166,6 +166,29 @@ try {
     await page.screenshot({ path: `${OUT}/v4-items-${DATE}.png` });
     await page.close();
   }
+  // one map per stage, turning wheels, disasters
+  for (const [stage, sec, shot, want] of [[1, 47, 'jam', 'jam'], [2, 180, 'slide', 'slide'], [1, 215, 'storm', 'storm'], [3, 150, 'winter', 'freeze']]) {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + `&play&stage=${stage}`);
+    await page.waitForSelector('#app.play canvas.art');
+    const info = await page.evaluate(([sec]) => {
+      const v = __v4; v.w.hearts = 99; v.w.coins = 1e6;
+      for (const s of v.w.map.sites) if (s.build === 'wheel' && !v.w.built[s.id]) v.placeBuilding(v.w, s.id);
+      v.start(v.w);
+      const seen = new Set();
+      while (v.w.tick < sec * 30) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); if (v.w.events.disaster) seen.add(v.w.events.disaster.kind); }
+      const spin0 = v.w.plants.map(p => p.spin);
+      for (let k = 0; k < 15; k++) v.tick(v.w);
+      return { map: v.w.map.id, seen: [...seen], turning: v.w.plants.filter((p, i) => p.spin > spin0[i]).length, wheels: v.w.plants.length };
+    }, [sec]);
+    await page.waitForTimeout(250);
+    if (want === 'jam') check('stage 1: an ice jam forms on the river', info.seen.includes('jam'), JSON.stringify(info));
+    if (want === 'slide') check('stage 2 plays on its own map and has a landslide', info.map === 'valley-2' && info.seen.includes('slide'), JSON.stringify(info));
+    if (want === 'storm') check('wheels turn while they make power', info.turning >= 4, JSON.stringify(info));
+    if (want === 'freeze') check('stage 3 plays on its own map', info.map === 'valley-3', JSON.stringify(info));
+    await page.screenshot({ path: `${OUT}/v4-${shot}-${DATE}.png` });
+    await page.close();
+  }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });

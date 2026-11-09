@@ -49,6 +49,20 @@
   season (the year cycles; each extra season raises the village demand 10% and pays a star's
   worth of gems), 다음 스테이지, 메인으로. A clear is booked when it happens; when the endless run
   ends only the extra power and seasons are paid and it is not counted as a lost run.
+- **Maps, wheels, disasters (2026-11-09):**
+  - One map per stage (`MAPS` in `core.ts`): different bends, rapids, village bank and build spots.
+    Scripted balance — nothing: lost at 106 / 68 / 135 s; wheels only: lost at 222 / 68 / 133 s;
+    wheels + reservoirs + walls: won with 3 / 2 / 1 hearts.
+  - Wheels turn: a full turn in 32 frames with one light paddle; speed follows the power made.
+    The old 4-frame wheel advanced one frame every ~7 s, so it looked still.
+  - Shared grid: each extra working wheel lifts every wheel by 10% (toast on build).
+  - Disasters besides high water: storm (rain on the whole valley), ice jam (river water freezes
+    into a dam for 9 s, then bursts as one surge), landslide (earth blocks the river for 25 s),
+    drought and cold wave (already there). Each has a forecast icon and a toast; water stays conserved.
+  - Finding: a wall beside the river trapped water that was already on the land and led it into
+    the village (map 2 lost only when a wall was built). Walls now tie back to high ground at
+    their upstream end (L-shaped levee). A map with many rapids never floods; flood risk needs a
+    gentle reach beside the village.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

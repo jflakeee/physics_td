@@ -33,6 +33,13 @@ export const T = {
   sand: { every: [14, 12, 10, 8, 6], cells: [8, 10, 12, 14, 16], height: 0.45, seconds: 22 },
   ice: { every: [16, 14, 12, 10, 8], frac: [0.35, 0.42, 0.5, 0.58, 0.66], cells: [30, 40, 50, 60, 70], droughtMelt: 0.004 },
   iceMelt: 0.0008,
+  /** Each extra working wheel makes every wheel this much better (shared grid). */
+  synergy: 0.1,
+  /** Disasters. Storm: rain on every cell (total per tick). Ice jam: for `seconds`, `frac` of the water
+   *  in the jam rows freezes each tick, then the dam bursts. Landslide: earth blocks the river for `seconds`. */
+  storm: { rainPerTick: 0.06 },
+  jam: { seconds: 9, frac: 0.2, rows: 3 },
+  slide: { height: 0.45, rows: 3, seconds: 25 },
   /** Bonus spirits unlocked by clearing stages (Lv 1..5). Rain adds water from the sky in a drought;
    *  sun evaporates flood water off the river in high water (it leaves the board as vapour). */
   rain: { every: [12, 11, 10, 9, 8], amount: [6, 8, 10, 12, 14] },
@@ -45,11 +52,12 @@ export const T = {
  * Weather by season: from second `t`, inflow is multiplied by `mul` (linear ramp over `ramp` s).
  * `freeze` (winter) turns that much river water to ice per cell per tick and stops melting.
  */
-export interface Weather { t: number; mul: number; kind: 'clear' | 'rain' | 'drought' | 'thaw' | 'storm' | 'freeze'; ramp?: number; boss?: boolean; freeze?: number }
+export interface Weather { t: number; mul: number; kind: 'clear' | 'rain' | 'drought' | 'thaw' | 'storm' | 'freeze' | 'jam' | 'slide'; ramp?: number; boss?: boolean; freeze?: number }
 export interface Season { name: string; seconds: number; weather: Weather[] }
 const SPRING: Season = { name: '봄', seconds: 120, weather: [
     { t: 0, mul: 1, kind: 'clear' },
     { t: 28, mul: 1.8, kind: 'thaw', ramp: 10 },
+    { t: 40, mul: 1.8, kind: 'jam' },
     { t: 55, mul: 1, kind: 'clear', ramp: 6 },
     { t: 72, mul: 0.3, kind: 'drought', ramp: 4 },
     { t: 98, mul: 2.6, kind: 'thaw', ramp: 6, boss: true },
@@ -65,6 +73,7 @@ const AUTUMN: Season = { name: '가을', seconds: 120, weather: [
   { t: 0, mul: 0.9, kind: 'clear', ramp: 6 },
   { t: 16, mul: 0.25, kind: 'drought', ramp: 6 },
   { t: 50, mul: 1.8, kind: 'rain', ramp: 4 },
+  { t: 58, mul: 1.8, kind: 'slide' },
   { t: 72, mul: 0.6, kind: 'clear', ramp: 6 },
   { t: 90, mul: 3.0, kind: 'storm', ramp: 4, boss: true },
 ] };
@@ -72,8 +81,9 @@ const WINTER: Season = { name: '겨울', seconds: 120, weather: [
   { t: 0, mul: 0.8, kind: 'clear', ramp: 6 },
   { t: 14, mul: 0.6, kind: 'freeze', ramp: 6, freeze: 0.0016 },
   { t: 46, mul: 1.6, kind: 'thaw', ramp: 6 },
+  { t: 54, mul: 1.6, kind: 'jam' },
   { t: 66, mul: 0.5, kind: 'freeze', ramp: 4, freeze: 0.0024 },
-  { t: 92, mul: 0.35, kind: 'freeze', ramp: 4, freeze: 0.0032, boss: true },
+  { t: 92, mul: 0.4, kind: 'freeze', ramp: 4, freeze: 0.0024, boss: true },
 ] };
 /** Seasons by name, and the one that follows (endless play after a clear cycles through the year). */
 export const SEASON_BY_NAME: Record<string, Season> = { 봄: SPRING, 여름: SUMMER, 가을: AUTUMN, 겨울: WINTER };
@@ -91,8 +101,8 @@ export type PowerupId = 'turbine' | 'purse' | 'builder' | 'heart';
 export interface Stage { id: string; name: string; seasons: Season[]; demandMul: number; bonusSkill: CardId | null; unlockChar: CharId | null }
 export const STAGES: Stage[] = [
   { id: 'valley-1', name: '작은 계곡', seasons: [SPRING, SUMMER], demandMul: 1, bonusSkill: 'rain', unlockChar: 'granny' },
-  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.15, bonusSkill: 'sun', unlockChar: 'frost' },
-  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.3, bonusSkill: null, unlockChar: null },
+  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.1, bonusSkill: 'sun', unlockChar: 'frost' },
+  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.2, bonusSkill: null, unlockChar: null },
 ];
 
 /** Characters (pick one per run). Their start bonus applies on top of the power-ups. */
