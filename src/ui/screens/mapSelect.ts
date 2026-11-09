@@ -14,6 +14,10 @@ export interface MapSelectOptions {
   charId: string;
   cleared: Record<string, boolean>;
   firstRun: boolean;
+  /** Saved run to continue, if any. */
+  resume?: { label: string; go: () => void } | null;
+  /** One-time notices (save problems). */
+  notices?: string[];
   onPick: (mapId: string, charId: string) => void;
 }
 
@@ -25,6 +29,17 @@ export function mountMapSelect(o: MapSelectOptions): { dispose(): void } {
   const el = (tag: string, cls = '', text = '') => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
 
   root.append(el('h1', '', t('mapSelect.title')));
+  if (o.notices?.length) {
+    const n = el('div', 'notice');
+    n.setAttribute('role', 'status');
+    n.textContent = o.notices.join(' · ');
+    root.append(n);
+  }
+  if (o.resume) {
+    const r = el('button', 'resume', '▶ ' + o.resume.label) as HTMLButtonElement;
+    r.addEventListener('click', o.resume.go);
+    root.append(r);
+  }
   const chips = el('div', 'chips');
   chips.setAttribute('role', 'radiogroup');
   chips.setAttribute('aria-label', t('mapSelect.character'));

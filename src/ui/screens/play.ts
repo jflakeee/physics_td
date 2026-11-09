@@ -20,6 +20,9 @@ import type { ToastQueue } from '../widgets/toast.ts';
 import type { T } from '../i18n.ts';
 import * as tut from '../../game/tutorial.ts';
 import { createLevelUp } from './levelUp.ts';
+import { renderDefeat } from './defeat.ts';
+import { renderResult } from './result.ts';
+import type { RunResult } from '../../game/result.ts';
 import type { CharacterDef } from '../../rules/types.ts';
 import type { Tutorial } from '../../game/tutorial.ts';
 
@@ -47,10 +50,16 @@ export interface PlayScreenOptions {
   /** First-play tutorial (둑마을); progress is reported through `onTutorial`. */
   tutorial?: Tutorial;
   onTutorial?: (step: number) => void;
-  /** Leave the screen: back to map select, or restart the same map from scratch. */
-  onExit?: (to: 'mapSelect' | 'restart') => void;
-  /** All waves cleared. */
-  onClear?: () => void;
+  /** Leave the screen: map select, the same map again, the other character, or the next map. */
+  onExit?: (to: 'mapSelect' | 'restart' | 'otherChar' | 'nextMap') => void;
+  /** All waves cleared: compute + record the result; returns what the result screen shows. */
+  onResult?: (play: Play) => { result: RunResult; codex: { n: number; max: number }; hasNext: boolean };
+  /** Persist a snapshot (prepare entry, after a draft pick, background). */
+  onSave?: (play: Play) => void;
+  /** Runs after the play is created and before rendering starts (resume). */
+  beforeMount?: (play: Play) => void;
+  /** Notices to show once on entry (save problems). */
+  notices?: string[];
   /** Called every frame with the ms spent rendering (dev overlay, e2e). */
   onFrame?: (renderMs: number) => void;
 }
@@ -66,6 +75,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, 
 export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetState; dispose(): void } {
   const { t, root } = o;
   const play = createPlay(o.map, { skill: o.skill, rules: o.rules, chars: o.chars, fusions: o.fusions, seed: o.seed });
+  o.beforeMount?.(play); // e.g. restore a saved run before the board is drawn
   const world = play.world;
   const [common, active] = play.rules ? skillViews(play.rules) : [o.common ?? [], o.active ?? []];
   const skills = [...common, ...active];
@@ -168,17 +178,18 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     for (const [id, b] of skillBtns) b.classList.toggle('selected', target.mode === 'selecting' && target.skill === id);
   };
 
-  // --- defeat / result overlay
+  // --- defeat / result screens
   const showOverlay = (kind: 'defeat' | 'result') => {
-    overlay.textContent = '';
-    overlay.append(h('h2', {}, t(kind + '.title')));
-    const btn = (label: string, fn: () => void, cls = '') => { const b = h('button', { class: cls }, label); b.addEventListener('click', fn); overlay.append(b); };
     if (kind === 'defeat') {
-      btn(t('defeat.retry'), () => send(play, { t: 'retry' }), 'primary');
-      btn(t('defeat.restart'), () => o.onExit?.('restart'));
-    } else btn(t('result.again'), () => o.onExit?.('restart'), 'primary');
-    btn(t('common.mapSelect'), () => o.onExit?.('mapSelect'));
-    overlay.hidden = false;
+      renderDefeat(overlay, t, { retry: () => send(play, { t: 'retry' }), restart: () => o.onExit?.('restart'), mapSelect: () => o.onExit?.('mapSelect') });
+      return;
+    }
+    const r = o.onResult?.(play);
+    if (!r) { overlay.hidden = false; return; }
+    renderResult(overlay, r.result, t, r.codex, {
+      again: () => o.onExit?.('restart'), otherChar: () => o.onExit?.('otherChar'),
+      nextMap: () => o.onExit?.('nextMap'), mapSelect: () => o.onExit?.('mapSelect'),
+    }, r.hasNext);
   };
 
   // --- tutorial
@@ -214,17 +225,18 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       case 'zoneChanged': refreshTerrain(board, make); break;
       case 'toggled': toast(t(e.kind === 'pump' ? (e.on ? 'toast.pumpOn' : 'toast.pumpOff') : (e.on ? 'toast.gateOpen' : 'toast.gateClosed'))); haptic(10); break;
       case 'skill': toast(t('toast.skillUsed', { skill: skillName(e.id) })); break;
-      case 'waveStart': toast(t('toast.waveStart', { wave: e.wave })); target = IDLE; syncButtons(); break;
+      case 'waveStart': toast(t('toast.waveStart', { wave: e.wave })); target = IDLE; syncButtons(); o.onSave?.(play); break;
       case 'waveEnd': toast(t('toast.waveEnd', { wave: e.wave })); target = IDLE; syncButtons(); break;
       case 'damageStart': toast(t('toast.damage')); haptic(100); break;
       case 'collapse': toast(t('toast.collapse')); haptic(60); break;
       case 'lakeWarning': toast(t('toast.lakeWarning')); haptic([30, 30, 30]); break;
       case 'lakeBurst': toast(t('toast.lakeBurst')); haptic(100); break;
-      case 'retried': toast(t('toast.retried', { wave: e.wave })); overlay.hidden = true; break;
+      case 'retried': toast(t('toast.retried', { wave: e.wave })); overlay.hidden = true; overlay.className = 'overlay'; break;
       case 'levelUp': toast(t('toast.levelUp', { lv: e.level })); haptic(20); break;
       case 'fusion': toast(t('fusion.toast', { name: t('fusion.' + e.id.replace(/-(\w)/g, (_, c: string) => c.toUpperCase()) + '.name') })); haptic([20, 40]); o.onFusion?.(e.id); break;
       case 'defeat': showOverlay('defeat'); break;
-      case 'result': showOverlay('result'); o.onClear?.(); break;
+      case 'result': showOverlay('result'); break;
+      case 'cardPicked': o.onSave?.(play); break;
       default: break;
     }
   };
@@ -282,7 +294,11 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     send(play, { t: 'speed', x }); speedBtn.textContent = x + '×'; speedBtn.setAttribute('aria-label', t('hud.speed', { x }));
   });
   startBtn.addEventListener('click', () => send(play, { t: 'startWave' }));
-  const onVis = () => { if (document.hidden && play.phase === 'wave' && !play.paused) { setPaused(true); toast(t('toast.autoPaused')); } };
+  const onVis = () => {
+    if (!document.hidden) return;
+    if (play.phase === 'wave' && !play.paused) { setPaused(true); toast(t('toast.autoPaused')); }
+    o.onSave?.(play); // background: the host saves the latest prepare-time snapshot
+  };
   document.addEventListener('visibilitychange', onVis);
   const onKey = (e: KeyboardEvent) => {
     if (e.code === 'Space') { e.preventDefault(); setPaused(!play.paused); }
@@ -329,6 +345,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     lvBadge.setAttribute('aria-label', v[0] === 'L' ? t('levelUp.badgeLast') : t('levelUp.badge', { n: ss.pending }));
   };
 
+  for (const n of o.notices ?? []) toast(n);
+
   // --- loop
   const writeHud = createHud({ hp: hpV, cash: cashV, wave: waveV, level: lvV, gauge: gaugeFill, gaugeText });
   let raf = 0, last = performance.now(), lastPhase = '';
@@ -347,7 +365,10 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     });
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });
-    if (play.phase !== lastPhase) { lastPhase = play.phase; root.dataset.phase = play.phase; startBtn.hidden = play.phase !== 'prepare'; }
+    if (play.phase !== lastPhase) {
+      if (play.phase === 'prepare' && lastPhase !== '') o.onSave?.(play); // prepare entry
+      lastPhase = play.phase; root.dataset.phase = play.phase; startBtn.hidden = play.phase !== 'prepare';
+    }
     if (play.phase === 'levelup' && target.mode === 'selecting') { target = IDLE; syncButtons(); }
     if (play.rules) syncSkillState();
     levelUp?.sync();

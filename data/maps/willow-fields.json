@@ -51,5 +51,6 @@
     "cash": 150,
     "hp": 100
   },
-  "style": "floodplain"
+  "style": "floodplain",
+  "star3Score": 2300
 }

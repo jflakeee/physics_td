@@ -37,6 +37,8 @@ export interface MapData {
   rain?: number;
   pulseEvery?: number;
   start: { cash: number; hp: number };
+  /** ⭐3 threshold on the result score (DETAILED §8.2; provisional until balance bots). */
+  star3Score?: number;
 }
 
 /** Everything the play screen needs from a loaded map. */

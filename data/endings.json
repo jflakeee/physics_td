@@ -1,0 +1,29 @@
+{
+  "subRatio": 0.3,
+  "endings": [
+    {
+      "id": "dike-keeper",
+      "char": "dike-keeper",
+      "sub": null,
+      "i18n": "ending.dikeSolo"
+    },
+    {
+      "id": "dike-keeper+harmony",
+      "char": "dike-keeper",
+      "sub": "harmony",
+      "i18n": "ending.dikeHarmony"
+    },
+    {
+      "id": "wetland-researcher",
+      "char": "wetland-researcher",
+      "sub": null,
+      "i18n": "ending.wetSolo"
+    },
+    {
+      "id": "wetland-researcher+safety",
+      "char": "wetland-researcher",
+      "sub": "safety",
+      "i18n": "ending.wetSafety"
+    }
+  ]
+}

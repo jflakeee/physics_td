@@ -49,5 +49,26 @@
       "commonCdMul": 0.85,
       "maxStacks": 2
     }
+  },
+  "result": {
+    "clear": 500,
+    "affinity": {
+      "home": 0,
+      "neutral": 100,
+      "challenge": 200
+    },
+    "hpPer": 2,
+    "firstCombo": 50,
+    "noRetry": 100,
+    "buildCap": 300,
+    "expectedLevelUps": 6,
+    "artisanPerRank": 30,
+    "fusionPerSource": 80,
+    "fusionPerFusion": 100,
+    "restraintPerSkip": 90,
+    "restraintMinSkips": 2,
+    "fusionMinCross": 2,
+    "nonePerCross": 60,
+    "star2Hp": 70
   }
 }

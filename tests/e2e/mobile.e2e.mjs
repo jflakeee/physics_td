@@ -192,6 +192,64 @@ try {
     await page.locator('.bubble .bskip').tap().catch(() => {});
     await ctx.close();
   }
+  // result screen, save + resume, storage failures (story 006, iPhone 13)
+  console.log('\n# result & save (iPhone 13)');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    const page = await ctx.newPage();
+    await page.goto(BASE + '&map=dike-village&tutorial=0&seed=3');
+    await page.waitForFunction(() => globalThis.__ptd?.play);
+    const S = fn => page.evaluate(fn);
+    // play W1 quickly, then save happens at prepare entry
+    await page.locator('button.start').tap();
+    await S(() => { __ptd.play.world.waveTick = __ptd.play.world.waveLen - 2; });
+    await page.waitForFunction(() => __ptd.play.phase !== 'wave');
+    while ((await S(() => __ptd.play.phase)) === 'levelup') await page.locator('.levelup .skip').tap();
+    await page.waitForTimeout(100);
+    check('a run snapshot is saved at prepare entry', await S(() => !!__ptd.store.load().run && __ptd.store.load().run.wave === 1));
+    await page.goto(BASE);
+    await page.waitForSelector('.map-select .resume');
+    check('map select offers 이어하기', (await page.locator('.resume').textContent()).includes('W2'));
+    await page.screenshot({ path: `${OUT}/story-006-resume-${DATE}.png` });
+    await page.locator('.resume').tap();
+    await page.waitForFunction(() => globalThis.__ptd?.play);
+    check('resume restores wave 1 done, prepare phase', await S(() => __ptd.play.world.wave === 1 && __ptd.play.phase === 'prepare'));
+    // jump to the last wave and clear it
+    await S(() => { __ptd.play.world.wave = 4; });
+    await page.locator('button.start').tap();
+    await S(() => { __ptd.play.world.waveTick = __ptd.play.world.waveLen - 2; });
+    await page.waitForSelector('.result-screen .epilogue');
+    await page.screenshot({ path: `${OUT}/story-006-epilogue-${DATE}.png` });
+    check('epilogue: 얻은 것 first', (await page.locator('.epilogue .label').textContent()).includes('얻은'));
+    await page.locator('.epilogue').tap();
+    check('epilogue: 잃은 것 second', (await page.locator('.epilogue .label').textContent()).includes('잃은'));
+    await page.locator('.epilogue').tap();
+    await page.waitForSelector('.score-table');
+    const first = await page.locator('.result-screen button').first().textContent();
+    check('[같은 맵 다시] is the top button', first.includes('같은 맵 다시'));
+    check('score rows hide zero items', await page.locator('.score-table tr td').evaluateAll(tds => tds.every(td => td.textContent !== '0')));
+    check('stars and next goal shown', (await page.locator('.stars').count()) === 1 && (await page.locator('.goal p').textContent()).length > 0);
+    check('ending recorded in the codex; run cleared from the save', await S(() => __ptd.store.load().progress.endings.length === 1 && !__ptd.store.load().run));
+    await page.screenshot({ path: `${OUT}/story-006-result-${DATE}.png` });
+    await ctx.close();
+  }
+  for (const [label, init] of [
+    ['memory mode', () => { Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } }); }],
+    ['corrupt save', () => { localStorage.setItem('physics-td:v2', '{"v":1,"progress":'); }],
+  ]) {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 664 } });
+    const page = await ctx.newPage();
+    const errs = []; page.on('pageerror', e => errs.push(e.message));
+    await ctx.addInitScript(init);
+    await page.goto(BASE);
+    await page.waitForSelector('.map-card');
+    check(`${label}: no crash, one notice`, errs.length === 0 && (await page.locator('.notice').count()) === 1, errs.join('|'));
+    await page.locator('.map-card[data-map="dike-village"]').click();
+    await page.waitForFunction(() => globalThis.__ptd?.play);
+    check(`${label}: the game still starts`, await page.evaluate(() => __ptd.play.phase === 'prepare'));
+    await ctx.close();
+  }
+
   // glacier map board
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });

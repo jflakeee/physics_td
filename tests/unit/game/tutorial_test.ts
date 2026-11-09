@@ -12,7 +12,7 @@ import type { Play } from '../../../src/game/play.ts';
 import { CHARACTERS, ECONOMY, SKILLS } from '../../../src/data/catalog.ts';
 import { createRules } from '../../../src/rules/skills.ts';
 import * as tut from '../../../src/game/tutorial.ts';
-import { isFirstRun } from '../../../src/save/local.ts';
+import { defaultSave, isFirstRun } from '../../../src/save/storage.ts';
 
 function setup() {
   const map = loadMap(dike as unknown as MapData);
@@ -79,8 +79,11 @@ test('tutorial: skip ends it; a defeat + retry keeps the step', () => {
   assert.equal(t.step, tut.DONE);
 });
 
-test('first run: nothing cleared and tutorial not finished', () => {
-  assert.ok(isFirstRun({ cleared: {}, tutorial: 1 }));
-  assert.ok(!isFirstRun({ cleared: { 'dike-village': true }, tutorial: 1 }));
-  assert.ok(!isFirstRun({ cleared: {}, tutorial: 3 }));
+test('first run: nothing cleared and tutorial not started', () => {
+  const s = defaultSave();
+  assert.ok(isFirstRun(s));
+  s.progress.maps['dike-village'] = { stars: 1, best: 0, clearedBy: ['dike-keeper'] };
+  assert.ok(!isFirstRun(s));
+  const s2 = defaultSave(); s2.progress.tutorial = 3;
+  assert.ok(!isFirstRun(s2));
 });

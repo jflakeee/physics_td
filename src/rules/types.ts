@@ -67,6 +67,11 @@ export interface EconomyDef {
     rarity: { common: number; rare: number; legendary: number }; skipCash: number; rerolls: number; fusionCeiling: number;
     homeWeight: number; spike: { tactical: number; ultimate: number }; rareRankGain: number; rareNewRank: number;
   };
+  result: {
+    clear: number; affinity: { home: number; neutral: number; challenge: number }; hpPer: number; firstCombo: number; noRetry: number;
+    buildCap: number; expectedLevelUps: number; artisanPerRank: number; fusionPerSource: number; fusionPerFusion: number;
+    restraintPerSkip: number; restraintMinSkips: number; fusionMinCross: number; nonePerCross: number; star2Hp: number;
+  };
   substitutes: { supply: { cash: number }; repair: { hp: number; maxHp: number }; maintenance: { commonCdMul: number; maxStacks: number } };
 }
 
