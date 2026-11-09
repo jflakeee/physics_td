@@ -57,15 +57,29 @@ Changes:
 - **Tactical spike moved Lv3 → Lv2** (`economy.draft.spike.tactical`): the wetland researcher
   needs 습지 복원 before W3 on maps without fields.
 
-Skill-bot results (5 seeds; clears / avg HP): 정석 둑지기 @ 둑마을 5/5 HP 68 · 정석 습지 @ 버드나무 5/5 HP 83 ·
-도전 습지 @ 둑마을 4/5 · 도전 둑지기 @ 버드나무 1/5 · 중립 둑지기 @ 목초지 5/5 HP 72 · 중립 습지 @ 목초지 5/5 HP 60 ·
-중립 둑지기 @ 계곡 5/5 HP ≈ 77 · 중립 습지 @ 계곡 0/5. Fixed-placement bots stay on target on all maps.
+Skill-bot results (5 seeds; clears / avg HP of clears), after the bot learned to run pumps only
+while the base holds water (2 pumps on all wave drained the cash by W2) and to restore the
+wetland on the side the water comes from (2026-11-09):
+
+| map | 둑지기 | 습지 연구원 |
+|---|---|---|
+| 둑마을 | 정석 5/5 · 69 | 도전 4/5 · 57 |
+| 버드나무 들 | 도전 **1/5** · 100 | 정석 5/5 · **100** |
+| 얼음 목초지 | 중립 5/5 · 74 | 중립 5/5 · 84 |
+| 빙하호 계곡 | 중립 5/5 · 76 | 중립 5/5 · 91 |
+
+Fixed-placement bots stay on target on all maps.
 
 ## Still open
 - **도전 둑지기 @ 버드나무 들 (1/5)** — the inner zones there are fields, so the levee square can
   only be closed on one side. Options: plain inner zones on that map, or let build-levee target fields.
-- **습지 연구원 @ 빙하호 계곡 (0/5)** — two glacier lakes (≈ 120 units incl. rim ice) outweigh
-  wetland absorption; the bot does not upkeep the dams. Options: smaller lakes, or dam upkeep in play.
+- **버드나무 들 is binary**: winners finish at HP ≈ 100 (wetland, home) and the challenge 둑지기 wins
+  1/5. Measured levers that do *not* move it: I1 138 → 165, wetland absorption ÷ 6, floodplain
+  opening depth → 0. Likely cause: 습지 복원 lowers a zone next to the base by 0.3 (a deep moat),
+  and the inner ring there is all fields (no levee square for the 둑지기). Needs a design call:
+  convert depth, willow inner-zone layout, or levees on fields (5/5 HP 100 — too easy alone).
+- (fixed) 습지 연구원 @ 빙하호 계곡 0/5 → 5/5 — it was the bot's cash, not the lakes (lake size
+  ÷ 4 changed nothing).
 - Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
 - Water TD benchmark candidates (`docs/DESIGN_REVIEW_2026-11.md` §2.1b): **B1 villager mood and
   B2 0.5× speed, B3 water state tints, B6 card map previews are done (2026-11-09)**; B4 multi-base

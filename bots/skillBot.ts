@@ -8,12 +8,13 @@ import { baseFlood } from '../src/sim/metrics.ts';
 import { inletPaths } from '../src/game/validate.ts';
 import type { CharacterDef } from '../src/rules/types.ts';
 import { affinityOf } from '../src/game/result.ts';
+import { threatDir } from '../src/rules/effects.ts';
 
 /**
  * Skill-playing balance bot (DETAILED §21 "home"/"challenge"): plays only through player
  * commands — zone skills, pump toggles, cards — like a reasonable player:
  *   prepare: build the levee lines nearest the base, then raise them (re-cast) up to 0.45,
- *            while cash ≥ reserve; run the 2 pumps
+ *            while cash ≥ reserve; pumps are run in the wave only while the base holds water
  *            closest to the inlet paths; open fields / restore wetland as the wetland researcher
  *   wave (every 10 ticks): freeze the zone in front of the base when it floods, sandbag
  *            across the main inlet path, ultimate at 100
@@ -32,17 +33,19 @@ function pumpOrder(m: LoadedMap): number[] {
 
 function prepare(p: Play, reserve: number, maxLineDist: number, raiseTo: number): void {
   const rs = p.rules!, w = p.world;
-  // pumps: the two best sites on
-  const order = pumpOrder(p.map);
-  for (const id of order.slice(0, w.cfg.pumpMaxOn)) if (!w.pumps[id].on) send(p, { t: 'toggle', kind: 'pump', id });
+  // pumps start off; inWave() runs them only while the base is filling (cash is limited)
   // zone skills
   const zones = p.map.zones.zones;
   const have = (id: string) => rs.owned.some(o => o.id === id);
   if (have('open-floodplain')) for (const z of zones) if (canUse(rs, 'open-floodplain', false, z.id) === null) send(p, { t: 'skill', id: 'open-floodplain', zone: z.id });
   if (have('restore-wetland')) {
-    // the zone nearest the base: a wetland next to the base soaks the flood before it arrives
+    // a zone next to the base on the side the water comes from (strongest inlet of the next wave)
     const bx = p.map.terrain.baseX, by = p.map.terrain.baseY;
-    const d = (zz: typeof zones[number]) => Math.hypot(zz.center[0] - bx, zz.center[1] - by);
+    const [tx, ty] = threatDir(w, w.wave + 1, bx, by);
+    const d = (zz: typeof zones[number]) => {
+      const dx = zz.center[0] - bx, dy = zz.center[1] - by, r = Math.hypot(dx, dy) || 1;
+      return r - 12 * (-(dx * tx + dy * ty) / r); // nearer and more upstream is better
+    };
     const z = zones.filter(zz => canUse(rs, 'restore-wetland', false, zz.id) === null).sort((a, b) => d(a) - d(b))[0];
     if (z && (w.cash ?? 0) >= reserve + 30) send(p, { t: 'skill', id: 'restore-wetland', zone: z.id });
   }
@@ -73,6 +76,9 @@ function inWave(p: Play): void {
   const rs = p.rules!, w = p.world;
   if (rs.gauge >= rs.eco.gaugeMax) send(p, { t: 'skill', id: rs.char.skills.ultimate });
   const flood = baseFlood(w);
+  // pumps: the two best sites while the base holds water, off when it is dry (saves cash)
+  const want = flood > w.cfg.floodThreshold * PUMP_ON_AT;
+  for (const id of pumpOrder(p.map).slice(0, w.cfg.pumpMaxOn)) if (w.pumps[id].on !== want && (!want || (w.cash ?? 1) > 0)) send(p, { t: 'toggle', kind: 'pump', id });
   if (flood > w.cfg.floodThreshold * 0.6) {
     // freeze the zone just outside the base on the main inlet side
     const path = inletPaths(p.map)[0], W = w.grid.width;
@@ -88,8 +94,13 @@ function inWave(p: Play): void {
   }
 }
 
-export function runSkillBot(data: MapData, char: CharacterDef, seed: number, reserve = 40, maxLineDist = 16, raiseTo = 0.45, start?: string[]): SkillBotResult {
+/** Base water (× damage threshold) above which the bot runs its pumps. */
+const PUMP_ON_AT = 0.25;
+const TRACE = typeof process !== 'undefined' && !!process.env?.BOT_TRACE;
+
+export function runSkillBot(data: MapData, char: CharacterDef, seed: number, reserve = 40, maxLineDist = 16, raiseTo = 0.45, start?: string[], cfg?: Partial<LoadedMap['world']['cfg']>): SkillBotResult {
   const map = loadMap(data);
+  if (cfg) Object.assign(map.world.cfg, cfg); // balance experiments only
   const p = createPlay(map, { seed, chars: CHARACTERS, fusions: FUSIONS, rules: pp => createRules(map, SKILLS, char, ECONOMY, () => pp.phase === 'wave', start) });
   let k = 0;
   while (p.phase !== 'result' && p.phase !== 'defeat') {
@@ -112,6 +123,7 @@ export function runSkillBot(data: MapData, char: CharacterDef, seed: number, res
     if (p.phase === 'prepare') { prepare(p, reserve, maxLineDist, raiseTo); send(p, { t: 'startWave' }); continue; }
     if (k++ % 10 === 0) inWave(p);
     advance(p, TICK_MS);
+    if (TRACE && p.world.waveTick === p.world.waveLen - 1) console.log('W' + p.world.wave, 'hp', p.world.hp, 'cash', p.world.cash, 'zones', p.map.zones.zones.map(z => z.type[0]).join(''), 'owned', p.rules!.owned.map(o => o.id).join(','), 'lakes', p.map.lakes.map(l => l.broken ? 'B' : '-').join(''));
   }
   const levees = p.rules!.builtLines.size;
   return { map: data.id, char: char.id, seed, result: p.phase === 'result' ? 'clear' : 'defeat', wave: p.world.wave, hp: p.world.hp, score: Math.floor(p.score!.scoreF), level: p.score!.level, levees };
