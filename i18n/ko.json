@@ -247,6 +247,7 @@
   "settings.motion.on": "켜기",
   "settings.motion.off": "끄기",
   "settings.leftHand": "왼손 모드 (스킬 바 반전)",
+  "settings.textSize": "글자 크기",
   "settings.tutorial": "튜토리얼 다시 보기",
   "settings.tutorialDone": "다음 둑마을 플레이에서 튜토리얼이 다시 나옵니다",
   "settings.legacy": "이전 버전(v1) 열기",

@@ -1,7 +1,7 @@
 import type { SaveV1 } from '../../save/storage.ts';
 import type { T } from '../i18n.ts';
 
-/** Settings (DETAILED §15.6, GD §18): haptics, reduced motion, left-hand mode, tutorial replay. */
+/** Settings (DETAILED §15.6, GD §18): haptics, reduced motion, left-hand mode, text size, tutorial replay. */
 export interface SettingsOptions {
   root: HTMLElement;
   t: T;
@@ -47,6 +47,21 @@ export function mountSettings(o: SettingsOptions): { dispose(): void } {
   const sync = () => mbtns.forEach((b, i) => b.setAttribute('aria-checked', String(opts[i] === s.reducedMotion)));
   sync();
   root.append(motion);
+  const size = mk('div', 'row-group');
+  size.setAttribute('role', 'radiogroup');
+  size.setAttribute('aria-label', t('settings.textSize'));
+  size.append(mk('span', 'label', t('settings.textSize')));
+  const sizes = [100, 120] as const;
+  const sbtns = sizes.map(v => {
+    const b = mk('button', 'seg', `${v}%`);
+    b.setAttribute('role', 'radio');
+    b.addEventListener('click', () => { s.textSize = v; syncSize(); o.onChange({ ...s }); });
+    size.append(b);
+    return b;
+  });
+  const syncSize = () => sbtns.forEach((b, i) => b.setAttribute('aria-checked', String(sizes[i] === s.textSize)));
+  syncSize();
+  root.append(size);
   const replay = mk('button', 'row', t('settings.tutorial'));
   const msg = mk('p', 'hint');
   msg.setAttribute('role', 'status');

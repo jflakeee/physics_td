@@ -18,6 +18,18 @@ const VIEWPORTS = [
 ];
 let failed = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`); if (!ok) failed++; };
+/** DETAILED §15.6: at 120% text nothing scrolls sideways and no button clips its label. Returns [ok, detail]. */
+const fitsAt120 = page => page.evaluate(() => {
+  const bad = [];
+  if (document.documentElement.scrollWidth > innerWidth + 1) bad.push(`page ${document.documentElement.scrollWidth}>${innerWidth}`);
+  for (const e of document.querySelectorAll('#app button, #app a, #app .stats')) {
+    const r = e.getBoundingClientRect();
+    if (!r.width) continue;
+    if (r.right > innerWidth + 1 || r.left < -1) bad.push(`off-screen ${e.className || e.tagName}`);
+    if (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) bad.push(`clipped ${e.className || e.tagName} "${e.textContent.trim().slice(0, 12)}"`);
+  }
+  return [bad.length === 0, bad.slice(0, 6).join('; ')];
+});
 
 await mkdir(OUT, { recursive: true });
 const browser = await chromium.launch();
@@ -343,13 +355,24 @@ try {
     await page.waitForFunction(() => __ptd.store.load().settings.leftHand === true);
     await page.locator('.settings .row', { hasText: '튜토리얼' }).tap();
     check('tutorial replay resets the step', await page.evaluate(() => __ptd.store.load().progress.tutorial === 1));
+    await page.locator('.settings .seg', { hasText: '120%' }).tap();
+    await page.waitForFunction(() => __ptd.store.load().settings.textSize === 120);
+    check('text size 120% scales the root font', await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fs').trim() === '1.2'));
+    check('settings fit at 320px with 120% text', ...await fitsAt120(page));
     await page.screenshot({ path: `${OUT}/settings-${DATE}.png` });
     // let Chromium flush localStorage before the next document reads it (cross-document race)
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
     await page.goto(BASE + '&map=dike-village&tutorial=0&kit=all');
     await page.waitForFunction(() => globalThis.__ptd?.play);
     const xs = await page.locator('.bar .sk').evaluateAll(els => els.map(e => e.getBoundingClientRect().left));
     check('left-hand mode mirrors the skill bar', xs[0] > xs[xs.length - 1], JSON.stringify(xs) + ' ' + JSON.stringify(await page.evaluate(() => __ptd.store.load().settings)));
+    check('play screen fits at 320px with 120% text (saved setting)', ...await fitsAt120(page));
+    await page.screenshot({ path: `${OUT}/text-120-play-${DATE}.png` });
+    for (const [name, q, sel] of [['world', '', '#app.world'], ['codex', '&screen=codex&tab=memories', '.philosophy'], ['maps', '&screen=maps', '.map-card']]) {
+      await page.goto(BASE + q);
+      await page.waitForSelector(sel);
+      check(`${name} fits at 320px with 120% text`, ...await fitsAt120(page));
+    }
     const legacy = await ctx.newPage();
     await legacy.goto(pathToFileURL(resolve('dist/legacy/index.html')).href);
     check('v1 still runs under /legacy', (await legacy.locator('canvas#game').count()) === 1);
