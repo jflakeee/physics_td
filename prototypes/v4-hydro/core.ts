@@ -3,7 +3,8 @@ import { cloneGrid, createGrid } from '../../src/sim/grid.ts';
 import { createFluidScratch, fluidStep, type FluidScratch } from '../../src/sim/fluid.ts';
 import { freezeCells, meltIce } from '../../src/sim/ice.ts';
 import { createRng, seedState, type Rng } from '../../src/core/rng.ts';
-import { SEASONS, T, type Weather } from './tuning.ts';
+import { CHARS, SEASONS, STAGES, T, type CardId, type CharId, type PowerupId, type Season, type Weather } from './tuning.ts';
+export type { CardId, CharId, PowerupId } from './tuning.ts';
 
 /**
  * V4 hydro prototype rules (docs/REDESIGN_V4_HYDRO.md). No DOM.
@@ -47,7 +48,6 @@ export const SITES: readonly Site[] = (() => {
   return s;
 })();
 export interface Plant { site: number; hp: number; power: number; drown: number; spin: number }
-export type CardId = 'sand' | 'ice' | 'eta' | 'tough' | 'coins' | 'cheap';
 export type Phase = 'ready' | 'run' | 'levelup' | 'won' | 'lost';
 
 export interface HydroWorld {
@@ -59,20 +59,35 @@ export interface HydroWorld {
   /** Power made during the current second, and the last full second. */
   secPower: number; lastSecPower: number; blackout: number;
   inflow: number; drained: number;
-  skill: { sand: number; ice: number; eta: number; tough: number; cheap: number };
-  spiritTimer: { sand: number; ice: number };
+  skill: { sand: number; ice: number; eta: number; tough: number; cheap: number; rain: number; sun: number };
+  spiritTimer: { sand: number; ice: number; rain: number; sun: number };
+  /** Stage index into STAGES, its seasons and length, the character and the bonuses brought in. */
+  stage: number; seasons: Season[]; totalSec: number; char: CharId;
+  etaBonus: number; costMul: Record<BuildKind, number>;
+  /** Bonus skills unlocked by clearing stages: they join the level-up pool. */
+  unlocked: CardId[];
+  /** Run record for the stats screen. */
+  record: { builds: number; floodHearts: number; blackoutHearts: number; power: number };
+  /** How this run was created (to rebuild it when a saved run is continued). */
+  origin: { seed: number; opt: RunOptions };
   /** Temporary sandbag cells and their remaining ticks. */
   sandbags: Map<number, number>;
   cards: CardId[];
-  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice'; cells: number[] } | null };
+  events: { lostHeart: 'blackout' | 'flood' | null; spirit: { kind: 'sand' | 'ice' | 'rain' | 'sun'; cells: number[] } | null };
   /** Ticks before the next flood heart can be lost. */
   floodCooldown: number;
   /** Village edge cell where the last flood came in (−1 = none), for the arrow on screen. */
   floodFrom: number;
 }
 
+/** What a run brings in from the main menu: stage, character, power-up ranks, unlocked bonus skills. */
+export interface RunOptions { stage?: number; char?: CharId; powerups?: Partial<Record<PowerupId, number>>; unlocked?: CardId[] }
+
 /** New game. One wheel is already turning at the first rapid. */
-export function createHydro(seed = 1): HydroWorld {
+export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
+  const stage = Math.max(0, Math.min(STAGES.length - 1, opt.stage ?? 0)), st = STAGES[stage];
+  const ch = CHARS.find(c => c.id === (opt.char ?? 'miller')) ?? CHARS[0], pu = opt.powerups ?? {};
+  const builder = 1 - 0.05 * (pu.builder ?? 0);
   const g = createGrid(W, H);
   const channel = new Uint8Array(W * H), village = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -84,11 +99,17 @@ export function createHydro(seed = 1): HydroWorld {
   const w: HydroWorld = {
     g, sc: createFluidScratch(W * H), rng: createRng(seedState(seed, 4)), channel, village,
     built: SITES.map(() => null), plants: [], tick: 0, phase: 'ready',
-    xp: 0, level: 1, coins: T.startCoins, hearts: T.hearts,
+    xp: 0, level: 1, coins: T.startCoins + 20 * (pu.purse ?? 0), hearts: T.hearts + (pu.heart ?? 0),
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
-    skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0 }, spiritTimer: { sand: 0, ice: 0 },
+    skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
     sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null }, floodCooldown: 0, floodFrom: -1,
+    stage, seasons: st.seasons, totalSec: st.seasons.reduce((a, x) => a + x.seconds, 0), char: ch.id,
+    etaBonus: ch.eta + 0.05 * (pu.turbine ?? 0),
+    costMul: { wheel: ch.costMul.wheel * builder, reservoir: ch.costMul.reservoir * builder, wall: ch.costMul.wall * builder },
+    unlocked: [...(opt.unlocked ?? [])], record: { builds: 0, floodHearts: 0, blackoutHearts: 0, power: 0 },
+    origin: { seed, opt: { ...opt, powerups: { ...(opt.powerups ?? {}) }, unlocked: [...(opt.unlocked ?? [])] } },
   };
+  if (ch.startSkill && ch.startSkill !== 'coins') { w.skill[ch.startSkill] = 1; startSpirit(w, ch.startSkill); }
   // start with a little water in the river so the first wheel turns at once
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (channel[at(x, y)]) g.w[at(x, y)] = 0.25;
   for (let i = 0; i < W * H; i++) w.inflow += g.w[i];
@@ -97,16 +118,18 @@ export function createHydro(seed = 1): HydroWorld {
 }
 
 // ---- time & weather -----------------------------------------------------------------
+/** Length of stage 1 (code with no world in hand). A world's own length is `w.totalSec`. */
 export const totalSeconds = SEASONS.reduce((a, s) => a + s.seconds, 0);
 /** Season index and seconds into it. */
-export function seasonAt(sec: number): { si: number; t: number } {
+export function seasonAt(sec: number, seasons: Season[] = SEASONS): { si: number; t: number } {
   let t = sec;
-  for (let si = 0; si < SEASONS.length; si++) { if (t < SEASONS[si].seconds) return { si, t }; t -= SEASONS[si].seconds; }
-  return { si: SEASONS.length - 1, t: SEASONS[SEASONS.length - 1].seconds };
+  for (let si = 0; si < seasons.length; si++) { if (t < seasons[si].seconds) return { si, t }; t -= seasons[si].seconds; }
+  return { si: seasons.length - 1, t: seasons[seasons.length - 1].seconds };
 }
 /** Weather now, the multiplier (ramped), and the next change (for the forecast). */
-export function weatherAt(sec: number): { now: Weather; mul: number; next: Weather | null; nextIn: number } {
-  const { si, t } = seasonAt(sec), list = SEASONS[si].weather;
+export function weatherAt(sec: number, seasons: Season[] = SEASONS): { now: Weather; mul: number; next: Weather | null; nextIn: number } {
+  const SEASONS = seasons;
+  const { si, t } = seasonAt(sec, seasons), list = SEASONS[si].weather;
   let k = 0;
   for (let j = 0; j < list.length; j++) if (list[j].t <= t) k = j;
   const now = list[k];
@@ -120,7 +143,7 @@ export function weatherAt(sec: number): { now: Weather; mul: number; next: Weath
 export const seconds = (w: HydroWorld) => w.tick / T.tps;
 
 // ---- building -----------------------------------------------------------------------
-export function cost(w: HydroWorld, k: BuildKind): number { return Math.round(T.cost[k] * (1 - 0.15 * w.skill.cheap)); }
+export function cost(w: HydroWorld, k: BuildKind): number { return Math.round(T.cost[k] * w.costMul[k] * (1 - 0.15 * w.skill.cheap)); }
 /** True if `site` is free and takes `k` (its own building when omitted) and the coins are there. */
 export function canBuild(w: HydroWorld, site: number, k: BuildKind = SITES[site]?.build): boolean {
   const s = SITES[site];
@@ -141,7 +164,7 @@ export function plantCells(site: number): number[] {
 export function placeBuilding(w: HydroWorld, site: number, k: BuildKind = SITES[site].build, free = false): boolean {
   if (!free && !canBuild(w, site, k)) return false;
   const s = SITES[site], g = w.g;
-  if (!free) w.coins -= cost(w, k);
+  if (!free) { w.coins -= cost(w, k); w.record.builds++; }
   w.built[site] = k;
   if (k === 'wheel') w.plants.push({ site, hp: 1, power: 0, drown: 0, spin: 0 });
   else if (k === 'reservoir') {
@@ -177,9 +200,9 @@ export function repair(w: HydroWorld, site: number): boolean {
 // ---- tick ---------------------------------------------------------------------------
 export function start(w: HydroWorld): void { if (w.phase === 'ready') w.phase = 'run'; }
 export const xpNeed = (level: number) => Math.round(T.xpBase * T.xpGrowth ** (level - 1));
-export const eta = (w: HydroWorld) => T.eta * (1 + 0.1 * w.skill.eta);
+export const eta = (w: HydroWorld) => T.eta * (1 + 0.1 * w.skill.eta + w.etaBonus);
 /** Village demand per second now. */
-export const demand = (w: HydroWorld) => T.demand + T.demandGrow * seconds(w);
+export const demand = (w: HydroWorld) => (T.demand + T.demandGrow * seconds(w)) * STAGES[w.stage].demandMul;
 
 /** Measure each plant: flow across its row (from the fluid step's own fluxes) × surface drop. */
 function plantPower(w: HydroWorld): number {
@@ -212,7 +235,7 @@ export function tick(w: HydroWorld): void {
   if (w.phase !== 'run') return;
   const g = w.g, sec = seconds(w);
   w.events.lostHeart = null; w.events.spirit = null;
-  const { mul } = weatherAt(sec);
+  const { mul, now } = weatherAt(sec, w.seasons);
   // inflow at the top of the channel
   const top: number[] = [];
   for (let x = 0; x < W; x++) if (w.channel[at(x, 0)]) top.push(at(x, 0));
@@ -221,15 +244,17 @@ export function tick(w: HydroWorld): void {
   w.inflow += add * top.length;
   fluidStep(g, T.K, w.sc);
   const power = plantPower(w);
-  // ice: melts slowly; in a drought the sun melts it faster (stored flood water comes back)
-  meltIce(g, mul < 0.6 ? T.ice.droughtMelt : T.iceMelt, 1e-6);
+  // ice: in a freeze the river skins over (water → ice, no melting); otherwise it melts slowly,
+  // faster in a drought (stored flood water comes back)
+  if (now.freeze) { for (let i = 0; i < W * H; i++) if (w.channel[i] && g.w[i] > 0.02) { const f = Math.min(g.w[i] - 0.02, now.freeze); g.w[i] -= f; g.ice[i] += f; } }
+  else meltIce(g, mul < 0.6 ? T.ice.droughtMelt : T.iceMelt, 1e-6);
   // bottom edge drains
   for (let x = 0; x < W; x++) { const i = at(x, H - 1); const d = Math.min(g.w[i], T.outletRate); g.w[i] -= d; w.drained += d; }
   // sandbags expire
   for (const [i, t] of w.sandbags) { if (t <= 1) { g.tmp[i] = 0; w.sandbags.delete(i); } else w.sandbags.set(i, t - 1); }
   spirits(w, mul);
   // XP and the village
-  w.xp += power; w.secPower += power;
+  w.xp += power; w.secPower += power; w.record.power += power;
   if ((w.tick + 1) % T.tps === 0) {
     w.lastSecPower = w.secPower;
     if (w.secPower >= demand(w)) { w.coins += T.coinPerSec; w.blackout = 0; }
@@ -253,10 +278,13 @@ export function tick(w: HydroWorld): void {
   for (let i = 0; i < W * H; i++) if (w.village[i] && g.w[i] > 0) { const d = Math.min(g.w[i], T.villagePump); g.w[i] -= d; w.drained += d; }
   w.tick++;
   if (w.hearts <= 0) { w.phase = 'lost'; return; }
-  if (seconds(w) >= totalSeconds) { w.phase = 'won'; return; }
+  if (seconds(w) >= w.totalSec) { w.phase = 'won'; return; }
   if (w.xp >= xpNeed(w.level)) levelUp(w);
 }
-function loseHeart(w: HydroWorld, why: 'blackout' | 'flood') { w.hearts--; w.events.lostHeart = why; }
+function loseHeart(w: HydroWorld, why: 'blackout' | 'flood') {
+  w.hearts--; w.events.lostHeart = why;
+  if (why === 'flood') w.record.floodHearts++; else w.record.blackoutHearts++;
+}
 
 // ---- spirits (auto skills) -----------------------------------------------------------
 function spirits(w: HydroWorld, mul: number): void {
@@ -297,18 +325,50 @@ function spirits(w: HydroWorld, mul: number): void {
       w.events.spirit = { kind: 'ice', cells };
     } else w.spiritTimer.ice = T.tps;
   }
+  if (w.skill.rain > 0 && --w.spiritTimer.rain <= 0) {
+    const L = w.skill.rain - 1;
+    if (mul < 0.6) {
+      // rain from the sky over the upper river (new water: it counts as inflow)
+      w.spiritTimer.rain = T.rain.every[L] * T.tps;
+      const cells: number[] = [];
+      for (let i = 0; i < 30 * W; i++) if (w.channel[i]) cells.push(i);
+      const per = T.rain.amount[L] / cells.length;
+      for (const i of cells) g.w[i] += per;
+      w.inflow += T.rain.amount[L];
+      w.events.spirit = { kind: 'rain', cells: cells.filter((_, k) => k % 3 === 0) };
+    } else w.spiritTimer.rain = T.tps;
+  }
+  if (w.skill.sun > 0 && --w.spiritTimer.sun <= 0) {
+    const L = w.skill.sun - 1;
+    if (mul >= 1.4) {
+      // evaporate flood water off the river (vapour leaves the board), deepest first
+      w.spiritTimer.sun = T.sun.every[L] * T.tps;
+      const cand: number[] = [];
+      for (let i = 0; i < W * H; i++) if (!w.channel[i] && g.w[i] > 0.01) cand.push(i);
+      cand.sort((a, b) => g.w[b] - g.w[a] || a - b);
+      let left = T.sun.amount[L];
+      const cells: number[] = [];
+      for (const i of cand) { if (left <= 0) break; const d = Math.min(g.w[i], left, 0.3); g.w[i] -= d; w.drained += d; left -= d; cells.push(i); }
+      w.events.spirit = { kind: 'sun', cells };
+    } else w.spiritTimer.sun = T.tps;
+  }
+}
+function startSpirit(w: HydroWorld, c: CardId): void {
+  if (c === 'sand' || c === 'ice' || c === 'rain' || c === 'sun') w.spiritTimer[c] = T.tps;
 }
 
 // ---- level up -----------------------------------------------------------------------
-export const CARD_MAX: Record<CardId, number> = { sand: 5, ice: 5, eta: 5, tough: 3, coins: 99, cheap: 3 };
+export const CARD_MAX: Record<CardId, number> = { sand: 5, ice: 5, eta: 5, tough: 3, coins: 99, cheap: 3, rain: 5, sun: 5 };
+/** Bonus skills (rain, sun) only join the level-up pool once a stage clear unlocked them. */
+const BONUS: CardId[] = ['rain', 'sun'];
 function cardLevel(w: HydroWorld, c: CardId): number { return c === 'coins' ? 0 : w.skill[c]; }
 function levelUp(w: HydroWorld): void {
   w.xp -= xpNeed(w.level);
   w.level++;
-  const pool = (Object.keys(CARD_MAX) as CardId[]).filter(c => cardLevel(w, c) < CARD_MAX[c]);
+  const pool = (Object.keys(CARD_MAX) as CardId[]).filter(c => cardLevel(w, c) < CARD_MAX[c] && (!BONUS.includes(c) || w.unlocked.includes(c)));
   const pick: CardId[] = [];
-  // the first level always offers both spirits so a new player meets them early
-  if (w.level === 2) pick.push('sand', 'ice');
+  // the first level always offers the spirits you do not have yet, so a new player meets them early
+  if (w.level === 2) for (const c of ['sand', 'ice'] as CardId[]) if (pool.includes(c) && pick.length < 2) pick.push(c);
   while (pick.length < 3 && pick.length < pool.length) {
     const c = pool[w.rng.int(pool.length)];
     if (!pick.includes(c)) pick.push(c);
@@ -321,8 +381,7 @@ export function chooseCard(w: HydroWorld, c: CardId): boolean {
   if (c === 'coins') w.coins += 60; else w.skill[c]++;
   w.cards = [];
   w.phase = 'run';
-  if (c === 'sand') w.spiritTimer.sand = T.tps;
-  if (c === 'ice') w.spiritTimer.ice = T.tps;
+  startSpirit(w, c);
   return true;
 }
 
@@ -337,6 +396,7 @@ export function cloneHydro(w: HydroWorld): HydroWorld {
   return {
     ...w, g: cloneGrid(w.g), sc: createFluidScratch(W * H), rng: createRng(w.rng.state()),
     built: w.built.slice(), plants: w.plants.map(p => ({ ...p })), skill: { ...w.skill }, spiritTimer: { ...w.spiritTimer },
+    record: { ...w.record }, unlocked: w.unlocked.slice(), costMul: { ...w.costMul },
     sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null },
   };
 }
