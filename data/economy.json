@@ -1,0 +1,74 @@
+{
+  "waveClear": 60,
+  "fieldIncome": 8,
+  "fieldFloodDepth": 0.05,
+  "axisOnGain": 3,
+  "axisOnRankUp": 1,
+  "axisPerPassiveWave": 1,
+  "axisPerCostUse": 1,
+  "axisCooldownDiv": 10,
+  "gaugeMax": 100,
+  "score": {
+    "drainedPer": 0.3,
+    "noDamageWave": 60,
+    "blockedPer": 0.35,
+    "ecologyPer": 8,
+    "waveClear": 100
+  },
+  "xp": {
+    "base": 100,
+    "growth": 1.35,
+    "lateLevelScore": 50
+  },
+  "draft": {
+    "rarity": {
+      "common": 70,
+      "rare": 25,
+      "legendary": 5
+    },
+    "skipCash": 40,
+    "rerolls": 1,
+    "fusionCeiling": 4,
+    "homeWeight": 1.5,
+    "spike": {
+      "tactical": 2,
+      "ultimate": 5
+    },
+    "rareRankGain": 2,
+    "rareNewRank": 2
+  },
+  "substitutes": {
+    "supply": {
+      "cash": 60
+    },
+    "repair": {
+      "hp": 10,
+      "maxHp": 100
+    },
+    "maintenance": {
+      "commonCdMul": 0.85,
+      "maxStacks": 2
+    }
+  },
+  "result": {
+    "clear": 500,
+    "affinity": {
+      "home": 0,
+      "neutral": 100,
+      "challenge": 200
+    },
+    "hpPer": 2,
+    "firstCombo": 50,
+    "noRetry": 100,
+    "buildCap": 300,
+    "expectedLevelUps": 6,
+    "artisanPerRank": 30,
+    "fusionPerSource": 80,
+    "fusionPerFusion": 100,
+    "restraintPerSkip": 90,
+    "restraintMinSkips": 2,
+    "fusionMinCross": 2,
+    "nonePerCross": 60,
+    "star2Hp": 70
+  }
+}

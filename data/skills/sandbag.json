@@ -1,0 +1,11 @@
+{
+  "id": "sandbag", "owner": "dike-keeper", "slot": "tactical", "axis": "safety", "target": "swipe", "zoneTypes": [],
+  "cooldown": 25, "cost": 0, "borrowable": true,
+  "ranks": [
+    { "ops": [{ "op": "tempWallPath", "height": 0.25, "ttlSec": 8, "maxCells": 24, "width": 2, "keepOut": 3 }] },
+    { "ops": [{ "op": "tempWallPath", "height": 0.25, "ttlSec": 11, "maxCells": 24, "width": 2, "keepOut": 3 }] },
+    { "ops": [{ "op": "tempWallPath", "height": 0.25, "ttlSec": 14, "maxCells": 24, "width": 2, "keepOut": 3 }] }
+  ],
+  "icon": "🛍", "i18n": "skill.sandbag",
+  "regions": { "glacier": { "icon": "❄", "i18n": "skill.snowWall" } }
+}

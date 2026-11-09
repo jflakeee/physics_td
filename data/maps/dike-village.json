@@ -1,0 +1,90 @@
+{
+  "id": "dike-village",
+  "name": "map.dikeVillage",
+  "region": "river",
+  "order": 1,
+  "tiles": [
+    "PPPIPPPO",
+    "PPFPPPPP",
+    "PPPPPPFP",
+    "DDPPPPPD",
+    "DPPPPPPD",
+    "IPPBBPPD",
+    "DPPBBPPI",
+    "DPPPPPPD",
+    "PPFPPPDP",
+    "PPPPPPPP",
+    "PPPPFPPP",
+    "OPPPIPPP"
+  ],
+  "zones": [
+    "aaaabbbb",
+    "aaaabbbb",
+    "aaaabbbb",
+    "cnnnnqqd",
+    "cnnnnqqd",
+    "cwwZZqqd",
+    "cwwZZqqd",
+    "cwwssssd",
+    "cwwssssd",
+    "eeeeffff",
+    "eeeeffff",
+    "eeeeffff"
+  ],
+  "pumps": [
+    [
+      4,
+      3
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      3,
+      8
+    ]
+  ],
+  "gates": [],
+  "lakes": [],
+  "I1": 120,
+  "rain": 0.2,
+  "pulseEvery": 45,
+  "waves": 5,
+  "start": {
+    "cash": 150,
+    "hp": 100
+  },
+  "style": "plain",
+  "star3Score": 2150,
+  "leveeLines": [
+    [
+      19,
+      35,
+      43,
+      35
+    ],
+    [
+      19,
+      59,
+      43,
+      59
+    ],
+    [
+      19,
+      36,
+      19,
+      58
+    ],
+    [
+      43,
+      36,
+      43,
+      58
+    ]
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "scenes": [
+    "prologue.1",
+    "prologue.2",
+    "prologue.3"
+  ],
+  "unlockScenes": {
+    "glacier": [
+      "unlock.glacier.1",
+      "unlock.glacier.2"
+    ]
+  },
+  "waveLines": {
+    "river": [
+      "line.river.1",
+      "line.river.2",
+      "line.river.3",
+      "line.river.4",
+      "line.river.5"
+    ],
+    "glacier": [
+      "line.glacier.1",
+      "line.glacier.2",
+      "line.glacier.3",
+      "line.glacier.4",
+      "line.glacier.5"
+    ]
+  },
+  "foreshadow": {
+    "key": "line.foreshadow.deja",
+    "chance": 0.15
+  }
+}

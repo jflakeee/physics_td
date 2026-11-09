@@ -1,0 +1,82 @@
+{
+  "id": "willow-fields",
+  "name": "map.willowFields",
+  "region": "river",
+  "order": 2,
+  "tiles": [
+    "PPPOPPPP",
+    "PFPPPPFP",
+    "PPPPPPPP",
+    "PDDPPDDP",
+    "PDDPPDDP",
+    "PPPBBPPP",
+    "PPPBBPPP",
+    "PDDPPDDP",
+    "PDDPPWWP",
+    "PWWPPWWP",
+    "PPPPPPPP",
+    "PPPIIPPP"
+  ],
+  "zones": [
+    "aaaabbbb",
+    "aaaabbbb",
+    "aaaabbbb",
+    "iiibbjjj",
+    "iiibbjjj",
+    "wwwZZvvv",
+    "wwwZZvvv",
+    "kkkffmmm",
+    "kkkffmmm",
+    "eeeeffff",
+    "eeeeffff",
+    "eeeeffff"
+  ],
+  "pumps": [
+    [
+      4,
+      7
+    ],
+    [
+      4,
+      8
+    ]
+  ],
+  "gates": [],
+  "lakes": [],
+  "I1": 138,
+  "rain": 0.2,
+  "pulseEvery": 45,
+  "waves": 5,
+  "start": {
+    "cash": 150,
+    "hp": 100
+  },
+  "style": "floodplain",
+  "star3Score": 2050,
+  "leveeLines": [
+    [
+      19,
+      35,
+      43,
+      35
+    ],
+    [
+      19,
+      59,
+      43,
+      59
+    ],
+    [
+      19,
+      36,
+      19,
+      58
+    ],
+    [
+      43,
+      36,
+      43,
+      58
+    ]
+  ]
+}

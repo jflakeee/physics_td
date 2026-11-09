@@ -1,0 +1,10 @@
+{
+  "id": "wetland-passive", "owner": "wetland-researcher", "slot": "passive", "axis": "harmony", "target": "none", "zoneTypes": [],
+  "cooldown": 0, "cost": 0, "borrowable": true,
+  "ranks": [
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 1.0, "mode": "set" }] },
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 1.4, "mode": "set" }] },
+    { "ops": [{ "op": "modifier", "key": "absorbMul", "value": 1.75, "mode": "set" }] }
+  ],
+  "icon": "🌱", "i18n": "skill.wetlandPassive"
+}

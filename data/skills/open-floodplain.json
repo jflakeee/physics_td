@@ -1,0 +1,10 @@
+{
+  "id": "open-floodplain", "owner": "wetland-researcher", "slot": "basic", "axis": "harmony", "target": "zone", "zoneTypes": ["field"],
+  "cooldown": 0, "cost": 0, "borrowable": true, "needs": "notOpened",
+  "ranks": [
+    { "ops": [{ "op": "lowerZone", "dh": 0.15 }] },
+    { "ops": [{ "op": "lowerZone", "dh": 0.2 }] },
+    { "ops": [{ "op": "lowerZone", "dh": 0.25 }] }
+  ],
+  "icon": "🌾", "i18n": "skill.openFloodplain"
+}

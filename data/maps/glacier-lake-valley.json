@@ -1,0 +1,109 @@
+{
+  "id": "glacier-lake-valley",
+  "name": "map.glacierLakeValley",
+  "region": "glacier",
+  "order": 4,
+  "tiles": [
+    "PIPPPHHH",
+    "PPPPPHHH",
+    "PPPPPHHH",
+    "DPPPPPPD",
+    "DPPPPPPD",
+    "DPPBBPPD",
+    "DPPBBPPD",
+    "PPPPPPPI",
+    "PPPPPPPP",
+    "HHHPPPPP",
+    "HHHPPPPP",
+    "HHHPPIPO"
+  ],
+  "zones": [
+    "aaaabbbb",
+    "aaaabbbb",
+    "aaaabbbb",
+    "cnnnnqqd",
+    "cnnnnqqd",
+    "cwwZZqqd",
+    "cwwZZqqd",
+    "cwwssssd",
+    "cwwssssd",
+    "eeeeffff",
+    "eeeeffff",
+    "eeeeffff"
+  ],
+  "pumps": [
+    [
+      2,
+      4
+    ],
+    [
+      5,
+      5
+    ],
+    [
+      3,
+      7
+    ]
+  ],
+  "gates": [],
+  "lakes": [
+    {
+      "tiles": [
+        6,
+        0,
+        7,
+        1
+      ],
+      "water": 20,
+      "rim": 0.9,
+      "breakAt": 0.3
+    },
+    {
+      "tiles": [
+        0,
+        10,
+        1,
+        11
+      ],
+      "water": 20,
+      "rim": 1.1,
+      "breakAt": 0.3
+    }
+  ],
+  "I1": 95,
+  "rain": 0.2,
+  "pulseEvery": 45,
+  "waves": 5,
+  "start": {
+    "cash": 150,
+    "hp": 100
+  },
+  "style": "glacier",
+  "star3Score": 2100,
+  "leveeLines": [
+    [
+      17,
+      33,
+      45,
+      33
+    ],
+    [
+      17,
+      61,
+      45,
+      61
+    ],
+    [
+      17,
+      34,
+      17,
+      60
+    ],
+    [
+      45,
+      34,
+      45,
+      60
+    ]
+  ]
+}

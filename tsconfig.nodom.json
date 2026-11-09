@@ -1,0 +1,6 @@
+{
+  "//": "sim/rules/game/input must not touch the DOM (DETAILED_DESIGN_V2 §1): type-checked without DOM libs",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "lib": ["ES2022"], "types": [] },
+  "include": ["src/core/**/*.ts", "src/sim/**/*.ts", "src/game/**/*.ts", "src/input/**/*.ts", "src/rules/**/*.ts", "src/data/**/*.ts"]
+}
