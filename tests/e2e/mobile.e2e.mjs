@@ -135,6 +135,7 @@ try {
     await S(() => { __ptd.play.world.waveTick = __ptd.play.world.waveLen - 2; });
     await page.waitForSelector('.levelup:not([hidden])');
     check('draft opens after the wave with 3 cards', (await page.locator('.levelup .card').count()) === 3);
+    check('B6: every skill card shows a map preview', (await page.locator('.levelup .card:not(.sub)').count()) === (await page.locator('.levelup .card .preview').count()));
     check('odds are published (ⓘ)', (await page.locator('.levelup .odds p').textContent()).includes('70'));
     const cardBtns = await page.locator('.levelup button, .levelup summary').evaluateAll(els => els.every(e => { const r = e.getBoundingClientRect(); return r.height >= 48 && r.width >= 48; }));
     check('draft targets ≥ 48px', cardBtns);

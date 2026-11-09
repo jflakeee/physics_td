@@ -68,5 +68,5 @@ Skill-bot results (5 seeds; clears / avg HP): 정석 둑지기 @ 둑마을 5/5 H
   wetland absorption; the bot does not upkeep the dams. Options: smaller lakes, or dam upkeep in play.
 - Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
 - Water TD benchmark candidates (`docs/DESIGN_REVIEW_2026-11.md` §2.1b): **B1 villager mood and
-  B2 0.5× speed, B3 water state tints are done (2026-11-09)**; B4 multi-base maps, B5 geometric map
-  silhouettes, B6 card previews remain.
+  B2 0.5× speed, B3 water state tints, B6 card map previews are done (2026-11-09)**; B4 multi-base
+  maps and B5 geometric map silhouettes remain (map/design work).

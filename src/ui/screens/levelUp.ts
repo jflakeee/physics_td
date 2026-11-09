@@ -5,6 +5,7 @@ import { needsReplace } from '../../rules/cards.ts';
 import { regional } from '../../rules/skills.ts';
 import type { CharacterDef } from '../../rules/types.ts';
 import type { T } from '../i18n.ts';
+import { drawCardPreview } from '../widgets/cardPreview.ts';
 
 /**
  * Level-up draft sheet (DETAILED §15.4): header Lv a ▸ b + remaining picks, 3 cards (source
@@ -43,8 +44,14 @@ export function createLevelUp(play: Play, t: T, chars: readonly CharacterDef[]):
         const name = mk('div', 'name', `${def.icon} ${t(def.i18n + '.name')}`);
         const line = mk('div', 'desc', t(def.i18n + '.desc'));
         const rank = mk('div', 'rank', c.upgrade ? t('levelUp.rank', { n: c.rank }) : `${t('levelUp.new')} · ${t('levelUp.rank', { n: c.rank })}`);
-        b.append(top, name, line, rank);
-        if (c.fusion) b.append(mk('div', 'fusion', FUSION_HIDDEN(play, c.fusion) ? t('fusion.hint') : '✨ ' + t('fusion.' + camel(c.fusion) + '.name')));
+        const pv = document.createElement('canvas');
+        pv.className = 'preview';
+        pv.setAttribute('aria-hidden', 'true');
+        drawCardPreview(pv, rs, def);
+        const body = mk('div', 'card-body');
+        body.append(top, name, line, rank);
+        b.append(pv, body);
+        if (c.fusion) body.append(mk('div', 'fusion', FUSION_HIDDEN(play, c.fusion) ? t('fusion.hint') : '✨ ' + t('fusion.' + camel(c.fusion) + '.name')));
         b.setAttribute('aria-label', `${t(c.side === 'own' ? 'levelUp.own' : 'levelUp.cross')} ${t(def.i18n + '.name')} ${t('rarity.' + c.rarity)}`);
       } else {
         b.classList.add('sub');

@@ -97,7 +97,10 @@ button:disabled { opacity: .35; }
 .levelup h2 { margin: 0; font-size: 20px; }
 .levelup .remain { color: var(--muted); font-size: 13px; }
 .levelup .cards { display: flex; flex-direction: column; gap: 8px; }
-.card { text-align: left; padding: 8px 10px; min-height: 88px; border: 3px solid var(--owner, var(--line)); display: flex; flex-direction: column; gap: 3px; }
+.card { text-align: left; padding: 8px 10px; min-height: 88px; border: 3px solid var(--owner, var(--line)); display: flex; flex-direction: row; gap: 10px; align-items: center; }
+.card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.card .preview { width: 40px; height: 60px; flex: none; image-rendering: pixelated; border-radius: 4px; border: 1px solid var(--line); }
+.card.sub { flex-direction: column; align-items: stretch; }
 .card .top { display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
 .card .tag { background: #0b1420; border-radius: 6px; padding: 1px 6px; }
 .card.cross .tag { background: #3a2a52; color: #e8dcff; }
