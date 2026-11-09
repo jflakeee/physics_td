@@ -43,6 +43,9 @@ const ISSUE_KEY: Record<SaveIssue, string> = { memory: 'toast.memoryMode', corru
 const backend = (() => { try { return globalThis.localStorage as StorageLike; } catch { return null; } })();
 const store = createStore(backend, i => notices.push(t(ISSUE_KEY[i])));
 const takeNotices = () => notices.splice(0);
+/** Scale every CSS font size via `--fs` (DETAILED §15.6: 100/120%). `?fs=120` overrides for tests. */
+function applyTextSize(pct: number): void { document.documentElement.style.setProperty('--fs', String(pct / 100)); }
+applyTextSize(q.get('fs') === '120' ? 120 : store.load().settings.textSize);
 
 let charId = q.get('char') ?? store.load().progress.lastChar ?? CHARACTERS[0].id;
 let dispose: (() => void) | null = null;
@@ -109,7 +112,7 @@ function showSettings(): void {
   const s = store.load();
   dispose = mountSettings({
     root, t, settings: s.settings, legacyHref: './legacy/index.html',
-    onChange: st => { const n = store.load(); n.settings = st; store.save(n); },
+    onChange: st => { const n = store.load(); n.settings = st; store.save(n); applyTextSize(st.textSize); },
     onReplayTutorial: () => { const n = store.load(); n.progress.tutorial = 1; store.save(n); },
     onBack: showWorld,
   }).dispose;

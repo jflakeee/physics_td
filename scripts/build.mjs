@@ -18,6 +18,11 @@ const r = await build({
 for (const f of ['index.html', 'app.css']) await copyFile(join('web', f), join('dist', f));
 const v2 = await readFile('dist/index.html', 'utf8');
 if (!v2.includes('src="./app.js"')) throw Error('Missing v2 entry');
+// V3 kids prototype (docs/REDESIGN_V3_KIDS.md §11) under dist/v3/
+await mkdir('dist/v3', { recursive: true });
+await build({ entryPoints: ['prototypes/v3-kids/main.ts'], bundle: true, format: 'iife', target: 'es2020', minify: true, outfile: 'dist/v3/app.js', legalComments: 'none' });
+for (const f of ['index.html', 'app.css']) await copyFile(join('prototypes/v3-kids', f), join('dist/v3', f));
+console.log('v3 prototype: dist/v3/');
 await writeFile('dist/.nojekyll', '');
 const bytes = Object.values(r.metafile.outputs).reduce((a, o) => a + o.bytes, 0);
 console.log(`v2 build: dist/app.js ${(bytes / 1024).toFixed(1)} KB`);
