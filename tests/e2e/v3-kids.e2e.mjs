@@ -51,7 +51,9 @@ try {
     await page.mouse.up();
     const walls = await page.evaluate(() => { const w = __v3.w; let n = 0; for (let i = 0; i < w.kind.length; i++) if (w.kind[i] === 2) n++; return n; });
     check('dragging builds a wall', walls >= 10, `${walls} cells`);
-    check('wall button is cooling down', await page.locator('.bar .sk').first().evaluate(e => e.classList.contains('cool')));
+    // the HUD applies the cooldown on the next animation frame
+    const cooling = await page.waitForFunction(() => document.querySelector('.bar .sk')?.classList.contains('cool'), null, { timeout: 2000 }).then(() => true, () => false);
+    check('wall button is cooling down', cooling);
     await page.screenshot({ path: `${OUT}/v3-ready-wall-${name}-${DATE}.png` });
     await page.locator('.center .big').tap(); // start
     await page.waitForFunction(() => __v3.w.phase === 'wave');

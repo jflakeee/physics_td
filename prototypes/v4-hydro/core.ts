@@ -32,16 +32,20 @@ export const inChannel = (x: number, y: number) => Math.abs(x - riverX(y)) <= 2.
 export const inVillage = (x: number, y: number) => x >= VILLAGE.x0 && x <= VILLAGE.x1 && y >= VILLAGE.y0 && y <= VILLAGE.y1;
 
 export type SiteKind = 'river' | 'bank';
-export interface Site { id: number; kind: SiteKind; x: number; y: number; side: -1 | 1 }
-/** Build spots: river sites take plants; bank sites take a reservoir or a wall. */
+export type BuildKind = 'wheel' | 'reservoir' | 'wall';
+/**
+ * Build spots. Each spot has one building, so a tap is enough (no build menu): river spots take a
+ * water wheel, bank spots by a bend take a reservoir, bank spots by the village or a wheel take a wall.
+ */
+export interface Site { id: number; kind: SiteKind; build: BuildKind; x: number; y: number; side: -1 | 1 }
 export const SITES: readonly Site[] = (() => {
   const s: Site[] = [];
-  for (const y of [10, 27, 40, 60, 72, 86]) s.push({ id: s.length, kind: 'river', x: Math.round(riverX(y)), y, side: 1 });
-  for (const [y, side] of [[18, -1], [46, -1], [66, 1], [80, 1], [90, 1], [33, 1]] as const) s.push({ id: s.length, kind: 'bank', x: Math.round(riverX(y) + side * 8), y, side });
+  for (const y of [10, 27, 40, 60, 72, 86]) s.push({ id: s.length, kind: 'river', build: 'wheel', x: Math.round(riverX(y)), y, side: 1 });
+  for (const [y, side, build] of [[18, -1, 'reservoir'], [46, -1, 'reservoir'], [66, 1, 'reservoir'], [80, 1, 'wall'], [90, 1, 'wall'], [33, 1, 'wall']] as const) {
+    s.push({ id: s.length, kind: 'bank', build, x: Math.round(riverX(y) + side * 8), y, side });
+  }
   return s;
 })();
-
-export type BuildKind = 'wheel' | 'reservoir' | 'wall';
 export interface Plant { site: number; hp: number; power: number; drown: number; spin: number }
 export type CardId = 'sand' | 'ice' | 'eta' | 'tough' | 'coins' | 'cheap';
 export type Phase = 'ready' | 'run' | 'levelup' | 'won' | 'lost';
@@ -117,12 +121,15 @@ export const seconds = (w: HydroWorld) => w.tick / T.tps;
 
 // ---- building -----------------------------------------------------------------------
 export function cost(w: HydroWorld, k: BuildKind): number { return Math.round(T.cost[k] * (1 - 0.15 * w.skill.cheap)); }
-export function canBuild(w: HydroWorld, site: number, k: BuildKind): boolean {
+/** True if `site` is free and takes `k` (its own building when omitted) and the coins are there. */
+export function canBuild(w: HydroWorld, site: number, k: BuildKind = SITES[site]?.build): boolean {
   const s = SITES[site];
   if (!s || w.built[site] || w.phase === 'won' || w.phase === 'lost') return false;
-  if ((k === 'wheel') !== (s.kind === 'river')) return false;
+  if (k !== s.build) return false;
   return w.coins >= cost(w, k);
 }
+/** A free site whose building you cannot pay for yet (drawn dimmed). */
+export const waiting = (w: HydroWorld, site: number) => !w.built[site] && w.phase !== 'won' && w.phase !== 'lost' && w.coins < cost(w, SITES[site].build);
 /** Plant row cells (the channel across the site row). */
 export function plantCells(site: number): number[] {
   const s = SITES[site], out: number[] = [];
@@ -130,8 +137,8 @@ export function plantCells(site: number): number[] {
   return out;
 }
 
-/** Build `k` on `site`. `free` skips the cost (starting wheel). */
-export function placeBuilding(w: HydroWorld, site: number, k: BuildKind, free = false): boolean {
+/** Build on `site` (its own building unless `k` is given). `free` skips the cost (starting wheel). */
+export function placeBuilding(w: HydroWorld, site: number, k: BuildKind = SITES[site].build, free = false): boolean {
   if (!free && !canBuild(w, site, k)) return false;
   const s = SITES[site], g = w.g;
   if (!free) w.coins -= cost(w, k);
@@ -349,7 +356,7 @@ function lookAhead(w: HydroWorld, ticks: number): { power: number; hearts: numbe
 export function recommend(w: HydroWorld, k: BuildKind, ticks: number = T.horizon): number | null {
   let best: number | null = null, score = -Infinity;
   for (const s of SITES) {
-    if (w.built[s.id] || (k === 'wheel') !== (s.kind === 'river')) continue;
+    if (w.built[s.id] || s.build !== k) continue;
     const c = cloneHydro(w);
     c.coins = 1e9;
     placeBuilding(c, s.id, k);
@@ -358,4 +365,30 @@ export function recommend(w: HydroWorld, k: BuildKind, ticks: number = T.horizon
     if (v > score + 1e-9) { score = v; best = s.id; }
   }
   return best;
+}
+
+/**
+ * The star on the map: among the sites you can pay for now, the one that helps most over the next
+ * `ticks`, compared with building nothing. Hearts saved count most, then village flood avoided,
+ * then power. One rollout per step (`yield`) so a screen can spread the work over frames.
+ * Returns null when nothing affordable helps.
+ */
+export function* recommendSteps(w: HydroWorld, ticks: number = T.horizon): Generator<void, number | null> {
+  const base = lookAhead(w, ticks);
+  yield;
+  let best: number | null = null, score = 0;
+  for (const s of SITES) {
+    if (!canBuild(w, s.id)) continue;
+    const c = cloneHydro(w);
+    placeBuilding(c, s.id);
+    const r = lookAhead(c, ticks);
+    const v = (r.hearts - base.hearts) * 1000 + (base.flood - r.flood) * 10 + (r.power - base.power);
+    if (v > score + 1e-9) { score = v; best = s.id; }
+    yield;
+  }
+  return best;
+}
+export function recommendAny(w: HydroWorld, ticks: number = T.horizon): number | null {
+  const it = recommendSteps(w, ticks);
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
 }

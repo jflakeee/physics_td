@@ -36,9 +36,10 @@ try {
     await page.screenshot({ path: `${OUT}/v4-title-${name}-${DATE}.png` });
     await page.locator('.big').tap();
     await page.waitForSelector('#app.play canvas');
-    check('bottom bar: build + start before the first wave', (await page.locator('.bar > button').count()) === 2);
+    check('no build menu: the bottom bar holds only 시작', (await page.locator('.bar > button').count()) === 1 && (await page.locator('.bar .go').count()) === 1 && (await page.locator('.build, .tray').count()) === 0);
     const hudNums = (await page.locator('.top').innerText()).match(/\d+/g) ?? [];
     check('top bar shows only level and coins as numbers', hudNums.length === 2, JSON.stringify(hudNums));
+    await page.screenshot({ path: `${OUT}/v4-spring-${name}-${DATE}.png` });
     check('play fits', ...await fits(page));
     // one pixel grid (docs/ART_DIRECTION_V4_PIXEL.md): 192×288 art px at a whole-number device scale
     const px = await page.evaluate(() => {
@@ -51,34 +52,28 @@ try {
     check('top-bar icons use the same pixel size as the board', px.icons.length > 0 && px.icons.every(v => Math.abs(v - px.k) < 0.01), JSON.stringify(px.icons));
     const emoji = await page.evaluate(() => (document.body.innerText.match(/\p{Extended_Pictographic}/gu) ?? []).filter(c => !'★☆↻→'.includes(c)));
     check('no emoji left on screen', emoji.length === 0, emoji.join(' '));
-    // build a wheel at the recommended spot
-    await page.locator('.build').tap();
-    check('tray offers 3 buildings', (await page.locator('.tray .bcard').count()) === 3);
-    await page.screenshot({ path: `${OUT}/v4-tray-${name}-${DATE}.png` });
-    await page.locator('.tray .bcard').first().tap();
-    const rec = await page.evaluate(() => { const s = [...document.querySelectorAll('canvas')][0]; return s ? true : false; });
-    const site = await page.evaluate(() => {
-      // the recommended site is computed by the page; recompute the same way to tap it
-      const v = __v4; return v.w.built.findIndex((b, i) => !b && i < 6);
-    });
+    // tap a circle on the river: it builds a wheel (each spot has one building)
     const target = await page.evaluate(() => {
       const v = __v4, cv = document.querySelector('canvas.art'), r = cv.getBoundingClientRect();
-      // pick the first free river site (the page highlights the recommended one; any valid site builds)
-      const sites = [[10, 0], [27, 1], [40, 2], [60, 3], [72, 4], [86, 5]];
-      for (const [y, id] of sites) if (!v.w.built[id]) {
+      for (const [y, id] of [[10, 0], [27, 1], [40, 2], [60, 3], [72, 4], [86, 5]]) if (!v.w.built[id]) {
         const x = 30 + 9 * Math.sin(y / 15);
-        return [r.left + (Math.round(x) / 64) * r.width, r.top + (y / 96) * r.height];
+        return [r.left + ((Math.round(x) + 0.5) / 64) * r.width, r.top + ((y + 0.5) / 96) * r.height];
       }
       return null;
     });
-    check('a free river site exists', rec && site >= 0 && !!target);
+    check('a free river spot exists', !!target);
+    await page.waitForTimeout(300); // let the star settle
     await page.screenshot({ path: `${OUT}/v4-pick-site-${name}-${DATE}.png` });
     await page.mouse.click(target[0], target[1]);
-    check('tapping a site builds a wheel', await page.evaluate(() => __v4.w.plants.length === 2));
+    check('tapping a circle builds a wheel', await page.evaluate(() => __v4.w.plants.length === 2));
+    check('a spot you cannot pay for does not build', await page.evaluate(() => { const v = __v4; const before = v.w.built.filter(Boolean).length; v.w.coins = 0; const r = v.placeBuilding(v.w, 6); return !r && v.w.built.filter(Boolean).length === before; }));
+    await page.evaluate(() => { __v4.w.coins = 80; });
     // start and run to the first level-up
+    const before = await page.locator('canvas.art').boundingBox();
     await page.locator('.bar .go').tap();
     await page.waitForFunction(() => __v4.w.phase === 'run');
-    check('after start only the build button is left', (await page.locator('.bar > button').count()) === 1);
+    await page.waitForTimeout(150);
+    check('after start the bottom bar is gone and the board grows', (await page.locator('.bar').count()) === 0 && (await page.locator('canvas.art').boundingBox()).height >= before.height);
     await page.evaluate(() => { const v = __v4; for (let k = 0; k < 30 * 120 && v.w.phase === 'run'; k++) v.tick(v.w); });
     await page.waitForSelector('.center.level .card');
     check('level-up shows 3 cards', (await page.locator('.center.level .card').count()) === 3);
@@ -91,6 +86,14 @@ try {
     await page.waitForTimeout(150);
     check('forecast shows the next weather', (await page.locator('.wx .next').innerText()).includes('→'));
     await page.screenshot({ path: `${OUT}/v4-forecast-${name}-${DATE}.png` });
+    // seasons: the ground changes colour from spring to summer
+    const grass = () => page.evaluate(() => { const c = document.querySelector('canvas.art'), d = c.getContext('2d').getImageData(0, 0, 192, 288).data; let r = 0, g = 0, n = 0; for (let y = 60; y < 120; y++) for (let x = 150; x < 190; x++) { const o = (y * 192 + x) * 4; r += d[o]; g += d[o + 1]; n++; } return [r / n, g / n]; });
+    const spring = await grass();
+    await page.evaluate(() => { const v = __v4; while (v.w.phase !== 'won' && v.w.phase !== 'lost' && v.w.tick < 30 * 135) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } v.w.hearts = 3; });
+    await page.waitForTimeout(200);
+    const summer = await grass();
+    check('summer grass is darker than spring grass', summer[1] < spring[1] - 10, JSON.stringify({ spring, summer }));
+    await page.screenshot({ path: `${OUT}/v4-summer-${name}-${DATE}.png` });
     await page.close();
   }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village

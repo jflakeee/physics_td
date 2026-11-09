@@ -1,8 +1,8 @@
 import {
-  canBuild, chooseCard, cost, createHydro, demand, placeBuilding, recommend, repair, seconds, SITES, start,
-  tick, totalSeconds, W, H, weatherAt, xpNeed, type BuildKind, type CardId,
+  canBuild, chooseCard, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seconds, SITES, start,
+  tick, totalSeconds, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId,
 } from './core.ts';
-import { AH, AW, createArt, paintSprites, paintTerrain, paintWater } from './art.ts';
+import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, seasonKey } from './art.ts';
 import { rgbOf, sprite, type SpriteName } from './sprites.ts';
 import { SEASONS, T } from './tuning.ts';
 
@@ -14,17 +14,13 @@ import { SEASONS, T } from './tuning.ts';
 
 const STR = {
   title: '강가 발전소', lead: '강물로 전기를 만들어 마을을 밝혀요',
-  start: '시작', ready: '물레방아가 강물로 전기를 만들어요', build: '짓기', cancel: '취소',
-  pickSite: '반짝이는 별에 지어요', noCoins: '코인이 모자라요', built: '지었어요!', repaired: '고쳤어요!',
+  start: '시작', ready: '동그라미를 누르면 지어요 · 별은 지금 좋은 곳', noCoins: '코인이 모자라요', repaired: '고쳤어요!',
+  built: { wheel: '물레방아를 지었어요!', reservoir: '저수지를 팠어요!', wall: '둑을 쌓았어요!' } as Record<BuildKind, string>,
   levelUp: '레벨 업!', won: '두 계절을 버텼어요!', lost: '마을이 버티지 못했어요',
   lostBlackout: '정전! 물레방아를 더 지어요', lostFlood: '마을이 잠겼어요! 둑을 쌓아요',
   again: '다시', resume: '계속', speed: '빠르게', home: '처음으로', paused: '잠깐 멈춤', soon: '곧 와요',
 };
-const B: Record<BuildKind, { icon: SpriteName; name: string; desc: string }> = {
-  wheel: { icon: 'wheel0', name: '물레방아', desc: '강 위 · 전기를 만들어요' },
-  reservoir: { icon: 'gate', name: '저수지', desc: '강가 · 물을 모아 두어요' },
-  wall: { icon: 'stakes', name: '둑', desc: '강가 · 넘치는 물을 막아요' },
-};
+const B: Record<BuildKind, SpriteName> = { wheel: 'wheel0', reservoir: 'gate', wall: 'stakes' };
 const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
   sand: { icon: 'sandSpirit', name: '모래 정령', desc: '넘치는 곳에 모래를 쌓아요' },
   ice: { icon: 'iceSpirit', name: '얼음 정령', desc: '큰물을 얼려 두었다가 가뭄에 녹여요' },
@@ -100,13 +96,11 @@ function showPlay(): void {
   const wrap = el('div', 'board'), cv = el('canvas', 'art'), toast = el('div', 'toast'), center = el('div', 'center');
   toast.setAttribute('role', 'status');
   wrap.append(cv, toast, center);
-  const bar = el('nav', 'bar'), buildBtn = el('button', 'build'), buildLabel = el('span', 'lb', STR.build);
-  buildBtn.append(icon('hammer', 'x2'), buildLabel);
-  const tray = el('div', 'tray');
-  bar.append(tray, buildBtn);
+  // no build menu: the map's circles are the buttons. The bottom bar only holds 시작, then goes.
+  const bar = el('nav', 'bar');
   app.append(top, wrap, bar);
 
-  let mode: BuildKind | null = null, rec: number | null = null, trayOpen = false;
+  let rec: number | null = null;
   let speed = 1, paused = false, terrainDirty = true;
   const flashes: { cells: number[]; kind: 'sand' | 'ice'; until: number }[] = [];
 
@@ -118,33 +112,23 @@ function showPlay(): void {
     clearTimeout((toast as unknown as { t: number }).t);
     (toast as unknown as { t: number }).t = window.setTimeout(() => toast.classList.remove('on'), ms);
   };
-  const closeTray = () => { trayOpen = false; tray.classList.remove('open'); tray.textContent = ''; };
-  const setMode = (k: BuildKind | null) => {
-    mode = k; rec = k ? recommend(w, k) : null;
-    buildBtn.classList.toggle('armed', !!k);
-    buildLabel.textContent = k ? STR.cancel : STR.build;
-    if (k) say(STR.pickSite, 'star');
+  // the star: recomputed in the background (one look-ahead per frame) when coins or buildings change
+  let recJob: Generator<void, number | null> | null = null, recKey = '', recAt = -1e9;
+  const recKeyNow = () => `${w.built.join()}|${SITES.filter(st => canBuild(w, st.id)).map(st => st.id).join()}`;
+  const stepRecommendation = (now: number) => {
+    const key = recKeyNow();
+    if (!recJob && (key !== recKey || now - recAt > 3000) && w.phase !== 'won' && w.phase !== 'lost') { recJob = recommendSteps(w); recKey = key; recAt = now; }
+    if (!recJob) return;
+    const t0 = performance.now();
+    while (recJob && performance.now() - t0 < 6) { const r = recJob.next(); if (r.done) { rec = r.value; recJob = null; needDraw = true; } }
   };
-  const openTray = () => {
-    trayOpen = true; tray.textContent = ''; tray.classList.add('open');
-    for (const k of ['wheel', 'reservoir', 'wall'] as BuildKind[]) {
-      const c = el('button', 'bcard');
-      const price = el('span', 'cost'); price.append(icon('coin'), el('b', '', String(cost(w, k))));
-      c.append(icon(B[k].icon, 'x2'), el('b', '', B[k].name), el('span', 'desc', B[k].desc), price);
-      c.dataset.kind = k;
-      c.disabled = w.coins < cost(w, k);
-      c.addEventListener('click', () => { if (w.coins < cost(w, k)) { say(STR.noCoins, 'coin'); buzz(30); return; } closeTray(); setMode(k); buzz(10); });
-      tray.append(c);
-    }
-  };
-  buildBtn.addEventListener('click', () => { if (mode) { setMode(null); return; } if (trayOpen) closeTray(); else openTray(); });
   pause.addEventListener('click', () => { paused = true; showPause(); });
 
   // ---- board: one art buffer, shown at a whole-number scale of device pixels
   cv.width = AW; cv.height = AH;
   const ctx = cv.getContext('2d') as CanvasRenderingContext2D;
   const art = createArt(), frameImg = new ImageData(art.rgba as Uint8ClampedArray<ArrayBuffer>, AW, AH); // shares the art buffer: no per-frame copy
-  let scale = 1, shownBags = 0;
+  let scale = 1, shownBags = 0, shownSeason = -1;
   /** Repaint only when something changed: a sim tick, building mode (pulsing star), spirit flashes, a resize. */
   let needDraw = true;
   const fit = () => {
@@ -160,14 +144,15 @@ function showPlay(): void {
   dprWatch.addEventListener?.('change', fit);
 
   const draw = (frame: number) => {
-    if (!needDraw && !mode && !flashes.length && !terrainDirty) return;
+    if (seasonKey(seconds(w)) !== shownSeason) { shownSeason = seasonKey(seconds(w)); terrainDirty = true; }
+    if (!needDraw && rec === null && !flashes.length && !terrainDirty) return;
     needDraw = false;
     // repaint the ground only when it changes (building, spirits, a sandbag expiring)
     if (terrainDirty || w.sandbags.size !== shownBags) { paintTerrain(art, w); terrainDirty = false; shownBags = w.sandbags.size; }
     paintWater(art, w, reduced ? 0 : Math.floor(w.tick / 2));
     for (let k = flashes.length - 1; k >= 0; k--) if (frame > flashes[k].until) flashes.splice(k, 1);
     paintSprites(art, w, {
-      mode, rec, canBuild: s => (mode ? canBuild(w, s, mode) : false), frame, reduced,
+      rec: rec !== null && canBuild(w, rec) ? rec : null, canBuild: st => canBuild(w, st), waiting: st => waiting(w, st), frame, reduced,
       lit: w.lastSecPower >= demand(w) || w.tick < T.tps, flashes,
       floodArrow: w.floodCooldown > 0 ? w.floodFrom : -1,
     });
@@ -180,10 +165,11 @@ function showPlay(): void {
     const gx = ((e.clientX - r.left) / r.width) * W, gy = ((e.clientY - r.top) / r.height) * H;
     let best = -1, bd = 25;
     for (const st of SITES) { const d = (st.x - gx) ** 2 + (st.y - gy) ** 2; if (d < bd) { bd = d; best = st.id; } }
-    if (best < 0) { if (mode) say(STR.pickSite, 'star'); return; }
-    if (mode) {
-      if (placeBuilding(w, best, mode)) { say(STR.built, B[mode].icon); buzz(15); terrainDirty = true; setMode(null); }
-      else say(w.coins < cost(w, mode) ? STR.noCoins : STR.pickSite, w.coins < cost(w, mode) ? 'coin' : 'star');
+    if (best < 0) return;
+    const st = SITES[best];
+    if (!w.built[best]) {
+      if (placeBuilding(w, best)) { say(STR.built[st.build], B[st.build]); buzz(15); terrainDirty = true; needDraw = true; rec = null; }
+      else if (w.phase !== 'won' && w.phase !== 'lost') { say(`${STR.noCoins} · ${cost(w, st.build)}`, 'coin'); buzz(30); }
       return;
     }
     const p = w.plants.find(pp => pp.site === best);
@@ -194,8 +180,8 @@ function showPlay(): void {
   const overlay = (cls: string, ...kids: HTMLElement[]) => { center.textContent = ''; center.className = 'center on ' + cls; center.append(...kids); };
   const clearOverlay = () => { center.textContent = ''; center.className = 'center'; };
   const startBtn = el('button', 'go'); startBtn.append(icon('play', 'x2'), el('span', '', STR.start));
-  startBtn.addEventListener('click', () => { start(w); startBtn.remove(); buzz(15); });
-  const showReady = () => { clearOverlay(); bar.prepend(startBtn); say(STR.ready, 'wheel0', 3000); };
+  startBtn.addEventListener('click', () => { start(w); bar.remove(); buzz(15); });
+  const showReady = () => { clearOverlay(); bar.append(startBtn); say(STR.ready, 'star', 4000); };
   const showLevel = () => {
     const kids: HTMLElement[] = [el('h2', '', STR.levelUp)];
     for (const c of w.cards) {
@@ -253,7 +239,6 @@ function showPlay(): void {
     const ratio = w.tick < T.tps ? 1 : w.lastSecPower / demand(w);
     townFill.style.width = `${Math.min(100, ratio * 100)}%`;
     town.classList.toggle('short', ratio < 1);
-    if (trayOpen) for (const b of tray.querySelectorAll<HTMLButtonElement>('.bcard')) b.disabled = w.coins < cost(w, b.dataset.kind as BuildKind);
   };
 
   // ---- loop
@@ -277,7 +262,8 @@ function showPlay(): void {
       if (want === 'ready') showReady(); else if (want === 'level') showLevel(); else if (want === 'end') showEnd();
       else if (want === '') clearOverlay();
     }
-    if (w.phase !== 'ready' && startBtn.isConnected) startBtn.remove();
+    if (w.phase !== 'ready' && bar.isConnected) bar.remove();
+    stepRecommendation(now);
     hud(); draw(frame++);
     raf = requestAnimationFrame(loop);
   };

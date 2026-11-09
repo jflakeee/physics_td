@@ -1,4 +1,4 @@
-/* V4 hydro prototype (docs/REDESIGN_V4_HYDRO.md §3): one build button, two numbers (level, coins). */
+/* V4 hydro prototype (docs/REDESIGN_V4_HYDRO.md §3): no build menu (tap the map's circles), two numbers (level, coins). */
 :root { --bg: #123247; --panel: #1d4762; --ink: #fffaf0; --muted: #cfe3f2; --sun: #ffd166; --volt: #7de2ff; --leaf: #6cc070; --warn: #ff7a5c; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
@@ -43,7 +43,7 @@ button:disabled { opacity: .45; }
 .pi.x3 { width: calc(var(--w) * var(--px) * 3); height: calc(var(--h) * var(--px) * 3); }
 .pi.x4 { width: calc(var(--w) * var(--px) * 4); height: calc(var(--h) * var(--px) * 4); }
 .toast { display: flex; align-items: center; gap: 6px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(8, 22, 34, .88); padding: 8px 16px; border-radius: 18px;
-  opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; }
+  opacity: 0; transition: opacity .2s; pointer-events: none; width: max-content; max-width: calc(100% - 16px); text-align: center; text-wrap: balance; }
 .toast.on { opacity: 1; }
 .center { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; text-align: center; }
 .center.on { display: flex; background: rgba(8, 22, 34, .6); }
@@ -64,16 +64,8 @@ button:disabled { opacity: .45; }
 
 .bar { position: relative; display: flex; justify-content: center; gap: 10px; padding: 8px 12px 12px; }
 .go { flex: 1; max-width: 160px; height: 72px; font-size: 22px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
-.build { width: min(100%, 260px); height: 72px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 22px;
-  background: var(--sun); color: #3a2a10; box-shadow: 0 5px 0 #b8892c; }
 
-.build.armed { background: var(--panel); color: var(--ink); box-shadow: 0 5px 0 #0b2233; }
-.tray { position: absolute; left: 0; right: 0; bottom: 100%; display: none; gap: 8px; padding: 0 10px 8px; justify-content: center; }
-.tray.open { display: flex; }
-.bcard { flex: 1; max-width: 140px; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 6px;
   background: #fff7e0; color: #3a2a10; box-shadow: 0 4px 0 #c9a45a; }
 
-.bcard .desc { font-size: 11px; color: #6b5530; line-height: 1.2; }
-.bcard .cost { display: flex; align-items: center; gap: 3px; font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .meter i, .toast { transition: none; } }
 @media (max-width: 360px) { .meter.power { width: 40px; } .meter.soon { width: 30px; } .lv { font-size: 15px; } .wx .season { display: none; } }
