@@ -64,7 +64,7 @@ wetland on the side the water comes from (2026-11-09):
 | map | 둑지기 | 습지 연구원 |
 |---|---|---|
 | 둑마을 | 정석 5/5 · 69 | 도전 4/5 · 57 |
-| 버드나무 들 | 도전 **1/5** · 100 | 정석 5/5 · **100** |
+| 버드나무 들 | 도전 10/10 · 82 | 정석 10/10 · 68 |
 | 얼음 목초지 | 중립 5/5 · 74 | 중립 5/5 · 84 |
 | 빙하호 계곡 | 중립 5/5 · 76 | 중립 5/5 · 91 |
 
@@ -73,11 +73,12 @@ Fixed-placement bots stay on target on all maps.
 ## Still open
 - **도전 둑지기 @ 버드나무 들 (1/5)** — the inner zones there are fields, so the levee square can
   only be closed on one side. Options: plain inner zones on that map, or let build-levee target fields.
-- **버드나무 들 is binary**: winners finish at HP ≈ 100 (wetland, home) and the challenge 둑지기 wins
-  1/5. Measured levers that do *not* move it: I1 138 → 165, wetland absorption ÷ 6, floodplain
-  opening depth → 0. Likely cause: 습지 복원 lowers a zone next to the base by 0.3 (a deep moat),
-  and the inner ring there is all fields (no levee square for the 둑지기). Needs a design call:
-  convert depth, willow inner-zone layout, or levees on fields (5/5 HP 100 — too easy alone).
+- (decided 2026-11-09: option 2) **버드나무 들 zone layout** — the inner ring is now plain zones
+  (N/S merged into the outer plain zones, W/E plain) with the four DD blocks as field zones
+  (+ edge columns). Every side of the levee square sits on a plain zone. Result (10 seeds):
+  정석 습지 10/10 HP 68 (was 100), 도전 둑지기 10/10 HP 82 (was 1/5).
+  **Open:** the challenge pick is now easier than the 60–75% target. Raising I1 to 150–155 hits
+  it (7–8/10) but breaks the fixed-bot guide (ring + 1 pump fails from I1 145), so I1 stays 138.
 - (fixed) 습지 연구원 @ 빙하호 계곡 0/5 → 5/5 — it was the bot's cash, not the lakes (lake size
   ÷ 4 changed nothing).
 - Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
