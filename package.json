@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.nodom.json",
     "bench:sim": "node scripts/bench-sim.mjs",
     "bench:sim:browser": "node scripts/bench-sim-browser.mjs",
-    "e2e": "npm run build && node tests/e2e/mobile.e2e.mjs && node tests/e2e/v3-kids.e2e.mjs",
+    "e2e": "npm run build && node tests/e2e/mobile.e2e.mjs && node tests/e2e/v3-kids.e2e.mjs && node tests/e2e/v4-hydro.e2e.mjs",
     "bots": "node bots/run.ts"
   },
   "engines": {
