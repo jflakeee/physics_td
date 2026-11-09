@@ -58,10 +58,19 @@ const HP_OK = [95, 184, 90], HP_MID = [255, 209, 102], HP_LOW = [217, 72, 59], H
 const SHORE: [number, number, number] = [232, 247, 255], ICE_SHORE: [number, number, number] = [168, 200, 226], ICE_HI: [number, number, number] = [255, 255, 255], ICE_LO: [number, number, number] = [222, 244, 255];
 const LEVELS: [number, number, number][] = [[150, 212, 255], [96, 176, 244], [48, 120, 222], [26, 66, 164]];
 const STEP = 0.22, WET = 0.04, ICE = 0.05;
+/** Thin moving water (film) is still water: drawn between FILM and WET as a light dithered wash. */
+const FILM = 0.004;
+/** Speed (outflow per tick ÷ depth) above which water is white with foam: rapids. */
+const FOAM_SPEED = 0.25;
+const FILM_RGB: [number, number, number] = [170, 222, 255], FOAM: [number, number, number] = [248, 252, 255];
 
-/** Water over the terrain: bilinear depth from the 4 nearest cells, dithered bands, shoreline. */
-export function paintWater(a: ArtBuffers, w: HydroWorld): void {
-  const g = w.g, { rgba, terrain, wet, depth, ice } = a;
+/**
+ * Water over the terrain: bilinear depth from the 4 nearest cells, dithered bands, shoreline.
+ * Thin films (sheet flow over a bank, a rapid) are drawn too, and fast water gets foam that
+ * moves downstream with `phase` (0 when motion is reduced) — the water is never hidden.
+ */
+export function paintWater(a: ArtBuffers, w: HydroWorld, phase = 0): void {
+  const g = w.g, { rgba, terrain, wet, depth, ice } = a, { out, s } = w.sc;
   rgba.set(terrain);
   for (let ay = 0; ay < AH; ay++) {
     const cy = (ay / S) | 0, sy = ay - cy * S, ny = sy === 0 ? Math.max(0, cy - 1) : sy === 2 ? Math.min(H - 1, cy + 1) : cy, ty = sy === 1 ? 0 : 1 / 3;
@@ -77,7 +86,14 @@ export function paintWater(a: ArtBuffers, w: HydroWorld): void {
   }
   for (let ay = 0; ay < AH; ay++) for (let ax = 0; ax < AW; ax++) {
     const k = ay * AW + ax;
-    if (!wet[k]) continue;
+    if (!wet[k]) {
+      if (depth[k] > FILM) {
+        // a film: half the pixels in light water, so the ground shows through and the path is clear
+        if (BAYER[(ay & 3) * 4 + (ax & 3)] < 9) { const o = k * 4; rgba[o] = FILM_RGB[0]; rgba[o + 1] = FILM_RGB[1]; rgba[o + 2] = FILM_RGB[2]; }
+        foam(rgba, k, ax, ay, phase, out, s, depth[k]);
+      }
+      continue;
+    }
     const shore = (ax > 0 && !wet[k - 1]) || (ax < AW - 1 && !wet[k + 1]) || (ay > 0 && !wet[k - AW]) || (ay < AH - 1 && !wet[k + AW]);
     let c: [number, number, number];
     if (ice[k] > ICE) c = shore ? ICE_SHORE : (BAYER[(ay & 3) * 4 + (ax & 3)] < 3 ? ICE_HI : ICE_LO);
@@ -87,7 +103,17 @@ export function paintWater(a: ArtBuffers, w: HydroWorld): void {
       c = LEVELS[(t - b) * 16 > BAYER[(ay & 3) * 4 + (ax & 3)] ? Math.min(LEVELS.length - 1, b + 1) : b];
     }
     const o = k * 4; rgba[o] = c[0]; rgba[o + 1] = c[1]; rgba[o + 2] = c[2];
+    if (!shore && ice[k] <= ICE) foam(rgba, k, ax, ay, phase, out, s, depth[k]);
   }
+}
+
+/** White streaks on fast water; they slide downstream (+y) as `phase` advances. */
+function foam(rgba: Uint8ClampedArray, k: number, ax: number, ay: number, phase: number, out: Float64Array, s: Float64Array, d: number): void {
+  const i = ((ay / S) | 0) * W + ((ax / S) | 0);
+  const q = ((out[i * 4] + out[i * 4 + 1]) + (out[i * 4 + 2] + out[i * 4 + 3])) * s[i];
+  if (q / Math.max(d, 0.005) < FOAM_SPEED) return;
+  if (hash(ax, ay - phase) > 34) return;
+  const o = k * 4; rgba[o] = FOAM[0]; rgba[o + 1] = FOAM[1]; rgba[o + 2] = FOAM[2];
 }
 
 /** Copy a sprite at art pixel (x, y) = its top-left; transparent pixels skipped. */
@@ -110,13 +136,30 @@ export interface Overlay {
   mode: BuildKind | null; rec: number | null; canBuild: (site: number) => boolean;
   lit: boolean; frame: number; reduced: boolean;
   flashes: { cells: number[]; kind: 'sand' | 'ice' }[];
+  /** Village edge cell where flood water came in (−1 = none). */
+  floodArrow: number;
 }
 
 /** Everything that sits on the water: village, sites, buildings, badges, spirits. */
 export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
   const rgba = a.rgba;
-  // village: houses on a grid, lights on when the demand was met
-  for (let y = VILLAGE.y0 + 2; y <= VILLAGE.y1 - 1; y += 5) for (let x = VILLAGE.x0 + 2; x <= VILLAGE.x1 - 1; x += 5) centred(rgba, o.lit ? SPRITES.house : SPRITES.houseDark, x, y);
+  // village: houses on a grid, lights on when the demand was met. Flood water is drawn over the
+  // lower half of a house again, so a flooded village looks flooded.
+  for (let y = VILLAGE.y0 + 2; y <= VILLAGE.y1 - 1; y += 5) for (let x = VILLAGE.x0 + 2; x <= VILLAGE.x1 - 1; x += 5) {
+    centred(rgba, o.lit ? SPRITES.house : SPRITES.houseDark, x, y);
+    const x0 = artOf(x) - 6, y0 = artOf(y);
+    for (let yy = y0; yy < y0 + 6 && yy < AH; yy++) for (let xx = x0; xx < x0 + 12; xx++) {
+      const k = yy * AW + xx;
+      if (a.depth[k] < 0.08) continue;
+      const deep = a.depth[k] > 0.25 || yy >= y0 + 3;
+      if (!deep && ((xx + yy) & 1)) continue;
+      const q = k * 4; rgba[q] = 96; rgba[q + 1] = 176; rgba[q + 2] = 244;
+    }
+  }
+  if (o.floodArrow >= 0) {
+    const c = o.floodArrow, bob = o.reduced ? 0 : (o.frame >> 3) & 1;
+    blit(rgba, SPRITES.arrow, artOf(c % W) - 4, artOf((c / W) | 0) - 12 + bob);
+  }
   for (const st of SITES) {
     const k = w.built[st.id];
     if (k === 'wheel') {
