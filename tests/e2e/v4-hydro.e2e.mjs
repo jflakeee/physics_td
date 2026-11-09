@@ -33,8 +33,17 @@ try {
     const page = await browser.newPage({ viewport: vp, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     await page.goto(BASE);
     await page.waitForSelector('#app.title');
+    check('main menu: start + characters, skills, items, records', (await page.locator('.mainnav .big').count()) === 1 && (await page.locator('.subnav .sub').count()) === 4);
+    check('main menu fits', ...await fits(page));
     await page.screenshot({ path: `${OUT}/v4-title-${name}-${DATE}.png` });
-    await page.locator('.big').tap();
+    await page.locator('.mainnav .big').tap();
+    await page.waitForSelector('#app.menu .mrow');
+    check('stage select: stage 1 open, stages 2–3 locked', (await page.locator('.mrow:not(.locked)').count()) === 1 && (await page.locator('.mrow.locked').count()) === 2);
+    await page.screenshot({ path: `${OUT}/v4-stages-${name}-${DATE}.png` });
+    await page.locator('.mrow').first().tap();
+    await page.waitForSelector('#app.menu .mrow');
+    check('character select: the miller is open, two are locked', (await page.locator('.mrow.locked').count()) === 2);
+    await page.locator('.mrow').first().tap();
     await page.waitForSelector('#app.play canvas');
     check('no build menu: the bottom bar holds only 시작', (await page.locator('.bar > button').count()) === 1 && (await page.locator('.bar .go').count()) === 1 && (await page.locator('.build, .tray').count()) === 0);
     const hudNums = (await page.locator('.top').innerText()).match(/\d+/g) ?? [];
@@ -94,6 +103,55 @@ try {
     const summer = await grass();
     check('summer grass is darker than spring grass', summer[1] < spring[1] - 10, JSON.stringify({ spring, summer }));
     await page.screenshot({ path: `${OUT}/v4-summer-${name}-${DATE}.png` });
+    await page.close();
+  }
+  // 계속하기: pause → 메인으로 keeps the run; the main menu continues it where it stopped
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.evaluate(() => { const v = __v4; v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
+    const t0 = await page.evaluate(() => __v4.w.tick);
+    await page.locator('button.pause').tap();
+    await page.locator('.center.pause .big.alt').last().tap();
+    await page.waitForSelector('#app.title .cont');
+    check('main menu offers 계속하기 after leaving a run', (await page.locator('.cont').innerText()).includes('계속하기'));
+    await page.screenshot({ path: `${OUT}/v4-continue-${DATE}.png` });
+    await page.locator('.cont').tap();
+    await page.waitForSelector('#app.play canvas.art');
+    const t1 = await page.evaluate(() => __v4.w.tick);
+    check('계속하기 resumes the same run', t1 >= t0 && t1 - t0 < 60, `${t0} → ${t1}`);
+    // win: bonus skill + next stage + back to the main menu with the unlocks
+    await page.evaluate(() => { const v = __v4; v.w.phase = 'run'; v.w.tick = v.w.totalSec * 30 - 1; v.w.hearts = 3; v.tick(v.w); });
+    await page.waitForSelector('.center.won');
+    check('a clear shows the bonus skill and the new character', (await page.locator('.center.won .card.bonus').count()) === 2);
+    check('a clear offers 다음 스테이지 and 메인으로', (await page.locator('.center.won .big').count()) === 2);
+    await page.screenshot({ path: `${OUT}/v4-clear-${DATE}.png` });
+    await page.locator('.center.won .big').first().tap();
+    await page.waitForFunction(() => globalThis.__v4?.w.stage === 1);
+    check('다음 스테이지 starts stage 2', await page.evaluate(() => __v4.w.seasons.map(s => s.name).join() === '여름,가을'));
+    await page.locator('button.pause').tap();
+    await page.locator('.center.pause .big.alt').last().tap();
+    await page.waitForSelector('#app.title');
+    await page.locator('.subnav .sub').nth(3).tap();
+    await page.waitForSelector('table.stats');
+    check('records count the win', (await page.locator('table.stats').innerText()).includes('버틴 판\t1'));
+    await page.screenshot({ path: `${OUT}/v4-records-${DATE}.png` });
+    await page.locator('.mhead .back').tap();
+    await page.locator('.subnav .sub').nth(1).tap();
+    await page.waitForSelector('.mrow');
+    check('skills: the rain spirit is unlocked, the sun spirit still locked', (await page.locator('.mrow.locked').count()) === 1);
+    await page.screenshot({ path: `${OUT}/v4-skills-${DATE}.png` });
+    await page.locator('.mhead .back').tap();
+    await page.locator('.subnav .sub').nth(2).tap();
+    await page.waitForSelector('.mrow');
+    const gems0 = Number(await page.locator('.mhead .gems b').innerText());
+    await page.locator('.mrow.buyable').first().tap();
+    await page.waitForTimeout(100);
+    const gems1 = Number(await page.locator('.mhead .gems b').innerText());
+    check('items: buying a power-up spends gems', gems1 < gems0, `${gems0} → ${gems1}`);
+    check('menu screens fit', ...await fits(page));
+    await page.screenshot({ path: `${OUT}/v4-items-${DATE}.png` });
     await page.close();
   }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village

@@ -35,6 +35,16 @@
 - **Seasons on the map:** spring (light green, flowers, blossom trees) → summer (deep green, green
   trees); autumn and winter palettes are ready for when those seasons are added. The change
   dithers in over the last 8 s of a season; trees switch one by one.
+- **Stages and the main menu (2026-11-09):** three stages of two seasons — 작은 계곡 (spring,
+  summer), 가을 계곡 (summer, autumn), 겨울 계곡 (autumn, winter; the river freezes). Clearing a
+  stage for the first time gives its bonus skill (rain spirit, sun spirit — new level-up cards)
+  and a character (둑 쌓는 할머니, 얼음 마법사), and the result screen offers 다음 스테이지 or
+  메인으로. The main menu (survivors-like) has 계속하기 (the run in progress, saved every 10 s,
+  when the app is hidden and on 메인으로), 시작 → stage → character, 캐릭터, 스킬 (codex with
+  locked bonus skills), 아이템 (permanent power-ups bought with gems earned from power and
+  clears), 기록 (lifetime stats and per-stage records). Progress lives in `meta.ts` (no DOM).
+  Scripted balance (miller, rain unlocked from stage 2): nothing → lost at 112 / 83 / 39 s;
+  wheels only → lost at 239 / 147 / 151 s; wheels + reservoirs + walls → won with 3 / 3 / 1 hearts.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
-  `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites.
+  `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

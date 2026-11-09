@@ -1,10 +1,11 @@
 import {
-  canBuild, chooseCard, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seconds, SITES, start,
-  tick, totalSeconds, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId,
+  canBuild, chooseCard, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, SITES, start,
+  tick, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId, type CharId, type HydroWorld, type PowerupId,
 } from './core.ts';
 import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, seasonKey } from './art.ts';
 import { rgbOf, sprite, type SpriteName } from './sprites.ts';
-import { SEASONS, T } from './tuning.ts';
+import { CHARS, POWERUPS, STAGES, T } from './tuning.ts';
+import { buyPowerup, clearRun, finishRun, loadMeta, loadRun, openStages, runOptions, saveMeta, saveRun, type StorageLike } from './meta.ts';
 
 /**
  * V4 hydro prototype screen (docs/REDESIGN_V4_HYDRO.md §3, docs/ART_DIRECTION_V4_PIXEL.md):
@@ -18,8 +19,19 @@ const STR = {
   built: { wheel: '물레방아를 지었어요!', reservoir: '저수지를 팠어요!', wall: '둑을 쌓았어요!' } as Record<BuildKind, string>,
   levelUp: '레벨 업!', won: '두 계절을 버텼어요!', lost: '마을이 버티지 못했어요',
   lostBlackout: '정전! 물레방아를 더 지어요', lostFlood: '마을이 잠겼어요! 둑을 쌓아요',
-  again: '다시', resume: '계속', speed: '빠르게', home: '처음으로', paused: '잠깐 멈춤', soon: '곧 와요',
+  again: '다시', resume: '계속', speed: '빠르게', home: '메인으로', paused: '잠깐 멈춤', soon: '곧 와요',
+  cont: '계속하기', newRun: '새로 시작', chars: '캐릭터', skills: '스킬', items: '아이템', records: '기록', back: '뒤로',
+  pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
+  next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
+  bonusHint: '버티면 레벨업 카드에 나와요', allClear: '모든 계곡을 지켰어요!',
 };
+const STAT_ROWS: [keyof ReturnType<typeof loadMeta>['stats'], string][] = [
+  ['runs', '플레이'], ['wins', '버틴 판'], ['losses', '진 판'], ['bestLevel', '최고 레벨'], ['power', '만든 전기'],
+  ['builds', '지은 건물'], ['floodHearts', '홍수로 잃은 하트'], ['blackoutHearts', '정전으로 잃은 하트'], ['seconds', '플레이 시간(초)'],
+];
+const CHAR_ICON: Record<CharId, SpriteName> = { miller: 'wheel0', granny: 'sandSpirit', frost: 'iceSpirit' };
+const PU_ICON: Record<PowerupId, SpriteName> = { turbine: 'wheel0', purse: 'coin', builder: 'hammer', heart: 'heart' };
+const store: StorageLike | null = (() => { try { return globalThis.localStorage; } catch { return null; } })();
 const B: Record<BuildKind, SpriteName> = { wheel: 'wheel0', reservoir: 'gate', wall: 'stakes' };
 const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
   sand: { icon: 'sandSpirit', name: '모래 정령', desc: '넘치는 곳에 모래를 쌓아요' },
@@ -28,10 +40,12 @@ const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
   tough: { icon: 'shield', name: '튼튼한 발전소', desc: '물에 잠겨도 덜 상해요' },
   coins: { icon: 'coin', name: '코인 주머니', desc: '코인 60개' },
   cheap: { icon: 'hammer', name: '솜씨 좋은 일꾼', desc: '짓는 값이 싸져요' },
+  rain: { icon: 'rainSpirit', name: '비구름 정령', desc: '가뭄에 비를 내려요' },
+  sun: { icon: 'sunSpirit', name: '햇볕 정령', desc: '큰물 때 넘친 물을 말려요' },
 };
 const WX: Record<string, { icon: SpriteName; name: string }> = {
   clear: { icon: 'sun', name: '맑음' }, rain: { icon: 'rain', name: '장마' }, drought: { icon: 'drought', name: '가뭄' },
-  thaw: { icon: 'thaw', name: '눈 녹음' }, storm: { icon: 'storm', name: '태풍' },
+  thaw: { icon: 'thaw', name: '눈 녹음' }, storm: { icon: 'storm', name: '태풍' }, freeze: { icon: 'snow', name: '얼음' },
 };
 
 const q = new URLSearchParams(location.search);
@@ -61,21 +75,136 @@ function icon(name: SpriteName, cls = ''): HTMLCanvasElement {
 
 let stop: (() => void) | null = null;
 
-function showTitle(): void {
+/** Shared menu frame: header with back button, title and gems; returns the body element. */
+function frame(title: string, onBack: (() => void) | null): HTMLElement {
+  stop?.(); stop = null;
+  app.className = 'menu'; app.textContent = '';
+  const m = loadMeta(store), head = el('header', 'mhead');
+  if (onBack) { const b = el('button', 'back', STR.back); b.addEventListener('click', onBack); head.append(b); }
+  head.append(el('h1', '', title));
+  const g = el('span', 'gems'); g.append(icon('gem'), el('b', '', String(m.gems))); g.setAttribute('aria-label', `${STR.gems} ${m.gems}`);
+  head.append(g);
+  const body = el('div', 'mbody');
+  app.append(head, body);
+  return body;
+}
+const row = (cls: string, ic: SpriteName, title: string, desc: string, right?: HTMLElement) => {
+  const b = el('button', 'mrow ' + cls); const t = el('span', 'mt');
+  t.append(el('b', '', title), el('span', 'desc', desc));
+  // every row icon fills the same box: about 36 art px, whatever the sprite size
+  const k = Math.max(2, Math.min(4, Math.round(36 / sprite(ic).w)));
+  const box = el('span', 'mi'); box.append(icon(ic, 'x' + k));
+  b.append(box, t); if (right) b.append(right);
+  return b;
+};
+
+/** Main menu (survivors-like hub). */
+function showMain(): void {
   stop?.(); stop = null;
   app.className = 'title'; app.textContent = '';
-  const go = el('button', 'big'); go.append(icon('play', 'x2'), el('span', '', STR.start));
-  go.addEventListener('click', showPlay);
+  const m = loadMeta(store), saved = loadRun(store);
   const logo = el('div', 'logo');
   logo.append(icon('wheel0', 'x4'), icon('rain', 'x4'), icon('house', 'x4'));
-  app.append(logo, el('h1', '', STR.title), el('p', 'lead', STR.lead), go);
+  const g = el('span', 'gems'); g.append(icon('gem'), el('b', '', String(m.gems)));
+  app.append(logo, el('h1', '', STR.title), g);
+  const nav = el('div', 'mainnav');
+  if (saved && (saved.phase === 'run' || saved.phase === 'levelup' || saved.phase === 'ready')) {
+    const st = STAGES[saved.stage], sn = saved.seasons[seasonAt(seconds(saved), saved.seasons).si].name;
+    const c = el('button', 'big cont'); c.append(icon('play', 'x2'), el('span', '', `${STR.cont}`), el('small', '', `${st.name} · ${sn}`));
+    c.addEventListener('click', () => { const w = loadRun(store); if (w) showPlay(w); });
+    nav.append(c);
+  }
+  const go = el('button', saved ? 'big alt' : 'big'); go.append(icon('play', 'x2'), el('span', '', saved ? STR.newRun : STR.start));
+  go.addEventListener('click', showStages);
+  nav.append(go);
+  const grid = el('div', 'subnav');
+  for (const [label, ic, fn] of [[STR.chars, 'wheel0', showChars], [STR.skills, 'sandSpirit', showSkills], [STR.items, 'gem', showItems], [STR.records, 'star', showRecords]] as [string, SpriteName, () => void][]) {
+    const b = el('button', 'sub'); b.append(icon(ic, 'x2'), el('span', '', label)); b.addEventListener('click', fn); grid.append(b);
+  }
+  nav.append(grid);
+  app.append(nav);
 }
 
-function showPlay(): void {
+function showStages(): void {
+  const body = frame(STR.pickStage, showMain), m = loadMeta(store), open = openStages(m);
+  STAGES.forEach((st, k) => {
+    const rec = m.stages[st.id], hearts = el('span', 'hs');
+    for (let h = 0; h < 3; h++) hearts.append(icon(rec?.cleared && h < rec.bestHearts ? 'heart' : 'heartEmpty'));
+    const seasons = st.seasons.map(x => x.name).join(' · ');
+    const b = row(k < open ? '' : 'locked', k < open ? (k === 0 ? 'sun' : k === 1 ? 'rain' : 'snow') : 'lock', st.name, k < open ? seasons : `${STAGES[k - 1].name} ${STR.unlockHint}`, hearts);
+    b.disabled = k >= open;
+    b.addEventListener('click', () => showCharPick(k));
+    body.append(b);
+  });
+}
+
+function showCharPick(stage: number): void {
+  const body = frame(STR.pickChar, showStages), m = loadMeta(store);
+  for (const c of CHARS) {
+    const have = m.chars.includes(c.id), from = STAGES.find(st => st.unlockChar === c.id);
+    const b = row(have ? '' : 'locked', have ? CHAR_ICON[c.id] : 'lock', c.name, have ? c.desc : `${from?.name ?? ''} ${STR.unlockHint}`);
+    b.disabled = !have;
+    b.addEventListener('click', () => { clearRun(store); showPlay(createHydro(Date.now() % 100000, runOptions(m, stage, c.id))); });
+    body.append(b);
+  }
+}
+
+function showChars(): void {
+  const body = frame(STR.chars, showMain), m = loadMeta(store);
+  for (const c of CHARS) {
+    const have = m.chars.includes(c.id), from = STAGES.find(st => st.unlockChar === c.id);
+    const b = row(have ? 'info' : 'locked info', have ? CHAR_ICON[c.id] : 'lock', c.name, have ? c.desc : `${from?.name ?? ''} ${STR.unlockHint}`);
+    b.tabIndex = -1; body.append(b);
+  }
+}
+
+function showSkills(): void {
+  const body = frame(STR.skills, showMain), m = loadMeta(store);
+  for (const id of Object.keys(CARD) as CardId[]) {
+    const bonusOf = STAGES.find(st => st.bonusSkill === id), have = !bonusOf || m.skills.includes(id);
+    const b = row(have ? 'info' : 'locked info', have ? CARD[id].icon : 'lock', CARD[id].name, have ? CARD[id].desc : `${bonusOf?.name ?? ''} ${STR.bonusHint}`);
+    b.tabIndex = -1; body.append(b);
+  }
+}
+
+function showItems(): void {
+  const body = frame(STR.items, showMain), m = loadMeta(store);
+  for (const p of POWERUPS) {
+    const rank = m.powerups[p.id] ?? 0, price = p.cost[rank];
+    const right = el('span', 'price');
+    if (price === undefined) right.append(el('span', '', STR.max));
+    else right.append(icon('gem'), el('b', '', String(price)));
+    const stars = '★'.repeat(rank) + '☆'.repeat(p.cost.length - rank);
+    const b = row(price !== undefined && m.gems >= price ? 'buyable' : '', PU_ICON[p.id], `${p.name} ${stars}`, p.desc, right);
+    b.disabled = price === undefined || m.gems < price;
+    b.addEventListener('click', () => { const mm = loadMeta(store); if (buyPowerup(mm, p.id)) { saveMeta(store, mm); buzz(15); showItems(); } });
+    body.append(b);
+  }
+}
+
+function showRecords(): void {
+  const body = frame(STR.records, showMain), m = loadMeta(store);
+  const tbl = el('table', 'stats');
+  for (const [k, label] of STAT_ROWS) { const tr = el('tr'); tr.append(el('th', '', label), el('td', '', String(m.stats[k]))); tbl.append(tr); }
+  body.append(tbl);
+  for (const st of STAGES) {
+    const rec = m.stages[st.id], hearts = el('span', 'hs');
+    for (let h = 0; h < 3; h++) hearts.append(icon(rec?.cleared && h < rec.bestHearts ? 'heart' : 'heartEmpty'));
+    const b = row('info', rec?.cleared ? 'star' : 'site', st.name, `${rec?.plays ?? 0}판 · ${rec?.cleared ? '버팀' : '아직'}`, hearts);
+    b.tabIndex = -1; body.append(b);
+  }
+}
+
+function showPlay(w: HydroWorld): void {
   stop?.();
-  const w = createHydro(Number(q.get('seed') ?? 1));
-  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding };
+  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding, saveRun: () => saveRun(store, w) };
   app.className = 'play'; app.textContent = '';
+  const maxHearts = T.hearts + (w.origin.opt.powerups?.heart ?? 0);
+  // the run in progress is saved every 10 s and when the app is hidden (계속하기 on the main menu)
+  let lastSave = 0;
+  const autosave = () => { if (w.phase === 'run' || w.phase === 'levelup') saveRun(store, w); };
+  const onHide = () => { if (document.visibilityState === 'hidden') autosave(); };
+  document.addEventListener('visibilitychange', onHide);
 
   // ---- top: level/xp · coins · hearts / weather · village power · pause
   const top = el('header', 'top');
@@ -102,7 +231,7 @@ function showPlay(): void {
 
   let rec: number | null = null;
   let speed = 1, paused = false, terrainDirty = true;
-  const flashes: { cells: number[]; kind: 'sand' | 'ice'; until: number }[] = [];
+  const flashes: { cells: number[]; kind: 'sand' | 'ice' | 'rain' | 'sun'; until: number }[] = [];
 
   const say = (t: string, ic: SpriteName | null = null, ms = 1800) => {
     toast.textContent = '';
@@ -144,7 +273,7 @@ function showPlay(): void {
   dprWatch.addEventListener?.('change', fit);
 
   const draw = (frame: number) => {
-    if (seasonKey(seconds(w)) !== shownSeason) { shownSeason = seasonKey(seconds(w)); terrainDirty = true; }
+    if (seasonKey(seconds(w), w.seasons) !== shownSeason) { shownSeason = seasonKey(seconds(w), w.seasons); terrainDirty = true; }
     if (!needDraw && rec === null && !flashes.length && !terrainDirty) return;
     needDraw = false;
     // repaint the ground only when it changes (building, spirits, a sandbag expiring)
@@ -195,21 +324,36 @@ function showPlay(): void {
     buzz(20);
   };
   const showEnd = () => {
-    const won = w.phase === 'won';
-    const again = el('button', 'big', '↻ ' + STR.again); again.addEventListener('click', showPlay);
-    const home = el('button', 'big alt', STR.home); home.addEventListener('click', showTitle);
-    const kids: HTMLElement[] = [el('h2', '', won ? STR.won : STR.lost)];
+    // book the run once: gems, records, first-clear unlocks; the saved run is finished
+    const meta = loadMeta(store), res = finishRun(meta, w);
+    saveMeta(store, meta); clearRun(store);
+    const won = w.phase === 'won', last = w.stage + 1 >= STAGES.length;
+    const kids: HTMLElement[] = [el('h2', '', won ? (last ? STR.allClear : STR.won) : STR.lost)];
     const hs = el('p', 'starline');
-    for (let k = 0; k < T.hearts; k++) hs.append(icon(k < w.hearts ? 'heart' : 'heartEmpty', 'x3'));
-    const sum = el('p', 'sum'); sum.append(el('span', '', `Lv ${w.level}`), icon('wheel0'), el('span', '', String(w.plants.length)));
-    kids.push(hs, sum, again, home);
+    for (let k = 0; k < maxHearts; k++) hs.append(icon(k < w.hearts ? 'heart' : 'heartEmpty', 'x3'));
+    const sum = el('p', 'sum'); sum.append(el('span', '', `Lv ${w.level}`), icon('wheel0'), el('span', '', String(w.plants.length)), icon('gem'), el('span', '', `+${res.gems}`));
+    kids.push(hs, sum);
+    if (res.newSkill) { const c = el('div', 'card bonus'); c.append(icon(CARD[res.newSkill].icon, 'x3 ic'), el('b', '', `${STR.bonus} ${CARD[res.newSkill].name}`), el('span', 'desc', CARD[res.newSkill].desc)); kids.push(c); }
+    if (res.newChar) { const ch = CHARS.find(c => c.id === res.newChar)!; const c = el('div', 'card bonus'); c.append(icon(CHAR_ICON[ch.id], 'x3 ic'), el('b', '', `${STR.newChar} ${ch.name}`), el('span', 'desc', ch.desc)); kids.push(c); }
+    if (won && !last) {
+      const nx = el('button', 'big'); nx.append(icon('play', 'x2'), el('span', '', STR.next));
+      nx.addEventListener('click', () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage + 1, w.char))));
+      kids.push(nx);
+    } else if (!won) {
+      const again = el('button', 'big', '↻ ' + STR.again);
+      again.addEventListener('click', () => showPlay(createHydro(Date.now() % 100000, runOptions(loadMeta(store), w.stage, w.char))));
+      kids.push(again);
+    }
+    const home = el('button', 'big alt', STR.home); home.addEventListener('click', showMain);
+    kids.push(home);
     overlay(won ? 'won' : 'lost', ...kids);
   };
   const showPause = () => {
     const resume = el('button', 'big'); resume.append(icon('play', 'x2'), el('span', '', STR.resume)); resume.addEventListener('click', () => { paused = false; clearOverlay(); lastOverlay = ''; });
     const fast = el('button', 'big alt', `${STR.speed} ${speed === 1 ? '2×' : '1×'}`);
     fast.addEventListener('click', () => { speed = speed === 1 ? 2 : 1; fast.textContent = `${STR.speed} ${speed === 1 ? '2×' : '1×'}`; });
-    const home = el('button', 'big alt', STR.home); home.addEventListener('click', showTitle);
+    // 메인으로 keeps the run: the main menu offers 계속하기
+    const home = el('button', 'big alt', STR.home); home.addEventListener('click', () => { saveRun(store, w); showMain(); });
     overlay('pause', el('h2', '', STR.paused), resume, fast, home);
   };
 
@@ -221,11 +365,11 @@ function showPlay(): void {
     coinNum.textContent = String(w.coins);
     if (shownHearts !== w.hearts) {
       shownHearts = w.hearts; hearts.textContent = '';
-      for (let k = 0; k < T.hearts; k++) hearts.append(icon(k < w.hearts ? 'heart' : 'heartEmpty'));
+      for (let k = 0; k < maxHearts; k++) hearts.append(icon(k < w.hearts ? 'heart' : 'heartEmpty'));
       hearts.setAttribute('aria-label', `하트 ${Math.max(0, w.hearts)}개`);
     }
-    const sec = seconds(w), f = weatherAt(Math.min(sec, totalSeconds - 1e-6));
-    wxSeason.textContent = SEASONS[sec < SEASONS[0].seconds ? 0 : 1].name;
+    const sec = seconds(w), f = weatherAt(Math.min(sec, w.totalSec - 1e-6), w.seasons);
+    wxSeason.textContent = w.seasons[seasonAt(Math.min(sec, w.totalSec - 1e-6), w.seasons).si].name;
     if (shownNow !== f.now.kind) { shownNow = f.now.kind; wxNow.textContent = ''; wxNow.append(icon(WX[f.now.kind].icon)); wxNow.setAttribute('aria-label', WX[f.now.kind].name); }
     const soon = !!f.next && f.nextIn <= T.forecastSeconds;
     const nextKey = soon && f.next ? f.next.kind + (f.next.boss ? '!' : '') : '';
@@ -264,11 +408,16 @@ function showPlay(): void {
     }
     if (w.phase !== 'ready' && bar.isConnected) bar.remove();
     stepRecommendation(now);
+    if (now - lastSave > 10000) { lastSave = now; autosave(); }
     hud(); draw(frame++);
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
-  stop = () => { cancelAnimationFrame(raf); ro.disconnect(); dprWatch.removeEventListener?.('change', fit); };
+  stop = () => { cancelAnimationFrame(raf); ro.disconnect(); dprWatch.removeEventListener?.('change', fit); document.removeEventListener('visibilitychange', onHide); };
 }
 
-if (q.has('play')) showPlay(); else showTitle();
+// ?play starts stage 1 at once (tests); ?stage=n&char=id picks; otherwise the main menu
+if (q.has('play')) {
+  const m = loadMeta(store), st = Number(q.get('stage') ?? 1) - 1, ch = (q.get('char') as CharId | null) ?? 'miller';
+  showPlay(createHydro(Number(q.get('seed') ?? 1), runOptions(m, Math.max(0, st), ch)));
+} else showMain();
