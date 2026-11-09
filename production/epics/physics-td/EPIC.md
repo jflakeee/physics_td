@@ -67,3 +67,5 @@ Skill-bot results (5 seeds; clears / avg HP): 정석 둑지기 @ 둑마을 5/5 H
 - **습지 연구원 @ 빙하호 계곡 (0/5)** — two glacier lakes (≈ 120 units incl. rim ice) outweigh
   wetland absorption; the bot does not upkeep the dams. Options: smaller lakes, or dam upkeep in play.
 - Defeat cause heatmap (DETAILED §15.5), text size 120% (§15.6), sound (no audio assets yet).
+- Water TD benchmark candidates B1–B6 (`docs/DESIGN_REVIEW_2026-11.md` §2.1b): base villager
+  emotes, 0.5× speed, water state tints, multi-base maps, geometric map silhouettes, card previews.
