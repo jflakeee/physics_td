@@ -40,6 +40,17 @@ try {
     const hudNums = (await page.locator('.top').innerText()).match(/\d+/g) ?? [];
     check('top bar shows only level and coins as numbers', hudNums.length === 2, JSON.stringify(hudNums));
     check('play fits', ...await fits(page));
+    // one pixel grid (docs/ART_DIRECTION_V4_PIXEL.md): 192×288 art px at a whole-number device scale
+    const px = await page.evaluate(() => {
+      const c = document.querySelector('canvas.art'), r = c.getBoundingClientRect(), k = Number(c.dataset.scale);
+      const icons = [...document.querySelectorAll('.top canvas.pi')].map(e => e.getBoundingClientRect().width * devicePixelRatio / e.width);
+      return { w: c.width, h: c.height, k, dev: r.width * devicePixelRatio, icons };
+    });
+    check('art buffer is 192×288', px.w === 192 && px.h === 288);
+    check('board is a whole-number scale of device pixels', Number.isInteger(px.k) && px.k >= 2 && Math.abs(px.dev - 192 * px.k) < 0.5, JSON.stringify(px));
+    check('top-bar icons use the same pixel size as the board', px.icons.length > 0 && px.icons.every(v => Math.abs(v - px.k) < 0.01), JSON.stringify(px.icons));
+    const emoji = await page.evaluate(() => (document.body.innerText.match(/\p{Extended_Pictographic}/gu) ?? []).filter(c => !'★☆↻→'.includes(c)));
+    check('no emoji left on screen', emoji.length === 0, emoji.join(' '));
     // build a wheel at the recommended spot
     await page.locator('.build').tap();
     check('tray offers 3 buildings', (await page.locator('.tray .bcard').count()) === 3);
@@ -51,7 +62,7 @@ try {
       const v = __v4; return v.w.built.findIndex((b, i) => !b && i < 6);
     });
     const target = await page.evaluate(() => {
-      const v = __v4, cv = document.querySelector('canvas'), r = cv.getBoundingClientRect();
+      const v = __v4, cv = document.querySelector('canvas.art'), r = cv.getBoundingClientRect();
       // pick the first free river site (the page highlights the recommended one; any valid site builds)
       const sites = [[10, 0], [27, 1], [40, 2], [60, 3], [72, 4], [86, 5]];
       for (const [y, id] of sites) if (!v.w.built[id]) {

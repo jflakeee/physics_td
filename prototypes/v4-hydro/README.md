@@ -14,5 +14,11 @@
   - Turbines must start drowning below bank height, or floods spill out before any turbine is hit.
   - Scripted plans: build nothing → lose at 92 s; wheels only → lose to floods at 165 s;
     wheels + reservoirs + walls → survive both seasons with all hearts, about 8 level-ups.
-- Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen.
+- **Art (2026-11-09):** one pixel grid per docs/ART_DIRECTION_V4_PIXEL.md — 3 art px per cell
+  (192×288), integer device scale, water upsampled with dithering and a shoreline, all icons pixel
+  sprites at the same pixel size, no emoji. Frame cost in Chromium (render + sim, 390×664 @2×):
+  1× CPU p50 0.8 ms / p95 2.0 ms; 4× CPU throttle p50 3.1 ms / p95 8.3 ms. The art is repainted
+  only after a sim tick (30/s) or while something animates.
+- Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
+  `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites.
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.
