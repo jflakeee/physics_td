@@ -79,6 +79,8 @@ export interface SimConfig {
   pumpCapFrac: number;
   /** Max pumps on at once. */
   pumpMaxOn: number;
+  /** Available pump power slots (1 per running pump); defaults to pumpMaxOn for backward compatibility. */
+  pumpPowerCapacity: number;
   /** Cash cost per pump per tick (1 per second). */
   pumpCashPerTick: number;
   /** Levee durability loss per tick per unit pressure (0.02 per second). */
