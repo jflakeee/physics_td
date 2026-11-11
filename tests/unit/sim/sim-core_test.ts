@@ -174,6 +174,7 @@ test('P1-C: routed pump preserves water and stops at discharge capacity', () => 
   const g = flatGrid(8, 1);
   const t = { grid: g, baseCore: new Uint32Array(0), baseX: 0, baseY: 0, inlets: [], distToBase: new Uint16Array(8) };
   const w = createWorld(t, { I1: 100 }, { cash: 100, cfg: { pumpRadius: 0, pumpRate: 0.5, pumpDischargeCellCap: 0.6, evap: 0, outletRate: 0 } });
+  w.pumpBudget = 0.5;
   const id = addPump(w, 1);
   assert.equal(setPumpDischarge(w, id, 7), true);
   assert.equal(setPump(w, id, true), null);
