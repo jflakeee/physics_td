@@ -44,7 +44,7 @@ export interface SimGrid {
 }
 
 /** A pump site. `cell` is the centre cell index. */
-export interface Pump { id: number; cell: number; on: boolean; }
+export interface Pump { id: number; cell: number; on: boolean; /** Optional in-map discharge cell; undefined drains outside map. */ dischargeCell?: number; }
 
 /** A gate: closed gate cells get `SimConfig.gateClosedHeight` in `SimGrid.gate`. */
 export interface Gate { id: number; cells: Uint32Array; open: boolean; }
@@ -81,6 +81,8 @@ export interface SimConfig {
   pumpMaxOn: number;
   /** Available pump power slots (1 per running pump); defaults to pumpMaxOn for backward compatibility. */
   pumpPowerCapacity: number;
+  /** Maximum water depth in an in-map pump discharge cell. */
+  pumpDischargeCellCap: number;
   /** Cash cost per pump per tick (1 per second). */
   pumpCashPerTick: number;
   /** Levee durability loss per tick per unit pressure (0.02 per second). */
