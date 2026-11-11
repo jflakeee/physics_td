@@ -1,6 +1,9 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {BASE,ENTRANCES,index,createGame,startWave,step,place,nextWaveInfo} from '../topview-engine.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {BASE,ENTRANCES,index,createGame,startWave,step,place,nextWaveInfo,terrainHeight} from '../topview-engine.js';
 test('four natural flood inlets feed water simultaneously',()=>{const s=createGame();startWave(s);step(s);for(const p of ENTRANCES)assert.ok(s.water[index(p.x,p.y)]>0);assert.equal(s.enemies.length,0);});
 test('flood waves describe water rather than enemies',()=>{const s=createGame(),info=nextWaveInfo(s);assert.ok(info.rainfall>0);assert.equal(info.enemies,0);});
 test('base inundation causes physical damage',()=>{const s=createGame();startWave(s);for(let y=BASE.y-1;y<=BASE.y+1;y++)for(let x=BASE.x-1;x<=BASE.x+1;x++)s.water[index(x,y)]=1;step(s);assert.ok(s.hp<100);assert.ok(s.waveStats.damage>0);});
 test('levee and drainage structures can be placed',()=>{const s=createGame();assert.equal(place(s,10,10,'wall'),true);assert.equal(place(s,14,10,'tower'),true);assert.equal(s.cash,100);});
 test('four-front flood wave completes without hostile units',()=>{const s=createGame();startWave(s);let result;for(let i=0;i<220;i++)result=step(s);assert.equal(s.enemies.length,0);assert.ok(['complete','idle','defeat'].includes(result));});
+
+test('four approach corridors slope gently toward the central base',()=>{for(const p of ENTRANCES){assert.ok(terrainHeight(p.x,p.y)<=terrainHeight(p.x+1,p.y+1));}assert.equal(terrainHeight(BASE.x,BASE.y),0);assert.ok(terrainHeight(BASE.x+5,BASE.y+5)>0);});
+test('water flows downhill from higher ground with equal water depths',()=>{const s=createGame();const high=index(BASE.x+4,BASE.y+4),low=index(BASE.x+3,BASE.y+4);s.water[high]=.5;s.water[low]=.5;step(s);assert.ok(s.water[high]<.5);});
