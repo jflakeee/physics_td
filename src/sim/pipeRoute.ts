@@ -1,3 +1,4 @@
+import { FLAG } from '../core/types.ts';
 import type { SimGrid } from '../core/types.ts';
 
 /**
@@ -26,7 +27,7 @@ export function findPipeRoute(grid: SimGrid, from: number, to: number, maxLength
       x > 0 ? cell - 1 : -1, y > 0 ? cell - W : -1];
     for (const next of neighbors) {
       if (next < 0 || prev[next] !== -1) continue;
-      if (next !== to && (grid.wall[next] > 0 || grid.tmp[next] > 0 || grid.gate[next] > 0 || (grid.flags[next] & 4) !== 0)) continue;
+      if (next !== to && (grid.wall[next] > 0 || grid.tmp[next] > 0 || grid.gate[next] > 0 || (grid.flags[next] & FLAG.baseCore) !== 0)) continue;
       prev[next] = cell;
       distance[next] = distance[cell] + 1;
       if (next === to) {
