@@ -157,6 +157,19 @@ test('SIM-09/10: pump removes its tick budget; a third pump is refused; cash −
   assert.equal(w.cash, 149);
 });
 
+test('P1-C: power capacity limits simultaneous pumps without changing the default', () => {
+  const t = buildTerrain(DIKE_VILLAGE);
+  const w = createWorld(t, { I1: DIKE_I1 }, { cash: 100 });
+  const ids = [addPump(w, 20 * t.grid.width + 20), addPump(w, 20 * t.grid.width + 40)];
+  assert.equal(w.cfg.pumpPowerCapacity, 2);
+  w.cfg.pumpPowerCapacity = 1;
+  assert.equal(setPump(w, ids[0], true), null);
+  assert.equal(setPump(w, ids[1], true), 'maxOn');
+  assert.equal(w.pumps[1].on, false);
+  assert.equal(setPump(w, ids[0], false), null);
+  assert.equal(setPump(w, ids[1], true), null);
+});
+
 test('pumps stop when cash runs out', () => {
   const t = buildTerrain(DIKE_VILLAGE);
   const w = createWorld(t, { I1: DIKE_I1 }, { cash: 1 });
