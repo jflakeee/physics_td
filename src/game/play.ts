@@ -1,7 +1,7 @@
 import type { SimWorld } from '../core/types.ts';
 import type { LoadedMap } from './map.ts';
 import { startWave, stepSim } from '../sim/step.ts';
-import { pumpsOff, setPump } from '../sim/sinks.ts';
+import { pumpsOff, setPump, setPumpDischarge } from '../sim/sinks.ts';
 import { setGate } from '../sim/structures.ts';
 import { baseFlood } from '../sim/metrics.ts';
 import { rulesTick, rulesWaveEnd, rulesWaveStart, useSkill } from '../rules/skills.ts';
@@ -31,6 +31,7 @@ export type Phase = 'prepare' | 'wave' | 'levelup' | 'result' | 'defeat';
 export type PlayCommand =
   | { t: 'toggle'; kind: 'pump' | 'gate'; id: number }
   | { t: 'pumpsOff' }
+  | { t: 'pumpDischarge'; id: number; cell: number | null }
   | { t: 'startWave' }
   | { t: 'pause'; on: boolean }
   | { t: 'speed'; x: Speed }
@@ -44,6 +45,7 @@ export type PlayCommand =
 export type PlayEvent =
   | { t: 'refused'; reason: string }
   | { t: 'toggled'; kind: 'pump' | 'gate'; id: number; on: boolean }
+  | { t: 'pumpDischargeSet'; id: number; cell: number | null }
   | { t: 'waveStart'; wave: number }
   | { t: 'waveEnd'; wave: number }
   | { t: 'damageStart' } | { t: 'damageEnd' }
@@ -163,6 +165,11 @@ function apply(p: Play, cmd: PlayCommand): void {
       return;
     }
     case 'pumpsOff': pumpsOff(w); return;
+    case 'pumpDischarge': {
+      if (!setPumpDischarge(w, cmd.id, cmd.cell)) { p.events.push({ t: 'refused', reason: 'invalidDischarge' }); return; }
+      p.events.push({ t: 'pumpDischargeSet', id: cmd.id, cell: cmd.cell });
+      return;
+    }
     case 'pause': p.paused = cmd.on; return;
     case 'speed': p.speed = cmd.x; return;
     case 'retry':
