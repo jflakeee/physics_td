@@ -11,7 +11,7 @@ import { createFluidScratch, fluidStep } from '../../../src/sim/fluid.ts';
 import { fractureIce, freezeCells, freezeToWall, meltIce, placeIce } from '../../../src/sim/ice.ts';
 import { buildTerrain } from '../../../src/sim/terrain.ts';
 import { createWorld, runWaves, startWave, stepSim } from '../../../src/sim/step.ts';
-import { addPump, setPump } from '../../../src/sim/sinks.ts';
+import { addPump, setPump, setPumpDischarge, applySinks } from '../../../src/sim/sinks.ts';
 import { buildLevee, updateStructures } from '../../../src/sim/structures.ts';
 import { applyDamage } from '../../../src/sim/metrics.ts';
 import { waveInflow } from '../../../src/sim/inflow.ts';
@@ -168,6 +168,29 @@ test('P1-C: power capacity limits simultaneous pumps without changing the defaul
   assert.equal(w.pumps[1].on, false);
   assert.equal(setPump(w, ids[0], false), null);
   assert.equal(setPump(w, ids[1], true), null);
+});
+
+test('P1-C: routed pump preserves water and stops at discharge capacity', () => {
+  const g = flatGrid(8, 1);
+  const t = { grid: g, baseCore: new Uint32Array(0), baseX: 0, baseY: 0, inlets: [], distToBase: new Uint16Array(8) };
+  const w = createWorld(t, { I1: 100 }, { cash: 100, cfg: { pumpRadius: 0, pumpRate: 0.5, pumpDischargeCellCap: 0.6, evap: 0, outletRate: 0 } });
+  const id = addPump(w, 1);
+  assert.equal(setPumpDischarge(w, id, 7), true);
+  assert.equal(setPump(w, id, true), null);
+  g.w[1] = 1;
+  g.w[7] = 0.55;
+  const before = totalWater(g, false), drained = w.metrics.drained;
+  applySinks(w);
+  assert.ok(Math.abs(totalWater(g, false) - before) < 1e-10);
+  assert.ok(Math.abs(g.w[7] - 0.6) < 1e-10);
+  assert.equal(w.metrics.drained, drained);
+  const after = g.w[1];
+  applySinks(w);
+  assert.equal(g.w[1], after, 'full discharge cell blocks further transfer');
+  assert.equal(setPumpDischarge(w, id, 99), false);
+  assert.equal(setPumpDischarge(w, id, null), true);
+  applySinks(w);
+  assert.ok(w.metrics.drained > drained, 'outside-map discharge counts as drained');
 });
 
 test('pumps stop when cash runs out', () => {
