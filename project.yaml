@@ -8,7 +8,7 @@ framework:
   last_upgraded: 2026-11-11
 
 project:
-  stage: Concept
+  stage: Production
 
 # NOTE: this template ships with no `modes:` block, and the six knobs below must
 # never be added to one.
