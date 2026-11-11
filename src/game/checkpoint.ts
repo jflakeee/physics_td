@@ -72,10 +72,12 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   for (const k of GRID_KEYS) (g[k] as { set(a: ArrayLike<number>): void }).set((c.grid as Record<string, ArrayLike<number>>)[k]);
   Object.assign(w, structuredClone(c.world));
   c.pumps.forEach((on, i) => { w.pumps[i].on = on; });
-  c.pumpDischarges?.forEach((cell, i) => {
-    if (!w.pumps[i]) return;
-    if (cell === null) delete w.pumps[i].dischargeCell;
-    else if (Number.isInteger(cell) && cell >= 0 && cell < g.w.length) w.pumps[i].dischargeCell = cell;
+  w.pumps.forEach((pump, i) => {
+    const cell = c.pumpDischarges?.[i];
+    // Old checkpoints have no route field; default to legacy outside-map discharge.
+    if (cell === undefined || cell === null) delete pump.dischargeCell;
+    else if (Number.isInteger(cell) && cell >= 0 && cell < g.w.length) pump.dischargeCell = cell;
+    else delete pump.dischargeCell;
   });
   c.gates.forEach((open, i) => { w.gates[i].open = open; });
   c.lakes.forEach((s, i) => Object.assign(p.map.lakes[i], s));
