@@ -250,6 +250,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
           : e.reason === 'cashEmptyPumps' ? 'toast.cashEmptyPumps' : REFUSAL_TOAST[e.reason as Refusal] ?? null;
         if (key) toast(t(key));
         else if (e.reason === 'invalidDischarge') toast(`배출 위치가 너무 멀거나 유효하지 않습니다 (최대 ${world.cfg.pumpDischargeMaxDistance}칸)` );
+        else if (e.reason === 'blockedDischarge') toast('경로가 차단되어 배출 위치를 지정할 수 없습니다');
         haptic([30, 30, 30]); break;
       }
       case 'pumpDischargeSet': toast(e.cell === null ? '펌프 외부 배출로 변경' : '펌프 배출 위치 설정 완료'); break;
@@ -306,6 +307,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
         if (max > 0 && dx * dx + dy * dy > max * max) { toast(`배출 거리 초과 (최대 ${max}칸)`); return; }
         const path = findPipeRoute(world.grid, pump.cell, destination);
         if (!path) { toast('파이프 경로가 차단되어 있습니다'); return; }
+        if (!window.confirm(`배출 경로 ${path.length - 1}칸을 지정할까요?\n※ 파이프 건설 및 설치비는 아직 적용되지 않습니다.`)) return;
         send(play, { t: 'pumpDischarge', id: routePump, cell: destination });
         resetRoute(); return;
       }
