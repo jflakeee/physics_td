@@ -164,7 +164,7 @@ test('play: commands in a wave apply before the next tick; prepare applies at on
 
 test('P1-C: pump route command queues during waves and restores on retry', () => {
   const p = createPlay(loadMap(MAP));
-  const dest = p.world.grid.w.length - 1;
+  const dest = p.world.pumps[0].cell + 1;
   send(p, { t: 'pumpDischarge', id: 0, cell: dest });
   assert.equal(p.world.pumps[0].dischargeCell, dest);
   send(p, { t: 'startWave' });
