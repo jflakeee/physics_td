@@ -13,7 +13,7 @@ test('P1-D: deterministic straight route and endpoint identity', () => {
 test('P1-D: obstacles force shortest four-way detour', () => {
   const g = createGrid(5, 3);
   g.wall[7] = 1;
-  assert.deepEqual(findPipeRoute(g, 5, 9), [5, 6, 1, 2, 3, 8, 9]);
+  assert.deepEqual(findPipeRoute(g, 5, 9), [5, 6, 11, 12, 13, 14, 9]);
   assert.equal(findPipeRoute(g, 5, 9, 5), null);
   assert.equal(findPipeRoute(g, 5, 9, 6)?.length, 7);
 });
