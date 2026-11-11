@@ -83,6 +83,8 @@ export interface SimConfig {
   pumpPowerCapacity: number;
   /** Maximum water depth in an in-map pump discharge cell. */
   pumpDischargeCellCap: number;
+  /** Max straight-line pump-to-outlet distance in grid cells; 0 disables the limit. */
+  pumpDischargeMaxDistance: number;
   /** Cash cost per pump per tick (1 per second). */
   pumpCashPerTick: number;
   /** Levee durability loss per tick per unit pressure (0.02 per second). */
