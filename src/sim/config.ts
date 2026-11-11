@@ -22,6 +22,7 @@ export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   pumpMaxOn: 2,
   pumpPowerCapacity: 2,
   pumpDischargeCellCap: 2.0,
+  pumpDischargeMaxDistance: 24,
   pumpCashPerTick: 1 / 30,
   leveeWear: 0.02 / 30,
   leveeDur: 1.0,
