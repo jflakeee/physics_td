@@ -21,6 +21,8 @@ export interface Checkpoint {
   grid: Partial<GridArrays>;
   world: Pick<SimWorld, 'wave' | 'waveTick' | 'waveLen' | 'waveParams' | 'hp' | 'hpAcc' | 'cash' | 'cashAcc' | 'tick' | 'ecoBase' | 'metrics' | 'mods'>;
   pumps: boolean[];
+  /** Optional routed discharge destinations; absent in older checkpoints. */
+  pumpDischarges?: (number | null)[];
   gates: boolean[];
   lakes: { warned: boolean; broken: boolean }[];
   zoneTypes: string[];
@@ -51,6 +53,7 @@ export function takeCheckpoint(p: Play): Checkpoint {
     world: structuredClone({ wave: w.wave, waveTick: w.waveTick, waveLen: w.waveLen, waveParams: w.waveParams, hp: w.hp, hpAcc: w.hpAcc,
       cash: w.cash, cashAcc: w.cashAcc, tick: w.tick, ecoBase: w.ecoBase, metrics: w.metrics, mods: w.mods }),
     pumps: w.pumps.map(x => x.on),
+    pumpDischarges: w.pumps.map(x => x.dischargeCell ?? null),
     gates: w.gates.map(x => x.open),
     lakes: p.map.lakes.map(L => ({ warned: L.warned, broken: L.broken })),
     zoneTypes: p.map.zones.zones.map(z => z.type),
@@ -69,6 +72,11 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   for (const k of GRID_KEYS) (g[k] as { set(a: ArrayLike<number>): void }).set((c.grid as Record<string, ArrayLike<number>>)[k]);
   Object.assign(w, structuredClone(c.world));
   c.pumps.forEach((on, i) => { w.pumps[i].on = on; });
+  c.pumpDischarges?.forEach((cell, i) => {
+    if (!w.pumps[i]) return;
+    if (cell === null) delete w.pumps[i].dischargeCell;
+    else if (Number.isInteger(cell) && cell >= 0 && cell < g.w.length) w.pumps[i].dischargeCell = cell;
+  });
   c.gates.forEach((open, i) => { w.gates[i].open = open; });
   c.lakes.forEach((s, i) => Object.assign(p.map.lakes[i], s));
   c.zoneTypes.forEach((t, i) => { p.map.zones.zones[i].type = t as typeof p.map.zones.zones[number]['type']; });
