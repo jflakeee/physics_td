@@ -2,6 +2,7 @@ import type { SimWorld } from '../core/types.ts';
 import type { LoadedMap } from './map.ts';
 import { startWave, stepSim } from '../sim/step.ts';
 import { pumpsOff, setPump, setPumpDischarge } from '../sim/sinks.ts';
+import { findPipeRoute } from '../sim/pipeRoute.ts';
 import { setGate } from '../sim/structures.ts';
 import { baseFlood } from '../sim/metrics.ts';
 import { rulesTick, rulesWaveEnd, rulesWaveStart, useSkill } from '../rules/skills.ts';
@@ -166,6 +167,10 @@ function apply(p: Play, cmd: PlayCommand): void {
     }
     case 'pumpsOff': pumpsOff(w); return;
     case 'pumpDischarge': {
+      const pump = w.pumps[cmd.id];
+      if (cmd.cell !== null && pump && !findPipeRoute(w.grid, pump.cell, cmd.cell)) {
+        p.events.push({ t: 'refused', reason: 'blockedDischarge' }); return;
+      }
       if (!setPumpDischarge(w, cmd.id, cmd.cell)) { p.events.push({ t: 'refused', reason: 'invalidDischarge' }); return; }
       p.events.push({ t: 'pumpDischargeSet', id: cmd.id, cell: cmd.cell });
       return;
