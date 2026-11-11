@@ -246,6 +246,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
         const key = e.reason === 'maxOn' ? 'toast.maxOn' : e.reason === 'noCash' ? 'toast.noCash'
           : e.reason === 'cashEmptyPumps' ? 'toast.cashEmptyPumps' : REFUSAL_TOAST[e.reason as Refusal] ?? null;
         if (key) toast(t(key));
+        else if (e.reason === 'invalidDischarge') toast('배출 위치가 너무 멀거나 유효하지 않습니다 (최대 24칸)');
         haptic([30, 30, 30]); break;
       }
       case 'pumpDischargeSet': toast(e.cell === null ? '펌프 외부 배출로 변경' : '펌프 배출 위치 설정 완료'); break;
