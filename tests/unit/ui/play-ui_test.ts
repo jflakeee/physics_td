@@ -176,6 +176,9 @@ test('P1-C: pump route command queues during waves and restores on retry', () =>
   // Checkpoint restore must include pump routing without modifying the save schema.
   restoreCheckpoint(p, p.checkpoint!);
   assert.equal(p.world.pumps[0].dischargeCell, dest);
+  const legacy = { ...p.checkpoint!, pumpDischarges: undefined };
+  restoreCheckpoint(p, legacy);
+  assert.equal(p.world.pumps[0].dischargeCell, undefined, 'old checkpoint resets routing to outside-map');
 });
 
 test('play: step budget — 1× ≤ 2 ticks/frame, 2× ≤ 4, backlog capped; pause stops', () => {
