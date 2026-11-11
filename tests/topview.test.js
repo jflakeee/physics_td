@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {BASE,ENTRANCES,index,createGame,startWave,step,place,nextWaveInfo,terrainHeight} from '../topview-engine.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {BASE,ENTRANCES,index,createGame,startWave,step,place,nextWaveInfo,terrainHeight,erodeLevees,retryWave} from '../topview-engine.js';
 test('four natural flood inlets feed water simultaneously',()=>{const s=createGame();startWave(s);step(s);for(const p of ENTRANCES)assert.ok(s.water[index(p.x,p.y)]>0);assert.equal(s.enemies.length,0);});
 test('flood waves describe water rather than enemies',()=>{const s=createGame(),info=nextWaveInfo(s);assert.ok(info.rainfall>0);assert.equal(info.enemies,0);});
 test('base inundation causes physical damage',()=>{const s=createGame();startWave(s);for(let y=BASE.y-1;y<=BASE.y+1;y++)for(let x=BASE.x-1;x<=BASE.x+1;x++)s.water[index(x,y)]=1;step(s);assert.ok(s.hp<100);assert.ok(s.waveStats.damage>0);});
@@ -7,3 +7,6 @@ test('four-front flood wave completes without hostile units',()=>{const s=create
 
 test('four approach corridors slope gently toward the central base',()=>{for(const p of ENTRANCES){assert.ok(terrainHeight(p.x,p.y)<=terrainHeight(p.x+1,p.y+1));}assert.equal(terrainHeight(BASE.x,BASE.y),0);assert.ok(terrainHeight(BASE.x+5,BASE.y+5)>0);});
 test('water flows downhill from higher ground with equal water depths',()=>{const s=createGame();const high=index(BASE.x+4,BASE.y+4),low=index(BASE.x+3,BASE.y+4);s.water[high]=.5;s.water[low]=.5;step(s);assert.ok(s.water[high]<.5);});
+
+test('levee loses integrity under sustained adjacent flood and eventually breaches',()=>{const s=createGame(),x=10,y=10,i=index(x,y);assert.equal(place(s,x,y,'wall'),true);assert.equal(s.wallHealth[i],100);s.water[index(x-1,y)]=1;for(let n=0;n<200;n++)erodeLevees(s);assert.ok(s.wallHealth[i]<100);assert.equal(s.solid[i],1);for(let n=0;n<100;n++)erodeLevees(s);assert.equal(s.solid[i],0);assert.equal(s.wallHealth[i],0);});
+test('dry levees remain intact and retry restores durability',()=>{const s=createGame(),i=index(10,10);place(s,10,10,'wall');startWave(s);for(let n=0;n<100;n++)erodeLevees(s);assert.equal(s.wallHealth[i],100);s.wallHealth[i]=20;s.active=false;assert.equal(retryWave(s),true);assert.equal(s.wallHealth[i],100);});
