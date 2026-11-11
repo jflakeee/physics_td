@@ -49,7 +49,8 @@ export function setPump(world: SimWorld, id: number, on: boolean): PumpRefusal |
   if (on && !p.on) {
     let running = 0;
     for (const q of world.pumps) if (q.on) running++;
-    if (running >= world.cfg.pumpMaxOn) return 'maxOn';
+    // A pump occupies one power slot; reuse maxOn refusal for existing HUD compatibility.
+    if (running >= Math.min(world.cfg.pumpMaxOn, world.cfg.pumpPowerCapacity ?? world.cfg.pumpMaxOn)) return 'maxOn';
     if (world.cash !== null && world.cash <= 0) return 'noCash';
   }
   p.on = on;
