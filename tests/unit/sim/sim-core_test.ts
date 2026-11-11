@@ -194,6 +194,17 @@ test('P1-C: routed pump preserves water and stops at discharge capacity', () => 
   assert.ok(w.metrics.drained > drained, 'outside-map discharge counts as drained');
 });
 
+test('P1-C: discharge distance is bounded and failed updates keep prior routing', () => {
+  const g = flatGrid(40, 1);
+  const t = { grid: g, baseCore: new Uint32Array(0), baseX: 0, baseY: 0, inlets: [], distToBase: new Uint16Array(40) };
+  const w = createWorld(t, { I1: 10 }, { cfg: { pumpDischargeMaxDistance: 4 } });
+  const id = addPump(w, 1);
+  assert.equal(setPumpDischarge(w, id, 5), true, 'exactly four cells is allowed');
+  assert.equal(setPumpDischarge(w, id, 6), false, 'five cells is rejected');
+  assert.equal(w.pumps[id].dischargeCell, 5, 'invalid update preserves prior destination');
+  assert.equal(setPumpDischarge(w, id, null), true, 'outside-map route is always allowed');
+});
+
 test('pumps stop when cash runs out', () => {
   const t = buildTerrain(DIKE_VILLAGE);
   const w = createWorld(t, { I1: DIKE_I1 }, { cash: 1 });
