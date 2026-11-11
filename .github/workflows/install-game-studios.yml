@@ -1,0 +1,74 @@
+name: Install Claude Code Game Studios v1.3.0 (one time)
+on:
+  push:
+    branches: [upgrade/ccgs-v1.3.0]
+    paths:
+      - .github/workflows/install-game-studios.yml
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Physics TD upgrade branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Checkout upstream pinned release
+        uses: actions/checkout@v4
+        with:
+          repository: Donchitos/Claude-Code-Game-Studios
+          ref: v1.3.0
+          path: _game_studios_upstream
+          persist-credentials: false
+      - name: Copy framework without replacing game or custom project instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for directory in scripts hooks genres engines skills; do
+            mkdir -p ".claude/$directory"
+            rsync -a "_game_studios_upstream/.claude/$directory/" ".claude/$directory/"
+          done
+          mkdir -p .claude/docs/templates docs/licenses
+          rsync -a _game_studios_upstream/.claude/docs/templates/ .claude/docs/templates/
+          cp _game_studios_upstream/.claude/docs/share-link.md .claude/docs/share-link.md
+          cp _game_studios_upstream/UPGRADING.md UPGRADING.md
+          cp _game_studios_upstream/CHANGELOG.md CHANGELOG.md
+          cp _game_studios_upstream/LICENSE docs/licenses/Claude-Code-Game-Studios-LICENSE
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          config_path=Path("project.yaml")
+          config=config_path.read_text(encoding="utf-8")
+          config=re.sub(r"(framework:\\n[ \\t]+version: )[^\\n]+",r"\\g<1>1.3.0",config,count=1)
+          config=re.sub(r"(last_upgraded: )[^\\n]+",r"\\g<1>2026-11-11",config,count=1)
+          if not re.search(r"(?m)^engine:\\s*$",config):
+              config += "\\nengine:\\n  name: Web\\n  code_root: src\\n  test_root: tests\\n"
+          config_path.write_text(config,encoding="utf-8")
+          local_path=Path(".claude/settings.json")
+          ours=json.loads(local_path.read_text(encoding="utf-8"))
+          upstream=json.loads(Path("_game_studios_upstream/.claude/settings.json").read_text(encoding="utf-8"))
+          ours["hooks"]=upstream["hooks"]
+          ours.setdefault("permissions",{})
+          ours["permissions"]["allow"]=list(dict.fromkeys(ours["permissions"].get("allow",[])+upstream.get("permissions",{}).get("allow",[])))
+          ours["permissions"]["deny"]=list(dict.fromkeys(ours["permissions"].get("deny",[])+upstream.get("permissions",{}).get("deny",[])))
+          local_path.write_text(json.dumps(ours,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")
+          PY
+          cat > docs/CCGS_UPGRADE_V1_3_0.md <<'DOC'
+          # Claude Code Game Studios v1.3.0 upgrade
+
+          - Source: https://github.com/Donchitos/Claude-Code-Game-Studios/releases/tag/v1.3.0
+          - Target: Physics TD (existing v1.2.0 -> v1.3.0)
+          - Applied: .claude/scripts, hooks, genres, engines, skills, shared document templates, settings hooks/allow-list, project.yaml version and Web engine.
+          - Preserved: Physics TD game source, tests, pages workflows, existing design documents, CLAUDE.md, .claude/agents, custom docs, local configuration and permission denials.
+          - Old skill aliases remain to avoid breaking existing usage. No hard delete was used.
+          - This repository change installs the project files; the Claude Code CLI must separately be installed and run on the user's computer.
+          - Verification: check GitHub Actions, run /project-stage-detect and /start from repository root in Claude Code.
+          DOC
+          rm -rf _game_studios_upstream
+          rm .github/workflows/install-game-studios.yml
+          git add .claude project.yaml UPGRADING.md CHANGELOG.md docs/CCGS_UPGRADE_V1_3_0.md docs/licenses/Claude-Code-Game-Studios-LICENSE .github/workflows/install-game-studios.yml
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: upgrade Claude Code Game Studios to v1.3.0"
+          git push origin HEAD:refs/heads/upgrade/ccgs-v1.3.0
