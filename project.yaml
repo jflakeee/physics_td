@@ -4,8 +4,11 @@
 schema_version: 1
 
 framework:
-  version: 1.2.0
-  \g<1>2026-11-11ncept
+  version: 1.3.0
+  last_upgraded: 2026-11-11
+
+project:
+  stage: Concept
 
 # NOTE: this template ships with no `modes:` block, and the six knobs below must
 # never be added to one.
@@ -29,4 +32,8 @@ framework:
 modes:
   rigor: minimal
   automation: guided
-\nengine:\n  name: Web\n  code_root: src\n  test_root: tests\n
+
+engine:
+  name: Web
+  code_root: src
+  test_root: tests
