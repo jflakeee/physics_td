@@ -36,6 +36,15 @@ export function addPump(world: SimWorld, cell: number): number {
   return id;
 }
 
+/** Configure an optional in-map discharge point; null means discharge outside the map. */
+export function setPumpDischarge(world: SimWorld, id: number, cell: number | null): boolean {
+  const pump = world.pumps[id];
+  if (!pump || (cell !== null && (!Number.isInteger(cell) || cell < 0 || cell >= world.grid.w.length))) return false;
+  if (cell === null) delete pump.dischargeCell;
+  else pump.dischargeCell = cell;
+  return true;
+}
+
 /** Why a pump toggle was refused. */
 export type PumpRefusal = 'maxOn' | 'noCash' | 'unknown';
 
@@ -72,14 +81,20 @@ export function applySinks(world: SimWorld): void {
     if (!world.pumps[k].on) continue;
     running++;
     let budget = world.pumpBudget;
+    const discharge = world.pumps[k].dischargeCell;
+    const routed = discharge !== undefined && Number.isInteger(discharge) && discharge >= 0 && discharge < w.length;
     const cells = world.pumpCells[k];
     for (let j = 0; j < cells.length && budget > 0; j++) {
       const c = cells[j];
+      if (routed && c === discharge) continue;
       let d = w[c];
       if (d > cfg.pumpRate) d = cfg.pumpRate;
       if (d > budget) d = budget;
+      if (routed) d = Math.min(d, Math.max(0, (cfg.pumpDischargeCellCap ?? cfg.inletCellCap) - w[discharge]));
       if (d <= 0) continue;
-      w[c] -= d; budget -= d; drained += d;
+      w[c] -= d; budget -= d;
+      if (routed) w[discharge] += d;
+      else drained += d;
     }
   }
   if (running > 0 && world.cash !== null) {
