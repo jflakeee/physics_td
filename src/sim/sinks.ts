@@ -40,6 +40,12 @@ export function addPump(world: SimWorld, cell: number): number {
 export function setPumpDischarge(world: SimWorld, id: number, cell: number | null): boolean {
   const pump = world.pumps[id];
   if (!pump || (cell !== null && (!Number.isInteger(cell) || cell < 0 || cell >= world.grid.w.length))) return false;
+  if (cell !== null && world.cfg.pumpDischargeMaxDistance > 0) {
+    const width = world.grid.width;
+    const dx = (pump.cell % width) - (cell % width);
+    const dy = Math.floor(pump.cell / width) - Math.floor(cell / width);
+    if (dx * dx + dy * dy > world.cfg.pumpDischargeMaxDistance ** 2) return false;
+  }
   if (cell === null) delete pump.dischargeCell;
   else pump.dischargeCell = cell;
   return true;
