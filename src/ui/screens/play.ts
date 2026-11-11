@@ -291,7 +291,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       if (routing) {
         if (routePump === null) {
           if (hit.t !== 'pump') { toast('배출할 펌프를 먼저 선택하세요'); return; }
-          routePump = hit.id; toast('배출 위치를 지도에서 선택하세요'); return;
+          routePump = hit.id; toast('배출 위치 터치 · 🚰 버튼 재선택 시 외부 배출'); return;
         }
         if (!c) { toast('지도 안의 위치를 선택하세요'); return; }
         send(play, { t: 'pumpDischarge', id: routePump, cell: c[1] * world.grid.width + c[0] });
@@ -328,7 +328,10 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   }
   pumpsBtn.addEventListener('click', () => { send(play, { t: 'pumpsOff' }); toast(t('toast.allPumpsOff')); });
   routeBtn.addEventListener('click', () => {
-    if (routing) { resetRoute(); toast('배출 위치 설정 취소'); return; }
+    if (routing) {
+      if (routePump !== null) { send(play, { t: 'pumpDischarge', id: routePump, cell: null }); resetRoute(); return; }
+      resetRoute(); toast('배출 위치 설정 취소'); return;
+    }
     routing = true; routePump = null; target = IDLE; syncButtons();
     routeBtn.setAttribute('aria-pressed', 'true'); toast('펌프를 터치한 다음 배출 위치를 선택하세요');
   });
@@ -424,7 +427,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       const cx = (x + 0.5) * canvas.width / world.grid.width;
       const cy = (y + 0.5) * canvas.height / world.grid.height;
       const radius = Math.max(4, canvas.width / world.grid.width * 1.8);
-      board.ctx.save(); board.ctx.setTransform(1, 0, 0, 1, 0, 0); board.ctx.strokeStyle = '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
+      const full = world.grid.w[dest] >= (world.cfg.pumpDischargeCellCap ?? world.cfg.inletCellCap) - 1e-6;
+      board.ctx.save(); board.ctx.setTransform(1, 0, 0, 1, 0, 0); board.ctx.strokeStyle = full ? '#ff745e' : '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
       board.ctx.beginPath(); board.ctx.arc(cx, cy, radius, 0, Math.PI * 2); board.ctx.stroke(); board.ctx.restore();
     }
     const renderMs = performance.now() - r0;
