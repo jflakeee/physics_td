@@ -181,6 +181,20 @@ test('P1-C: pump route command queues during waves and restores on retry', () =>
   assert.equal(p.world.pumps[0].dischargeCell, undefined, 'old checkpoint resets routing to outside-map');
 });
 
+test('P1-D: queued outlet command rejects unreachable destination without changing routing', () => {
+  const p = createPlay(loadMap(MAP));
+  const g = p.world.grid, pump = p.world.pumps[0];
+  const dest = pump.cell + 2;
+  const x = pump.cell % g.width, y = Math.floor(pump.cell / g.width);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = x + dx, ny = y + dy;
+    if (nx >= 0 && nx < g.width && ny >= 0 && ny < g.height) g.wall[ny * g.width + nx] = 1;
+  }
+  send(p, { t: 'pumpDischarge', id: pump.id, cell: dest });
+  assert.equal(p.world.pumps[0].dischargeCell, undefined);
+  assert.ok(p.events.some(e => e.t === 'refused' && e.reason === 'blockedDischarge'));
+});
+
 test('play: step budget — 1× ≤ 2 ticks/frame, 2× ≤ 4, backlog capped; pause stops', () => {
   const p = createPlay(loadMap(MAP));
   send(p, { t: 'startWave' });
