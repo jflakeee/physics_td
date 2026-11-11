@@ -13,6 +13,7 @@ import { GESTURE, createGestureTracker } from '../../../src/input/gestures.ts';
 import { hitTest, toCell } from '../../../src/input/hit.ts';
 import { IDLE, brightZones, onBoardSwipe, onBoardTap, onSkillButton } from '../../../src/input/targeting.ts';
 import { createHud } from '../../../src/ui/widgets/hud.ts';
+import { restoreCheckpoint } from '../../../src/game/checkpoint.ts';
 import { expireToasts, pushToast, TOAST_MAX, TOAST_MS } from '../../../src/ui/widgets/toast.ts';
 import { createT } from '../../../src/ui/i18n.ts';
 import { fitBoard } from '../../../src/render/canvas.ts';
@@ -159,6 +160,22 @@ test('play: commands in a wave apply before the next tick; prepare applies at on
   assert.ok(p.world.pumps[0].on, 'queued during the wave');
   advance(p, TICK_MS);
   assert.ok(!p.world.pumps[0].on);
+});
+
+test('P1-C: pump route command queues during waves and restores on retry', () => {
+  const p = createPlay(loadMap(MAP));
+  const dest = p.world.grid.w.length - 1;
+  send(p, { t: 'pumpDischarge', id: 0, cell: dest });
+  assert.equal(p.world.pumps[0].dischargeCell, dest);
+  send(p, { t: 'startWave' });
+  send(p, { t: 'pumpDischarge', id: 0, cell: null });
+  assert.equal(p.world.pumps[0].dischargeCell, dest, 'route change is queued during wave');
+  advance(p, TICK_MS);
+  assert.equal(p.world.pumps[0].dischargeCell, undefined);
+  assert.ok(p.checkpoint);
+  // Checkpoint restore must include pump routing without modifying the save schema.
+  restoreCheckpoint(p, p.checkpoint!);
+  assert.equal(p.world.pumps[0].dischargeCell, dest);
 });
 
 test('play: step budget — 1× ≤ 2 ticks/frame, 2× ≤ 4, backlog capped; pause stops', () => {
