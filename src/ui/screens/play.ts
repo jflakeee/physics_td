@@ -97,11 +97,12 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const [hpS, hpV] = stat('❤', t('hud.hp')), [cashS, cashV] = stat('💰', t('hud.cash'));
   const [waveS, waveV] = stat('🌊', t('hud.wave')), [lvS, lvV] = stat('Lv', t('hud.level'));
   const pumpsBtn = h('button', { class: 'hb', 'aria-label': t('hud.pumpsOff') }, '💧');
+  const routeBtn = h('button', { class: 'hb', 'aria-label': '펌프 배출 위치 설정', 'aria-pressed': 'false', title: '펌프 선택 → 배출 위치 선택' }, '🚰');
   const pauseBtn = h('button', { class: 'hb', 'aria-label': t('hud.pause'), 'aria-pressed': 'false' }, '⏸');
   const speedBtn = h('button', { class: 'hb', 'aria-label': t('hud.speed', { x: 1 }) }, '1×');
   const stats = h('div', { class: 'stats' }); stats.append(hpS, cashS, waveS);
   lvS.classList.add('lv');
-  const btns = h('div', { class: 'hbtns' }); btns.append(pumpsBtn, pauseBtn, speedBtn);
+  const btns = h('div', { class: 'hbtns' }); btns.append(pumpsBtn, routeBtn, pauseBtn, speedBtn);
   hud.append(stats, btns);
   const gaugeRow = h('div', { class: 'gauge-row' });
   const gauge = h('div', { class: 'gauge', role: 'meter', 'aria-label': t('hud.flood'), 'aria-valuemin': '0', 'aria-valuemax': '100' });
@@ -155,6 +156,9 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
 
   // --- state
   let target: TargetState = IDLE;
+  let routePump: number | null = null;
+  let routing = false;
+  const resetRoute = () => { routing = false; routePump = null; routeBtn.setAttribute('aria-pressed', 'false'); };
   const toasts: ToastQueue = { items: [] };
   const toast = (s: string) => { pushToast(toasts, s, performance.now()); renderToasts(); };
   const renderToasts = () => {
@@ -244,6 +248,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
         if (key) toast(t(key));
         haptic([30, 30, 30]); break;
       }
+      case 'pumpDischargeSet': toast(e.cell === null ? '펌프 외부 배출로 변경' : '펌프 배출 위치 설정 완료'); break;
       case 'income': toast(t('toast.income', { amount: e.amount })); break;
       case 'zoneChanged': refreshTerrain(board, make); break;
       case 'toggled': toast(t(e.kind === 'pump' ? (e.on ? 'toast.pumpOn' : 'toast.pumpOff') : (e.on ? 'toast.gateOpen' : 'toast.gateClosed'))); haptic(10); break;
@@ -274,6 +279,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const cellOf = (x: number, y: number) => toCell(canvas.getBoundingClientRect(), world.grid.width, world.grid.height, x, y);
   const handle = (g: Gesture | null) => {
     if (!g) return;
+    if (routing && g.t === 'swipe') return;
     if (g.t === 'swipe') {
       const cells: [number, number][] = [];
       for (const [x, y] of g.path) { const c = cellOf(x, y); if (c) cells.push(c); }
@@ -281,7 +287,18 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     }
     const c = cellOf(g.x, g.y);
     const hit = c ? hitTest(world, o.map.zones, c[0], c[1]) : { t: 'none' as const };
-    if (g.t === 'tap') { let a: TargetAction | null; [target, a] = onBoardTap(target, hit, skills, o.map.zones.zones); act(a); }
+    if (g.t === 'tap') {
+      if (routing) {
+        if (routePump === null) {
+          if (hit.t !== 'pump') { toast('배출할 펌프를 먼저 선택하세요'); return; }
+          routePump = hit.id; toast('배출 위치를 지도에서 선택하세요'); return;
+        }
+        if (!c) { toast('지도 안의 위치를 선택하세요'); return; }
+        send(play, { t: 'pumpDischarge', id: routePump, cell: c[1] * world.grid.width + c[0] });
+        resetRoute(); return;
+      }
+      let a: TargetAction | null; [target, a] = onBoardTap(target, hit, skills, o.map.zones.zones); act(a);
+    }
   };
   canvas.addEventListener('pointerdown', e => { if (gt.down(e.pointerId, e.clientX, e.clientY, e.timeStamp)) canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener('pointermove', e => gt.move(e.pointerId, e.clientX, e.clientY, e.timeStamp));
@@ -310,6 +327,11 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     b.addEventListener('contextmenu', e => e.preventDefault());
   }
   pumpsBtn.addEventListener('click', () => { send(play, { t: 'pumpsOff' }); toast(t('toast.allPumpsOff')); });
+  routeBtn.addEventListener('click', () => {
+    if (routing) { resetRoute(); toast('배출 위치 설정 취소'); return; }
+    routing = true; routePump = null; target = IDLE; syncButtons();
+    routeBtn.setAttribute('aria-pressed', 'true'); toast('펌프를 터치한 다음 배출 위치를 선택하세요');
+  });
   const setPaused = (on: boolean) => {
     send(play, { t: 'pause', on });
     pauseBtn.textContent = on ? '▶' : '⏸';
@@ -330,6 +352,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   document.addEventListener('visibilitychange', onVis);
   const onKey = (e: KeyboardEvent) => {
     if (e.code === 'Space') { e.preventDefault(); setPaused(!play.paused); }
+    else if (e.key === 'Escape' && routing) { resetRoute(); toast('배출 위치 설정 취소'); }
     else if (e.key === 'Escape' && target.mode === 'selecting') { target = IDLE; act({ t: 'cancel' }); }
     else if (/^[1-6]$/.test(e.key)) { const s = skills[+e.key - 1]; if (s) { let a: TargetAction | null; [target, a] = onSkillButton(target, s, s.slot === 'ultimate'); act(a); } }
   };
@@ -393,6 +416,17 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       flood: play.phase === 'wave' || play.phase === 'defeat' ? baseFlood(world) / world.cfg.floodThreshold : 0,
       calm: play.phase === 'prepare' && world.wave > 0,
     });
+    // Discharge markers: outlined cyan circles distinguish destinations from pump sites.
+    for (const pump of world.pumps) {
+      const dest = pump.dischargeCell;
+      if (dest === undefined || dest < 0 || dest >= world.grid.w.length) continue;
+      const x = dest % world.grid.width, y = (dest / world.grid.width) | 0;
+      const cx = (x + 0.5) * canvas.width / world.grid.width;
+      const cy = (y + 0.5) * canvas.height / world.grid.height;
+      const radius = Math.max(4, canvas.width / world.grid.width * 1.8);
+      board.ctx.save(); board.ctx.strokeStyle = '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
+      board.ctx.beginPath(); board.ctx.arc(cx, cy, radius, 0, Math.PI * 2); board.ctx.stroke(); board.ctx.restore();
+    }
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });
     if (play.phase !== lastPhase) {
