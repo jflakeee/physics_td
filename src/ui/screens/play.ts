@@ -14,6 +14,7 @@ import { hitTest, toCell } from '../../input/hit.ts';
 import { IDLE, brightZones, onBoardSwipe, onBoardTap, onSkillButton } from '../../input/targeting.ts';
 import type { SkillView, TargetAction, TargetState } from '../../input/targeting.ts';
 import { baseFlood } from '../../sim/metrics.ts';
+import { findPipeRoute } from '../../sim/pipeRoute.ts';
 import { damageShares } from '../../sim/trace.ts';
 import { createHud } from '../widgets/hud.ts';
 import { expireToasts, pushToast } from '../widgets/toast.ts';
@@ -157,8 +158,10 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   // --- state
   let target: TargetState = IDLE;
   let routePump: number | null = null;
+  let routePreview: number[] | null = null;
+  let routePreviewCell = -1;
   let routing = false;
-  const resetRoute = () => { routing = false; routePump = null; routeBtn.setAttribute('aria-pressed', 'false'); };
+  const resetRoute = () => { routing = false; routePump = null; routePreview = null; routePreviewCell = -1; routeBtn.setAttribute('aria-pressed', 'false'); };
   const toasts: ToastQueue = { items: [] };
   const toast = (s: string) => { pushToast(toasts, s, performance.now()); renderToasts(); };
   const renderToasts = () => {
@@ -292,17 +295,33 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       if (routing) {
         if (routePump === null) {
           if (hit.t !== 'pump') { toast('배출할 펌프를 먼저 선택하세요'); return; }
-          routePump = hit.id; toast('배출 위치 터치 · 🚰 버튼 재선택 시 외부 배출'); return;
+          routePump = hit.id; routePreview = null; routePreviewCell = -1; toast('배출 위치 터치 · 🚰 버튼 재선택 시 외부 배출'); return;
         }
         if (!c) { toast('지도 안의 위치를 선택하세요'); return; }
-        send(play, { t: 'pumpDischarge', id: routePump, cell: c[1] * world.grid.width + c[0] });
+        const destination = c[1] * world.grid.width + c[0];
+        const pump = world.pumps[routePump];
+        const max = world.cfg.pumpDischargeMaxDistance;
+        const dx = (pump.cell % world.grid.width) - c[0];
+        const dy = Math.floor(pump.cell / world.grid.width) - c[1];
+        if (max > 0 && dx * dx + dy * dy > max * max) { toast(`배출 거리 초과 (최대 ${max}칸)`); return; }
+        const path = findPipeRoute(world.grid, pump.cell, destination);
+        if (!path) { toast('파이프 경로가 차단되어 있습니다'); return; }
+        send(play, { t: 'pumpDischarge', id: routePump, cell: destination });
         resetRoute(); return;
       }
       let a: TargetAction | null; [target, a] = onBoardTap(target, hit, skills, o.map.zones.zones); act(a);
     }
   };
   canvas.addEventListener('pointerdown', e => { if (gt.down(e.pointerId, e.clientX, e.clientY, e.timeStamp)) canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener('pointermove', e => gt.move(e.pointerId, e.clientX, e.clientY, e.timeStamp));
+  canvas.addEventListener('pointermove', e => {
+    gt.move(e.pointerId, e.clientX, e.clientY, e.timeStamp);
+    if (!routing || routePump === null) return;
+    const cell = cellOf(e.clientX, e.clientY);
+    const destination = cell ? cell[1] * world.grid.width + cell[0] : -1;
+    if (destination === routePreviewCell) return;
+    routePreviewCell = destination;
+    routePreview = destination >= 0 ? findPipeRoute(world.grid, world.pumps[routePump].cell, destination) : null;
+  });
   canvas.addEventListener('pointerup', e => handle(gt.up(e.pointerId, e.clientX, e.clientY, e.timeStamp)));
   canvas.addEventListener('pointercancel', () => gt.cancel());
 
@@ -420,6 +439,19 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       flood: play.phase === 'wave' || play.phase === 'defeat' ? baseFlood(world) / world.cfg.floodThreshold : 0,
       calm: play.phase === 'prepare' && world.wave > 0,
     });
+    // Preview is a visual planning aid; no pipe is built or charged here.
+    if (routing && routePump !== null && routePreview && routePreview.length > 1) {
+      const ctx = board.ctx, sx = canvas.width / world.grid.width, sy = canvas.height / world.grid.height;
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.strokeStyle = '#ffe081'; ctx.lineWidth = Math.max(2, sx * 0.5); ctx.setLineDash([Math.max(3, sx), Math.max(2, sx / 2)]);
+      ctx.beginPath();
+      routePreview.forEach((cell, i) => {
+        const x = (cell % world.grid.width + 0.5) * sx;
+        const y = (Math.floor(cell / world.grid.width) + 0.5) * sy;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke(); ctx.restore();
+    }
     // Discharge markers: outlined cyan circles distinguish destinations from pump sites.
     for (const pump of world.pumps) {
       const dest = pump.dischargeCell;
