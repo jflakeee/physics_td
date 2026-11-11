@@ -424,7 +424,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       const cx = (x + 0.5) * canvas.width / world.grid.width;
       const cy = (y + 0.5) * canvas.height / world.grid.height;
       const radius = Math.max(4, canvas.width / world.grid.width * 1.8);
-      board.ctx.save(); board.ctx.strokeStyle = '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
+      board.ctx.save(); board.ctx.setTransform(1, 0, 0, 1, 0, 0); board.ctx.strokeStyle = '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
       board.ctx.beginPath(); board.ctx.arc(cx, cy, radius, 0, Math.PI * 2); board.ctx.stroke(); board.ctx.restore();
     }
     const renderMs = performance.now() - r0;
