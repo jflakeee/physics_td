@@ -469,7 +469,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       const radius = Math.max(4, canvas.width / world.grid.width * 1.8);
       const full = world.grid.w[dest] >= (world.cfg.pumpDischargeCellCap ?? world.cfg.inletCellCap) - 1e-6;
       if (full && pump.on && !saturatedOutlets.has(pump.id)) toast('배출구 포화: 펌프의 물 이동이 막혔습니다');
-      if (full) saturatedOutlets.add(pump.id); else saturatedOutlets.delete(pump.id);
+      if (full && pump.on) saturatedOutlets.add(pump.id); else saturatedOutlets.delete(pump.id);
       board.ctx.save(); board.ctx.setTransform(1, 0, 0, 1, 0, 0); board.ctx.strokeStyle = full ? '#ff745e' : '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
       board.ctx.beginPath(); board.ctx.arc(cx, cy, radius, 0, Math.PI * 2); board.ctx.stroke(); board.ctx.restore();
     }
