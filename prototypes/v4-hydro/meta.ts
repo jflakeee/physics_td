@@ -22,6 +22,8 @@ export interface Meta {
   powerups: Record<PowerupId, number>;
   stages: Record<string, StageRecord>;
   stats: Stats;
+  /** Sound effects on (pause menu toggle). */
+  sound: boolean;
 }
 
 export function defaultMeta(): Meta {
@@ -30,6 +32,7 @@ export function defaultMeta(): Meta {
     powerups: { turbine: 0, purse: 0, builder: 0, heart: 0 },
     stages: Object.fromEntries(STAGES.map(s => [s.id, { cleared: false, bestHearts: 0, plays: 0 }])),
     stats: { runs: 0, wins: 0, losses: 0, power: 0, builds: 0, floodHearts: 0, blackoutHearts: 0, seconds: 0, bestLevel: 0, bestSeasons: 0 },
+    sound: true,
   };
 }
 
@@ -47,6 +50,7 @@ export function loadMeta(store: StorageLike | null): Meta {
       powerups: { ...d.powerups, ...(m.powerups ?? {}) },
       stages: { ...d.stages, ...(m.stages ?? {}) },
       stats: { ...d.stats, ...(m.stats ?? {}) },
+      sound: m.sound !== false,
     };
   } catch { return d; }
 }
