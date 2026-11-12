@@ -13,7 +13,9 @@ export const T = {
   plantWear: 1 / (30 * 25),
   repairCost: 30,
   /** Village demand in power per second (+demandGrow each second: the village grows); coins per second while met. */
-  demand: 2.4, demandGrow: 0.025, coinPerSec: 2,
+  demand: 2.4, demandGrow: 0.025,
+  /** Coins per second: each working wheel earns `coinPerWheel`; the village adds `coinVillage` while its demand is met. */
+  coinPerWheel: 1, coinVillage: 1,
   /** Seconds of blackout before a heart is lost. */
   blackoutSeconds: 8,
   /** Water in the village cells that costs a heart; at most one flood heart per cooldown. */
