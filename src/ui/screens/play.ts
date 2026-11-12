@@ -160,6 +160,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   let routePump: number | null = null;
   let routePreview: number[] | null = null;
   let routePreviewCell = -1;
+  const saturatedOutlets = new Set<number>();
   let routing = false;
   const resetRoute = () => { routing = false; routePump = null; routePreview = null; routePreviewCell = -1; routeBtn.setAttribute('aria-pressed', 'false'); };
   const toasts: ToastQueue = { items: [] };
@@ -284,7 +285,11 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const cellOf = (x: number, y: number) => toCell(canvas.getBoundingClientRect(), world.grid.width, world.grid.height, x, y);
   const handle = (g: Gesture | null) => {
     if (!g) return;
-    if (routing && g.t === 'swipe') return;
+    if (routing && g.t === 'swipe') {
+      // Dragging previews a route; a separate tap confirms the destination.
+      if (routePump !== null) toast('노란 경로를 확인한 뒤 목적지를 한 번 터치하세요');
+      return;
+    }
     if (g.t === 'swipe') {
       const cells: [number, number][] = [];
       for (const [x, y] of g.path) { const c = cellOf(x, y); if (c) cells.push(c); }
@@ -463,8 +468,14 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       const cy = (y + 0.5) * canvas.height / world.grid.height;
       const radius = Math.max(4, canvas.width / world.grid.width * 1.8);
       const full = world.grid.w[dest] >= (world.cfg.pumpDischargeCellCap ?? world.cfg.inletCellCap) - 1e-6;
+      if (full && pump.on && !saturatedOutlets.has(pump.id)) toast('배출구 포화: 펌프의 물 이동이 막혔습니다');
+      if (full) saturatedOutlets.add(pump.id); else saturatedOutlets.delete(pump.id);
       board.ctx.save(); board.ctx.setTransform(1, 0, 0, 1, 0, 0); board.ctx.strokeStyle = full ? '#ff745e' : '#58f0ff'; board.ctx.lineWidth = Math.max(2, radius / 3);
       board.ctx.beginPath(); board.ctx.arc(cx, cy, radius, 0, Math.PI * 2); board.ctx.stroke(); board.ctx.restore();
+    }
+    for (const id of saturatedOutlets) {
+      const pump = world.pumps[id];
+      if (!pump || pump.dischargeCell === undefined) saturatedOutlets.delete(id);
     }
     const renderMs = performance.now() - r0;
     writeHud({ hp: world.hp, cash: world.cash, wave: play.phase === 'prepare' ? world.wave + 1 : world.wave, waves: play.waves, level: play.level, flood: baseFlood(world), threshold: world.cfg.floodThreshold });
