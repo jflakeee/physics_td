@@ -401,12 +401,19 @@ export function tick(w: HydroWorld): void {
   w.xp += power; w.secPower += power; w.record.power += power;
   if ((w.tick + 1) % T.tps === 0) {
     w.lastSecPower = w.secPower;
-    // numbers over the wheels: the power each made this second, and the coins over the busiest wheel
-    let best: Plant | null = null;
-    for (const p of w.plants) { if (p.sec >= 0.5) w.gains.push({ cell: at(w.map.sites[p.site].x, w.map.sites[p.site].y), amount: Math.round(p.sec), what: 'power' }); if (!best || p.sec > best.sec) best = p; }
+    // each working wheel earns coins, so more wheels mean more coins; numbers pop up over the wheel:
+    // the power it made this second and, above that, the coins it earned
+    for (const p of w.plants) {
+      if (p.sec < 0.5) continue;
+      const st = w.map.sites[p.site];
+      w.gains.push({ cell: at(st.x, st.y), amount: Math.round(p.sec), what: 'power' });
+      w.coins += T.coinPerWheel;
+      w.gains.push({ cell: at(st.x, st.y - 3), amount: T.coinPerWheel, what: 'coins' });
+    }
+    // the village pays a little extra while it has all the power it needs
     if (w.secPower >= demand(w)) {
-      w.coins += T.coinPerSec; w.blackout = 0;
-      if (best && best.sec > 0) w.gains.push({ cell: at(w.map.sites[best.site].x, w.map.sites[best.site].y - 3), amount: T.coinPerSec, what: 'coins' });
+      w.coins += T.coinVillage; w.blackout = 0;
+      w.gains.push({ cell: at((w.map.village.x0 + w.map.village.x1) >> 1, w.map.village.y0 + 2), amount: T.coinVillage, what: 'coins' });
     } else if (++w.blackout >= T.blackoutSeconds) { w.blackout = 0; loseHeart(w, 'blackout'); }
     for (const p of w.plants) p.sec = 0;
     w.secPower = 0;

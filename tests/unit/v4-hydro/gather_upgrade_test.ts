@@ -93,8 +93,8 @@ test('each_second_a_working_wheel_reports_the_power_it_made_and_the_coins_earned
   const power = gains.filter(g => g.what === 'power'), coins = gains.filter(g => g.what === 'coins');
   assert.equal(power.length, 5, 'one number per second for the one wheel');
   assert.ok(Math.abs(power.reduce((a, g) => a + g.amount, 0) - xp) <= 3, 'the numbers add up to the power made (rounded)');
-  assert.equal(coins.length, 5);
-  assert.ok(coins.every(g => g.amount === T.coinPerSec));
+  assert.equal(coins.length, 10, 'each second: the wheel\'s coin and the village\'s');
+  assert.equal(coins.reduce((a, g) => a + g.amount, 0), 5 * (T.coinPerWheel + T.coinVillage));
 });
 
 test('a_saved_run_keeps_materials_levels_and_what_was_gathered', () => {
@@ -107,4 +107,18 @@ test('a_saved_run_keeps_materials_levels_and_what_was_gathered', () => {
   run(w, 20); run(back, 20);
   assert.deepEqual(back.nodes, w.nodes, 'the same things grow back');
   assert.equal(back.xp, w.xp);
+});
+
+test('coins_grow_with_the_number_of_working_wheels', () => {
+  // regression: income was a flat 2 a second however many wheels turned
+  const income = (extra: number[]) => {
+    const w = createHydro(1); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 }; w.hearts = 999;
+    for (const s of extra) placeBuilding(w, s);
+    start(w); run(w, 5);
+    const before = w.coins; run(w, 10);
+    return (w.coins - before) / 10;
+  };
+  assert.equal(income([]), T.coinPerWheel + T.coinVillage);
+  assert.equal(income([3, 4]), 3 * T.coinPerWheel + T.coinVillage);
+  assert.equal(income([0, 3, 4, 5]), 5 * T.coinPerWheel + T.coinVillage);
 });
