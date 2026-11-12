@@ -45,6 +45,7 @@ try {
     check('character select: the miller is open, two are locked', (await page.locator('.mrow.locked').count()) === 2);
     await page.locator('.mrow').first().tap();
     await page.waitForSelector('#app.play canvas');
+    await page.waitForSelector('.bar .go'); // 시작 is added on the first animation frame
     check('no build menu: the bottom bar holds only 시작', (await page.locator('.bar > button').count()) === 1 && (await page.locator('.bar .go').count()) === 1 && (await page.locator('.build, .tray').count()) === 0);
     const hudNums = (await page.locator('.top').innerText()).match(/\d+/g) ?? [];
     check('top bar numbers: level, coins, wood, stone', hudNums.length === 4, JSON.stringify(hudNums));
@@ -105,6 +106,8 @@ try {
     check('level-up shows 3 cards', (await page.locator('.center.level .card').count()) === 3);
     await page.screenshot({ path: `${OUT}/v4-levelup-${name}-${DATE}.png` });
     await page.locator('.center.level .card').first().tap();
+    const heard = await page.evaluate(() => __v4.sfx.log);
+    check('sounds are asked for: gather, build, upgrade, start, level-up, card', ['wood', 'stone', 'build', 'upgrade', 'start', 'levelup', 'card'].every(n => heard.includes(n)), JSON.stringify([...new Set(heard)]));
     check('a card gives a spirit at the first level-up', await page.evaluate(() => __v4.w.skill.sand + __v4.w.skill.ice === 1));
     await page.waitForTimeout(100);
     // to the thaw forecast
@@ -130,6 +133,13 @@ try {
     await page.evaluate(() => { const v = __v4; v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
     const t0 = await page.evaluate(() => __v4.w.tick);
     await page.locator('button.pause').tap();
+    check('pause menu: resume, speed, sound, main menu', (await page.locator('.center.pause .big').count()) === 4);
+    const snd = page.locator('.center.pause [role=switch]');
+    await snd.tap();
+    check('sound can be switched off and the choice is saved', (await snd.getAttribute('aria-checked')) === 'false' && await page.evaluate(() => JSON.parse(localStorage.getItem('physics-td:v4-meta')).sound === false));
+    await page.screenshot({ path: `${OUT}/v4-pause-${DATE}.png` });
+    await snd.tap();
+    check('and back on', (await snd.getAttribute('aria-checked')) === 'true');
     await page.locator('.center.pause .big.alt').last().tap();
     await page.waitForSelector('#app.title .cont');
     check('main menu offers 계속하기 after leaving a run', (await page.locator('.cont').innerText()).includes('계속하기'));
