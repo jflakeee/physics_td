@@ -47,7 +47,7 @@ try {
     await page.waitForSelector('#app.play canvas');
     check('no build menu: the bottom bar holds only 시작', (await page.locator('.bar > button').count()) === 1 && (await page.locator('.bar .go').count()) === 1 && (await page.locator('.build, .tray').count()) === 0);
     const hudNums = (await page.locator('.top').innerText()).match(/\d+/g) ?? [];
-    check('top bar shows only level and coins as numbers', hudNums.length === 2, JSON.stringify(hudNums));
+    check('top bar numbers: level, coins, wood, stone', hudNums.length === 4, JSON.stringify(hudNums));
     await page.screenshot({ path: `${OUT}/v4-spring-${name}-${DATE}.png` });
     check('play fits', ...await fits(page));
     // one pixel grid (docs/ART_DIRECTION_V4_PIXEL.md): 192×288 art px at a whole-number device scale
@@ -61,6 +61,18 @@ try {
     check('top-bar icons use the same pixel size as the board', px.icons.length > 0 && px.icons.every(v => Math.abs(v - px.k) < 0.01), JSON.stringify(px.icons));
     const emoji = await page.evaluate(() => (document.body.innerText.match(/\p{Extended_Pictographic}/gu) ?? []).filter(c => !'★☆↻→'.includes(c)));
     check('no emoji left on screen', emoji.length === 0, emoji.join(' '));
+    // tap a tree, then a rock: wood and stone go up and a number pops up there
+    const nodeXY = kind => page.evaluate(k => {
+      const v = __v4, cv = document.querySelector('canvas.art'), r = cv.getBoundingClientRect(), n = v.w.nodes.find(n => n.kind === k);
+      return [r.left + (((n.cell % 64) + 0.5) / 64) * r.width, r.top + ((Math.floor(n.cell / 64) - 0.7) / 96) * r.height];
+    }, kind);
+    await page.mouse.click(...await nodeXY('tree'));
+    check('tapping a tree gives wood', await page.evaluate(() => __v4.w.mats.wood === 2 && __v4.w.nodes.some(n => n.kind === null)), await page.locator('.top').innerText());
+    await page.mouse.click(...await nodeXY('rock'));
+    check('tapping a rock gives stone', await page.evaluate(() => __v4.w.mats.stone === 2));
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: `${OUT}/v4-gather-${name}-${DATE}.png` });
+    await page.mouse.click(...await nodeXY('tree'));
     // tap a circle on the river: it builds a wheel (each spot has one building)
     const target = await page.evaluate(() => {
       const v = __v4, cv = document.querySelector('canvas.art'), r = cv.getBoundingClientRect();
@@ -76,7 +88,12 @@ try {
     await page.mouse.click(target[0], target[1]);
     check('tapping a circle builds a wheel', await page.evaluate(() => __v4.w.plants.length === 2));
     check('a spot you cannot pay for does not build', await page.evaluate(() => { const v = __v4; const before = v.w.built.filter(Boolean).length; v.w.coins = 0; const r = v.placeBuilding(v.w, 6); return !r && v.w.built.filter(Boolean).length === before; }));
-    await page.evaluate(() => { __v4.w.coins = 80; });
+    // tap a standing wheel with enough wood and stone: it goes up a level
+    await page.evaluate(() => { __v4.w.coins = 80; __v4.w.mats = { wood: 4, stone: 2 }; });
+    await page.mouse.click(target[0], target[1]);
+    check('tapping a building upgrades it with wood and stone', await page.evaluate(() => Math.max(...__v4.w.lvl) === 2 && __v4.w.mats.wood === 0 && __v4.w.mats.stone === 0));
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: `${OUT}/v4-upgrade-${name}-${DATE}.png` });
     // start and run to the first level-up
     const before = await page.locator('canvas.art').boundingBox();
     await page.locator('.bar .go').tap();
@@ -172,7 +189,7 @@ try {
     await page.goto(BASE + `&play&stage=${stage}`);
     await page.waitForSelector('#app.play canvas.art');
     const info = await page.evaluate(([sec]) => {
-      const v = __v4; v.w.hearts = 99; v.w.coins = 1e6;
+      const v = __v4; v.w.hearts = 99; v.w.coins = 1e6; v.w.mats = { wood: 1e6, stone: 1e6 };
       for (const s of v.w.map.sites) if (s.build === 'wheel' && !v.w.built[s.id]) v.placeBuilding(v.w, s.id);
       v.start(v.w);
       const seen = new Set();
@@ -189,12 +206,24 @@ try {
     await page.screenshot({ path: `${OUT}/v4-${shot}-${DATE}.png` });
     await page.close();
   }
+  // numbers pop up over wheels while they earn
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; v.w.mats = { wood: 1e6, stone: 1e6 }; for (const s of [0, 3, 4]) v.placeBuilding(v.w, s); v.upgrade(v.w, 3); v.start(v.w); });
+    await page.locator('.bar .go').count();
+    await page.waitForFunction(() => __v4.w.tick > 45, null, { timeout: 8000 });
+    await page.screenshot({ path: `${OUT}/v4-numbers-${DATE}.png` });
+    check('wheels report what they earn each second', await page.evaluate(() => { const v = __v4; let n = 0; for (let k = 0; k < 30; k++) { v.tick(v.w); n += v.w.gains.length; } return n >= 4; }));
+    await page.close();
+  }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
     await page.goto(BASE + '&play');
     await page.waitForSelector('#app.play canvas.art');
-    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; for (const s of [0, 2, 3, 4]) v.placeBuilding(v.w, s, 'wheel'); v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
+    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; v.w.mats = { wood: 1e6, stone: 1e6 }; for (const s of [0, 2, 3, 4]) v.placeBuilding(v.w, s, 'wheel'); v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
     await page.waitForTimeout(200);
     await page.screenshot({ path: `${OUT}/v4-rapids-${DATE}.png` });
     const flooded = await page.evaluate(() => { const v = __v4; for (let k = 0; k < 30 * 240 && v.w.floodCooldown === 0 && v.w.phase !== 'won' && v.w.phase !== 'lost'; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } return v.w.floodCooldown > 0 && v.w.floodFrom >= 0; });

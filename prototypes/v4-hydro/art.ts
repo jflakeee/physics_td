@@ -1,4 +1,4 @@
-import { H, seasonAt, seconds, W, type HydroWorld, type MapDef } from './core.ts';
+import { H, seasonAt, seconds, W, type HydroWorld } from './core.ts';
 import type { Season } from './tuning.ts';
 import { rgbOf, SPRITES, type Sprite } from './sprites.ts';
 import { T } from './tuning.ts';
@@ -49,22 +49,6 @@ export function seasonMix(sec: number, SEASONS: Season[]): { a: number; b: numbe
 export const seasonKey = (sec: number, seasons: Season[]) => { const m = seasonMix(sec, seasons); return m.a * 100 + m.b * 10 + Math.round(m.f * 16); };
 
 /** Fixed tree spots: on the banks, away from the river, the village and the build spots. */
-const treeCache = new Map<string, readonly number[]>();
-export function treeSpots(m: MapDef): readonly number[] {
-  const hit = treeCache.get(m.id); if (hit) return hit;
-  const out: number[] = [], riverX = m.river, VILLAGE = m.village, SITES = m.sites;
-  for (let y = 3; y < H - 3; y += 2) for (let x = 2; x < W - 2; x++) {
-    if (hash(x * 7 + 3, y * 11 + 5) > 14) continue;
-    if (Math.abs(x - riverX(y)) < 8) continue;
-    if (x >= VILLAGE.x0 - 4 && x <= VILLAGE.x1 + 4 && y >= VILLAGE.y0 - 5 && y <= VILLAGE.y1 + 2) continue;
-    if (SITES.some(s => (s.x - x) ** 2 + (s.y - y) ** 2 < 36)) continue;
-    if (out.some(c => ((c % W) - x) ** 2 + (((c / W) | 0) - y) ** 2 < 16)) continue;
-    out.push(y * W + x);
-  }
-  treeCache.set(m.id, out);
-  return out;
-}
-
 /** Ground, river bed, village, walls, sandbags, seasonal grass — repaint when the terrain changes. */
 export function paintTerrain(a: ArtBuffers, w: HydroWorld): void {
   const g = w.g, t = a.terrain, mix = seasonMix(seconds(w), w.seasons);
@@ -196,17 +180,23 @@ export interface Overlay {
   floodArrow: number;
   /** Storm now: rain streaks over the whole map. */
   storm: boolean;
+  /** Sites that can be upgraded now (green arrow). */
+  canUpgrade: (site: number) => boolean;
+  /** Numbers floating up: art-pixel position, text, colour. */
+  popups: { x: number; y: number; text: string; rgb: readonly [number, number, number] }[];
 }
 
 /** Everything that sits on the water: village, sites, buildings, badges, spirits. */
 export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
   const rgba = a.rgba;
   // trees: each switches to the next season's look at its own moment during the change
-  const mix = seasonMix(seconds(w), w.seasons), TREE_SPOTS = treeSpots(w.map), VILLAGE = w.map.village, SITES = w.map.sites;
-  TREE_SPOTS.forEach((c, k) => {
-    const si = mix.f * TREE_SPOTS.length > ((k * 7) % TREE_SPOTS.length) ? mix.b : mix.a;
-    const tr = SPRITES.trees[si];
-    blit(rgba, tr, artOf(c % W) - (tr.w >> 1), artOf((c / W) | 0) - tr.h + 3);
+  const mix = seasonMix(seconds(w), w.seasons), VILLAGE = w.map.village, SITES = w.map.sites, N = w.nodes.length;
+  // things to gather: trees (seasonal; each switches at its own moment during the change), rocks, flowers, berry bushes
+  w.nodes.forEach((n, k) => {
+    if (!n.kind) return;
+    const si = mix.f * N > ((k * 7) % N) ? mix.b : mix.a;
+    const tr = n.kind === 'tree' ? SPRITES.trees[si] : n.kind === 'rock' ? SPRITES.rock : n.kind === 'flower' ? SPRITES.flower : SPRITES.bush;
+    blit(rgba, tr, artOf(n.cell % W) - (tr.w >> 1), artOf((n.cell / W) | 0) - tr.h + 3);
   });
   // village: houses on a grid, lights on when the demand was met. Flood water is drawn over the
   // lower half of a house again, so a flooded village looks flooded.
@@ -243,6 +233,11 @@ export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
       }
     } else if (k === 'reservoir') centred(rgba, SPRITES.gate, st.x, st.y);
     else if (k === 'wall') centred(rgba, SPRITES.stakes, st.x, st.y);
+    if (k) {
+      // level 2 and 3 show their number; a green arrow when wood and stone are enough to upgrade
+      if (w.lvl[st.id] > 1) drawText(rgba, artOf(st.x) - 16, artOf(st.y) - 5, String(w.lvl[st.id]), GOLD, 2);
+      if (o.canUpgrade(st.id)) blit(rgba, SPRITES.up, artOf(st.x) - 14, artOf(st.y) + 3 - (!o.reduced && ((o.frame >> 3) & 1) ? 1 : 0));
+    }
     else if (o.canBuild(st.id)) {
       const isRec = o.rec === st.id;
       const pulse = isRec && !o.reduced && ((o.frame >> 3) & 1) === 1;
@@ -267,4 +262,32 @@ export function paintSprites(a: ArtBuffers, w: HydroWorld, o: Overlay): void {
     const spirit = f.kind === 'sand' ? SPRITES.sandSpirit : f.kind === 'ice' ? SPRITES.iceSpirit : f.kind === 'rain' ? SPRITES.rainSpirit : SPRITES.sunSpirit;
     if (mid !== undefined) centred(rgba, spirit, (mid % W) + 5, ((mid / W) | 0) - 3);
   }
+  for (const p of o.popups) drawText(rgba, p.x, p.y, p.text, p.rgb, 2);
+}
+
+// ---- pixel digits (3×5) for numbers on the map -------------------------------------------
+const GOLD: readonly [number, number, number] = [255, 209, 102];
+const FONT: Record<string, string[]> = {
+  '0': ['111', '101', '101', '101', '111'], '1': ['010', '110', '010', '010', '111'], '2': ['111', '001', '111', '100', '111'],
+  '3': ['111', '001', '111', '001', '111'], '4': ['101', '101', '111', '001', '001'], '5': ['111', '100', '111', '001', '111'],
+  '6': ['111', '100', '111', '101', '111'], '7': ['111', '001', '010', '010', '010'], '8': ['111', '101', '111', '101', '111'],
+  '9': ['111', '101', '111', '001', '111'], '+': ['000', '010', '111', '010', '000'],
+};
+/** Draw digits and '+' at art pixel (x, y) = top-left, with a dark outline so they read on any ground. */
+export function drawText(rgba: Uint8ClampedArray, x: number, y: number, text: string, rgb: readonly [number, number, number], scale = 1): void {
+  for (let pass = 0; pass < 2; pass++) for (let k = 0; k < text.length; k++) {
+    const g = FONT[text[k]]; if (!g) continue;
+    for (let gy = 0; gy < 5; gy++) for (let gx = 0; gx < 3; gx++) {
+      if (g[gy][gx] !== '1') continue;
+      for (let sy = 0; sy < scale; sy++) for (let sx = 0; sx < scale; sx++) {
+        const px = x + (k * 4 + gx) * scale + sx, py = y + gy * scale + sy;
+        if (pass === 0) { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) put(rgba, px + dx, py + dy, 43, 29, 20); }
+        else put(rgba, px, py, rgb[0], rgb[1], rgb[2]);
+      }
+    }
+  }
+}
+function put(rgba: Uint8ClampedArray, x: number, y: number, r: number, g: number, b: number): void {
+  if (x < 0 || y < 0 || x >= AW || y >= AH) return;
+  const o = (y * AW + x) * 4; rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b;
 }

@@ -35,7 +35,7 @@ test('each_stage_has_its_own_valid_map', () => {
 
 test('more_working_wheels_lift_every_wheel', () => {
   const powerOf = (sites: number[]) => {
-    const w = createHydro(1); w.coins = 1e6;
+    const w = createHydro(1); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 };
     for (const s of sites) placeBuilding(w, s);
     start(w); run(w, 20);
     return w.plants.map(p => p.power);
@@ -102,7 +102,7 @@ test('a_storm_rains_on_the_whole_valley', () => {
 
 test('a_wall_does_not_funnel_water_on_the_land_into_the_village', () => {
   // regression: on map 2 a wall trapped overland water behind it and led it into the village
-  const w = createHydro(1, { stage: 1 }); w.coins = 1e6;
+  const w = createHydro(1, { stage: 1 }); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 };
   for (const s of w.map.sites) if (s.build !== 'reservoir' && !w.built[s.id]) placeBuilding(w, s.id);
   const wall = w.map.sites.find(s => s.build === 'wall')!;
   let tie = 0; for (let x = 0; x < W; x++) if (w.g.wall[(wall.y - 8) * W + x] > 0) tie++;

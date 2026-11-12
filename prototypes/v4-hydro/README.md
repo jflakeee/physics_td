@@ -63,6 +63,18 @@
     the village (map 2 lost only when a wall was built). Walls now tie back to high ground at
     their upstream end (L-shaped levee). A map with many rapids never floods; flood risk needs a
     gentle reach beside the village.
+- **Gathering, materials, upgrades, numbers (2026-11-12):**
+  - Trees, rocks, flowers and berry bushes stand on the banks; tap one to gather (tree → wood 2,
+    rock → stone 2, flower → coins 2, bush → coins 5). The spot stays empty for 14 s, then a tree,
+    rock, flower or bush grows back (weights 40 / 30 / 18 / 12, own dice so cards are unaffected).
+  - Buildings cost coins plus materials (wheel: wood 3; reservoir: stone 3; wall: wood 1, stone 2).
+    Tap a standing building to upgrade it with wood and stone (base × level, up to Lv 3): wheel
+    +25% power per level, reservoir 0.12 deeper, wall 0.2 higher. A green arrow marks buildings
+    you can upgrade; the level shows beside the building.
+  - Numbers pop up where something is gained: over each wheel the power it made that second
+    (blue) and the coins earned (yellow, over the busiest wheel), and over a gathered spot.
+  - Scripted balance with a bot that taps one thing a second — mixed build with upgrades: won
+    with 3 / 3 / 1 hearts; without upgrades stage 3 is lost.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

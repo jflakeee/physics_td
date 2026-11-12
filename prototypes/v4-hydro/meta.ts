@@ -114,11 +114,12 @@ export function snapshotRun(w: HydroWorld): string {
   const grid: Record<string, string> = {};
   for (const k of GRID_KEYS) grid[k] = b64((w.g as unknown as Record<string, ArrayBufferView>)[k]);
   return JSON.stringify({
-    v: 1, origin: w.origin, grid, rng: w.rng.state(), sandbags: [...w.sandbags],
+    v: 2, origin: w.origin, grid, rng: w.rng.state(), rng2: w.rng2.state(), sandbags: [...w.sandbags],
     s: {
       built: w.built, plants: w.plants, tick: w.tick, phase: w.phase, xp: w.xp, level: w.level, coins: w.coins, hearts: w.hearts,
       secPower: w.secPower, lastSecPower: w.lastSecPower, blackout: w.blackout, inflow: w.inflow, drained: w.drained,
       skill: w.skill, spiritTimer: w.spiritTimer, cards: w.cards, floodCooldown: w.floodCooldown, floodFrom: w.floodFrom, record: w.record,
+      nodes: w.nodes, mats: w.mats, lvl: w.lvl,
       wxKey: w.wxKey, jamTicks: w.jamTicks, endless: w.endless, extraSeasons: w.extraSeasons, bookedPower: w.bookedPower, bookedTicks: w.bookedTicks, totalSec: w.totalSec,
     },
     seasons: w.seasons.map(x => x.name),
@@ -129,7 +130,7 @@ export function restoreRun(raw: string | null): HydroWorld | null {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
-    if (d.v !== 1) return null;
+    if (d.v !== 2) return null; // older saves (before gathering and upgrades) are dropped
     const w = createHydro(d.origin.seed, d.origin.opt);
     for (const k of GRID_KEYS) {
       const dst = (w.g as unknown as Record<string, ArrayBufferView & { set(a: ArrayLike<number>): void; constructor: new (b: ArrayBuffer) => ArrayLike<number> }>)[k];
@@ -139,7 +140,7 @@ export function restoreRun(raw: string | null): HydroWorld | null {
     }
     Object.assign(w, d.s);
     if (Array.isArray(d.seasons)) w.seasons = d.seasons.map((n: string) => SEASON_BY_NAME[n]).filter(Boolean);
-    w.rng = createRng(d.rng);
+    w.rng = createRng(d.rng); w.rng2 = createRng(d.rng2);
     w.sandbags = new Map(d.sandbags);
     return w;
   } catch { return null; }

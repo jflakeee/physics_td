@@ -33,6 +33,18 @@ export const T = {
   sand: { every: [14, 12, 10, 8, 6], cells: [8, 10, 12, 14, 16], height: 0.45, seconds: 22 },
   ice: { every: [16, 14, 12, 10, 8], frac: [0.35, 0.42, 0.5, 0.58, 0.66], cells: [30, 40, 50, 60, 70], droughtMelt: 0.004 },
   iceMelt: 0.0008,
+  /** Gathering: what a tap on each thing gives; seconds until something grows back; what grows (weights). */
+  gather: { tree: { wood: 2, stone: 0, coins: 0 }, rock: { wood: 0, stone: 2, coins: 0 }, flower: { wood: 0, stone: 0, coins: 2 }, bush: { wood: 0, stone: 0, coins: 5 } },
+  respawnSeconds: 14,
+  respawnWeights: { tree: 40, rock: 30, flower: 18, bush: 12 },
+  /** Materials a building costs on top of its coins. */
+  mat: { wheel: { wood: 3, stone: 0 }, reservoir: { wood: 0, stone: 3 }, wall: { wood: 1, stone: 2 } },
+  /** Upgrades cost materials only: base × current level. Lv 2 and 3 add this much per level. */
+  upgrade: {
+    maxLevel: 3,
+    cost: { wheel: { wood: 4, stone: 2 }, reservoir: { wood: 2, stone: 4 }, wall: { wood: 2, stone: 3 } },
+    wheelPower: 0.25, reservoirDepth: 0.12, wallHeight: 0.2,
+  },
   /** Each extra working wheel makes every wheel this much better (shared grid). */
   synergy: 0.1,
   /** Disasters. Storm: rain on every cell (total per tick). Ice jam: for `seconds`, `frac` of the water

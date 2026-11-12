@@ -1,8 +1,9 @@
 import {
-  canBuild, chooseCard, continueEndless, cost, createHydro, demand, placeBuilding, recommendSteps, repair, seasonAt, seconds, start,
+  canBuild, canUpgrade, chooseCard, continueEndless, createHydro, demand, gather, lacking, placeBuilding, recommendSteps, repair, seasonAt, seconds, start,
+  upgrade, upgradeCost, type Gain,
   tick, W, H, waiting, weatherAt, xpNeed, type BuildKind, type CardId, type CharId, type HydroWorld, type PowerupId,
 } from './core.ts';
-import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, seasonKey } from './art.ts';
+import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, S as ART, seasonKey } from './art.ts';
 import { rgbOf, sprite, type SpriteName } from './sprites.ts';
 import { CHARS, POWERUPS, STAGES, T } from './tuning.ts';
 import { buyPowerup, clearRun, finishRun, loadMeta, loadRun, openStages, runOptions, saveMeta, saveRun, type StorageLike } from './meta.ts';
@@ -15,7 +16,9 @@ import { buyPowerup, clearRun, finishRun, loadMeta, loadRun, openStages, runOpti
 
 const STR = {
   title: '강가 발전소', lead: '강물로 전기를 만들어 마을을 밝혀요',
-  start: '시작', ready: '동그라미를 누르면 지어요 · 별은 지금 좋은 곳', noCoins: '코인이 모자라요', repaired: '고쳤어요!',
+  start: '시작', ready: '나무·돌을 눌러 모으고, 동그라미를 눌러 지어요', noCoins: '코인이 모자라요', repaired: '고쳤어요!',
+  need: '더 필요해요', upgraded: '더 좋아졌어요!', upNeed: '업그레이드에 필요', maxLevel: '가장 좋은 단계예요',
+  matName: { coins: '코인', wood: '나무', stone: '돌' } as Record<'coins' | 'wood' | 'stone', string>,
   built: { wheel: '물레방아를 지었어요!', reservoir: '저수지를 팠어요!', wall: '둑을 쌓았어요!' } as Record<BuildKind, string>,
   levelUp: '레벨 업!', won: '두 계절을 버텼어요!', lost: '마을이 버티지 못했어요',
   lostBlackout: '정전! 물레방아를 더 지어요', lostFlood: '마을이 잠겼어요! 둑을 쌓아요',
@@ -200,7 +203,7 @@ function showRecords(): void {
 
 function showPlay(w: HydroWorld): void {
   stop?.();
-  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding, saveRun: () => saveRun(store, w) };
+  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding, upgrade, gather, saveRun: () => saveRun(store, w) };
   app.className = 'play'; app.textContent = '';
   const maxHearts = T.hearts + (w.origin.opt.powerups?.heart ?? 0);
   // the run in progress is saved every 10 s and when the app is hidden (계속하기 on the main menu)
@@ -213,16 +216,19 @@ function showPlay(w: HydroWorld): void {
   const top = el('header', 'top');
   const lv = el('span', 'lv'), xp = el('div', 'meter xp'), xpFill = el('i'); xp.append(xpFill);
   const coins = el('span', 'coins'), coinNum = el('b');
+  const wood = el('span', 'coins'), woodNum = el('b'), stone = el('span', 'coins'), stoneNum = el('b');
+  wood.append(icon('log'), woodNum); stone.append(icon('stone'), stoneNum);
+  wood.setAttribute('aria-label', '나무'); stone.setAttribute('aria-label', '돌');
   coins.append(icon('coin'), coinNum);
   const hearts = el('span', 'hearts');
-  const row1 = el('div', 'row'); row1.append(lv, xp, coins, hearts);
+  const row1 = el('div', 'row'); row1.append(lv, xp, coins, wood, stone);
   const wx = el('div', 'wx'), wxSeason = el('span', 'season'), wxNow = el('span', 'now'), wxNext = el('span', 'next'), wxBar = el('div', 'meter soon'), wxFill = el('i');
   wxBar.append(wxFill); wx.append(wxSeason, wxNow, wxNext, wxBar);
   const town = el('div', 'town'), townBar = el('div', 'meter power'), townFill = el('i');
   townBar.append(townFill); town.append(icon('house'), townBar);
   town.setAttribute('aria-label', '마을 전기');
   const pause = el('button', 'pause', 'Ⅱ'); pause.setAttribute('aria-label', STR.paused);
-  const row2 = el('div', 'row'); row2.append(wx, town, pause);
+  const row2 = el('div', 'row'); row2.append(wx, hearts, town, pause);
   top.append(row1, row2);
 
   const wrap = el('div', 'board'), cv = el('canvas', 'art'), toast = el('div', 'toast'), center = el('div', 'center');
@@ -234,6 +240,8 @@ function showPlay(w: HydroWorld): void {
 
   let rec: number | null = null;
   let speed = 1, paused = false, terrainDirty = true;
+  const popups: { x: number; y: number; text: string; rgb: readonly [number, number, number]; born: number }[] = [];
+  let frameNow = 0;
   const flashes: { cells: number[]; kind: 'sand' | 'ice' | 'rain' | 'sun'; until: number }[] = [];
 
   const say = (t: string, ic: SpriteName | null = null, ms = 1800) => {
@@ -277,7 +285,8 @@ function showPlay(w: HydroWorld): void {
 
   const draw = (frame: number) => {
     if (seasonKey(seconds(w), w.seasons) !== shownSeason) { shownSeason = seasonKey(seconds(w), w.seasons); terrainDirty = true; }
-    if (!needDraw && rec === null && !flashes.length && !terrainDirty) return;
+    for (let k = popups.length - 1; k >= 0; k--) if (frame > popups[k].born + 40) popups.splice(k, 1);
+    if (!needDraw && rec === null && !flashes.length && !terrainDirty && !popups.length) return;
     needDraw = false;
     // repaint the ground only when it changes (building, spirits, a sandbag expiring)
     if (terrainDirty || w.sandbags.size !== shownBags) { paintTerrain(art, w); terrainDirty = false; shownBags = w.sandbags.size; }
@@ -287,26 +296,52 @@ function showPlay(w: HydroWorld): void {
       rec: rec !== null && canBuild(w, rec) ? rec : null, canBuild: st => canBuild(w, st), waiting: st => waiting(w, st), frame, reduced,
       lit: w.lastSecPower >= demand(w) || w.tick < T.tps, flashes,
       floodArrow: w.floodCooldown > 0 ? w.floodFrom : -1,
+      canUpgrade: st => canUpgrade(w, st),
+      popups: popups.map(p => ({ x: p.x, y: p.y - Math.floor((frame - p.born) / 3), text: p.text, rgb: p.rgb })),
       storm: w.phase === 'run' && weatherAt(Math.min(seconds(w), w.totalSec - 1e-6), w.seasons).now.kind === 'storm',
     });
     ctx.putImageData(frameImg, 0, 0);
   };
 
   // ---- input: tap a site (sites are in cell coordinates)
+  // numbers that float up where something was gained
+  const POP: Record<Gain['what'], readonly [number, number, number]> = { power: [125, 226, 255], coins: [255, 209, 102], wood: [215, 155, 82], stone: [195, 204, 211] };
+  const pop = (g: Gain) => {
+    const text = '+' + g.amount, cx = (g.cell % W) * ART + 1, cy = ((g.cell / W) | 0) * ART + 1;
+    popups.push({ x: Math.max(1, Math.min(AW - text.length * 8 - 1, cx - text.length * 4)), y: Math.max(14, cy - 18), text, rgb: POP[g.what], born: frameNow });
+    if (popups.length > 40) popups.shift();
+    needDraw = true;
+  };
+  const needText = (n: { coins?: number; wood: number; stone: number }) => (['coins', 'wood', 'stone'] as const).filter(k => (n[k] ?? 0) > 0).map(k => `${STR.matName[k]} ${n[k]}`).join(' · ');
+
+  // ---- input: tap a build spot, a building (upgrade / repair), or a tree, rock, flower, bush (gather)
   cv.addEventListener('click', e => {
     const r = cv.getBoundingClientRect();
     const gx = ((e.clientX - r.left) / r.width) * W, gy = ((e.clientY - r.top) / r.height) * H;
-    let best = -1, bd = 25;
+    let best = -1, bd = 12;
     for (const st of w.map.sites) { const d = (st.x - gx) ** 2 + (st.y - gy) ** 2; if (d < bd) { bd = d; best = st.id; } }
-    if (best < 0) return;
+    if (best < 0) {
+      // gatherables are drawn standing on their cell, so aim a little above it
+      let node = -1, nd = 9;
+      w.nodes.forEach((n, k) => { if (!n.kind) return; const d = ((n.cell % W) - gx) ** 2 + (((n.cell / W) | 0) - 1.2 - gy) ** 2; if (d < nd) { nd = d; node = k; } });
+      if (node < 0) return;
+      const g = gather(w, node);
+      if (g) { pop(g); buzz(10); }
+      return;
+    }
     const st = w.map.sites[best];
     if (!w.built[best]) {
       if (placeBuilding(w, best)) { const nw = w.plants.length; say(st.build === 'wheel' && nw > 1 ? `${STR.grid} ${nw}개 · 전기 +${Math.round(T.synergy * (nw - 1) * 100)}%` : STR.built[st.build], B[st.build]); buzz(15); terrainDirty = true; needDraw = true; rec = null; }
-      else if (w.phase !== 'won' && w.phase !== 'lost') { say(`${STR.noCoins} · ${cost(w, st.build)}`, 'coin'); buzz(30); }
+      else if (w.phase !== 'won' && w.phase !== 'lost') { const n = lacking(w, best); say(`${needText(n)} ${STR.need}`, n.coins ? 'coin' : n.wood ? 'log' : 'stone'); buzz(30); }
       return;
     }
     const p = w.plants.find(pp => pp.site === best);
-    if (p && p.hp <= 0) { if (repair(w, best)) { say(STR.repaired, 'wheel0'); buzz(15); } else say(STR.noCoins, 'coin'); }
+    if (p && p.hp <= 0) { if (repair(w, best)) { say(STR.repaired, 'wheel0'); buzz(15); } else say(STR.noCoins, 'coin'); return; }
+    // a standing building: upgrade it with wood and stone
+    const c = upgradeCost(w, best);
+    if (!c) { say(STR.maxLevel, B[st.build]); return; }
+    if (upgrade(w, best)) { say(`${STR.built[st.build].split(/[를을]/)[0]} ★${w.lvl[best]} ${STR.upgraded}`, 'up'); buzz(15); terrainDirty = true; needDraw = true; }
+    else { say(`${STR.upNeed}: ${needText(c)}`, 'up'); buzz(30); }
   });
 
   // ---- overlays
@@ -373,7 +408,7 @@ function showPlay(w: HydroWorld): void {
   const hud = () => {
     lv.textContent = `Lv ${w.level}`;
     xpFill.style.width = `${Math.min(100, (100 * w.xp) / xpNeed(w.level))}%`;
-    coinNum.textContent = String(w.coins);
+    coinNum.textContent = String(w.coins); woodNum.textContent = String(w.mats.wood); stoneNum.textContent = String(w.mats.stone);
     if (shownHearts !== w.hearts) {
       shownHearts = w.hearts; hearts.textContent = '';
       for (let k = 0; k < maxHearts; k++) hearts.append(icon(k < w.hearts ? 'heart' : 'heartEmpty'));
@@ -405,6 +440,7 @@ function showPlay(w: HydroWorld): void {
       let n = 0;
       while (acc >= 1 && n++ < 8 && w.phase === 'run') {
         tick(w); acc -= 1; needDraw = true;
+        for (const g of w.gains) pop(g);
         if (w.events.spirit) { flashes.push({ cells: w.events.spirit.cells, kind: w.events.spirit.kind, until: frame + 40 }); terrainDirty = true; }
         if (w.events.disaster) {
           const d = w.events.disaster;
@@ -426,7 +462,7 @@ function showPlay(w: HydroWorld): void {
     if (w.phase !== 'ready' && bar.isConnected) bar.remove();
     stepRecommendation(now);
     if (now - lastSave > 10000) { lastSave = now; autosave(); }
-    hud(); draw(frame++);
+    hud(); frameNow = frame; draw(frame++);
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
