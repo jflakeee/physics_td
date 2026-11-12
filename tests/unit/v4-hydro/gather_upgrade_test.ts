@@ -122,3 +122,50 @@ test('coins_grow_with_the_number_of_working_wheels', () => {
   assert.equal(income([3, 4]), 3 * T.coinPerWheel + T.coinVillage);
   assert.equal(income([0, 3, 4, 5]), 5 * T.coinPerWheel + T.coinVillage);
 });
+
+test('rapid repeated taps cannot collect one node twice', () => {
+  const w = createHydro(1);
+  const i = first(w, 'tree');
+  const before = { ...w.mats }, count = w.record.gathered;
+  assert.ok(gather(w, i));
+  assert.equal(gather(w, i), null);
+  assert.equal(gather(w, i), null);
+  assert.equal(w.mats.wood, before.wood + T.gather.tree.wood);
+  assert.equal(w.mats.stone, before.stone);
+  assert.equal(w.record.gathered, count + 1);
+});
+
+test('rapid repeated building taps cannot spend or construct twice', () => {
+  const w = createHydro(1);
+  w.coins = 1000; w.mats = { wood: 100, stone: 100 };
+  const id = site(w, 'wall');
+  assert.equal(placeBuilding(w, id), true);
+  const after = { coins: w.coins, mats: { ...w.mats }, count: w.record.builds };
+  assert.equal(placeBuilding(w, id), false);
+  assert.deepEqual({ coins: w.coins, mats: w.mats, count: w.record.builds }, after);
+});
+
+test('saving after gathering prevents collecting the same empty node again', () => {
+  const w = createHydro(1);
+  const i = first(w, 'rock');
+  assert.ok(gather(w, i));
+  const back = restoreRun(snapshotRun(w))!;
+  const before = { ...back.mats }, count = back.record.gathered;
+  assert.equal(gather(back, i), null);
+  assert.deepEqual(back.mats, before);
+  assert.equal(back.record.gathered, count);
+});
+
+test('saved run preserves coin income and wheel count across the next second', () => {
+  const w = createHydro(1);
+  w.coins = 1000; w.mats = { wood: 100, stone: 100 }; w.hearts = 999;
+  placeBuilding(w, site(w, 'wheel'));
+  start(w);
+  run(w, 5);
+  const back = restoreRun(snapshotRun(w))!;
+  assert.equal(back.coins, w.coins);
+  assert.equal(back.plants.length, w.plants.length);
+  run(w, 1); run(back, 1);
+  assert.equal(back.coins, w.coins);
+  assert.equal(back.lastSecPower, w.lastSecPower);
+});
