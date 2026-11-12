@@ -1,13 +1,20 @@
 // node prototypes/v4-hydro/calibrate.ts — scripted runs, observations only.
-import { balance, chooseCard, createHydro, recommend, placeBuilding, seconds, start, tick, weatherAt, xpNeed, canBuild, type BuildKind, type HydroWorld } from './core.ts';
+import { gather, upgrade, balance, chooseCard, createHydro, recommend, placeBuilding, seconds, start, tick, weatherAt, xpNeed, canBuild, type BuildKind, type HydroWorld } from './core.ts';
 
 type Plan = (w: HydroWorld) => void;
+const gatherBot = !process.argv.includes('--no-gather');
 function run(name: string, plan: Plan, log = false, stage = 0) {
   const w = createHydro(1, { stage, unlocked: stage > 0 ? ['rain'] : [], char: 'miller' });
   start(w);
   let lastSec = -1, minPow = 1e9, maxPow = 0;
   while (w.phase !== 'won' && w.phase !== 'lost') {
     if (w.phase === 'levelup') chooseCard(w, w.cards[0]);
+    // a player who taps one thing a second: whichever material is lower, else anything
+    if (gatherBot && w.tick % 30 === 0) {
+      const want = w.mats.wood <= w.mats.stone ? 'tree' : 'rock';
+      let k = w.nodes.findIndex(n => n.kind === want); if (k < 0) k = w.nodes.findIndex(n => n.kind);
+      if (k >= 0) gather(w, k);
+    }
     plan(w);
     tick(w);
     const s = Math.floor(seconds(w));
@@ -17,7 +24,7 @@ function run(name: string, plan: Plan, log = false, stage = 0) {
       if (log && s % 10 === 0) console.log(`  t${String(s).padStart(3)} mul ${weatherAt(s, w.seasons).mul.toFixed(2)} pow/s ${w.lastSecPower.toFixed(1)} Lv${w.level} coins ${w.coins} ♥${w.hearts} plants ${w.plants.map(p => `${p.hp.toFixed(1)}/${p.drown.toFixed(1)}`).join(' ')}`);
     }
   }
-  console.log(name.padEnd(28), w.phase, `t${seconds(w).toFixed(0)} Lv${w.level} ♥${w.hearts} coins ${w.coins} plants ${w.plants.length} pow/s ${minPow.toFixed(1)}..${maxPow.toFixed(1)} bal ${balance(w).toExponential(1)}`);
+  console.log(name.padEnd(28), w.phase, `t${seconds(w).toFixed(0)} Lv${w.level} ♥${w.hearts} coins ${w.coins} plants ${w.plants.length} pow/s ${minPow.toFixed(1)}..${maxPow.toFixed(1)} bal ${balance(w).toExponential(1)} mats ${w.mats.wood}/${w.mats.stone} flood♥${w.record.floodHearts} dark♥${w.record.blackoutHearts} built ${w.built.map((b, i) => b ? i : "").filter(x => x !== "").join(",")}`);
 }
 const buildWhenRich = (order: BuildKind[]): Plan => { let k = 0; return w => {
   if (k >= order.length) return;
@@ -30,5 +37,7 @@ for (const stage of [0, 1, 2]) {
   run('nothing', () => {}, false, stage);
   run('wheels only', buildWhenRich(['wheel', 'wheel', 'wheel', 'wheel']), false, stage);
   run('wheel+res+wall mix', buildWhenRich(['wheel', 'reservoir', 'wheel', 'wall', 'reservoir', 'wheel', 'wall']), false, stage);
+  const mix = buildWhenRich(['wheel', 'reservoir', 'wheel', 'wall', 'reservoir', 'wheel', 'wall']);
+  run('mix + upgrades', w => { mix(w); if (w.tick % 30 === 15) for (const st of w.map.sites) if (st.build !== 'wheel' ? upgrade(w, st.id) : false) break; if (w.tick % 30 === 20) for (const st of w.map.sites) if (upgrade(w, st.id)) break; }, false, stage);
 }
 console.log('xp need L1..6', [1, 2, 3, 4, 5, 6].map(xpNeed).join(' '));

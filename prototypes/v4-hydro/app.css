@@ -100,3 +100,16 @@ button:disabled { opacity: .45; }
 .stats th, .stats td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #ffffff14; }
 .stats td { text-align: right; color: var(--sun); }
 .card.bonus { cursor: default; box-shadow: 0 5px 0 #c9a45a, 0 0 0 3px var(--sun); }
+
+/* result screen: compact so 계속하기 / 다음 스테이지 / 메인으로 fit a small phone; scrolls if still too tall */
+.center.won, .center.lost { justify-content: safe center; overflow-y: auto; gap: 10px; }
+.center.won h2, .center.lost h2 { font-size: 24px; }
+.card.bonus { min-height: 0; padding: 8px 12px; grid-template-columns: 44px 1fr; }
+.card.bonus b { font-size: 16px; }
+.btnrow { display: grid; align-items: center; gap: 8px; width: min(100%, 380px); }
+.btnrow.three { grid-template-columns: 1fr 2fr 1fr; }
+.btnrow.two { grid-template-columns: 2fr 1fr; }
+.btnrow .big { min-width: 0; min-height: 52px; font-size: 15px; padding: 0 6px; gap: 6px; white-space: nowrap; }
+/* the main way on: middle, biggest, green */
+.btnrow .big.primary { min-height: 76px; font-size: 19px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
+.center.won > .big, .center.lost > .big { width: min(100%, 320px); min-width: 0; }

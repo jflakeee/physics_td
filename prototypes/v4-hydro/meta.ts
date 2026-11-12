@@ -1,7 +1,7 @@
 import type { SimGrid } from '../../src/core/types.ts';
 import { createHydro, type CardId, type CharId, type HydroWorld, type PowerupId } from './core.ts';
 import { createRng } from '../../src/core/rng.ts';
-import { GEMS, POWERUPS, STAGES } from './tuning.ts';
+import { GEMS, POWERUPS, SEASON_BY_NAME, STAGES } from './tuning.ts';
 
 /**
  * Progress kept between runs (survivors-like main menu): gems, power-ups, characters, bonus skills,
@@ -13,7 +13,7 @@ export const META_KEY = 'physics-td:v4-meta';
 export const RUN_KEY = 'physics-td:v4-run';
 
 export interface StageRecord { cleared: boolean; bestHearts: number; plays: number }
-export interface Stats { runs: number; wins: number; losses: number; power: number; builds: number; floodHearts: number; blackoutHearts: number; seconds: number; bestLevel: number }
+export interface Stats { runs: number; wins: number; losses: number; power: number; builds: number; floodHearts: number; blackoutHearts: number; seconds: number; bestLevel: number; bestSeasons: number }
 export interface Meta {
   v: 1;
   gems: number;
@@ -29,7 +29,7 @@ export function defaultMeta(): Meta {
     v: 1, gems: 0, chars: ['miller'], skills: [],
     powerups: { turbine: 0, purse: 0, builder: 0, heart: 0 },
     stages: Object.fromEntries(STAGES.map(s => [s.id, { cleared: false, bestHearts: 0, plays: 0 }])),
-    stats: { runs: 0, wins: 0, losses: 0, power: 0, builds: 0, floodHearts: 0, blackoutHearts: 0, seconds: 0, bestLevel: 0 },
+    stats: { runs: 0, wins: 0, losses: 0, power: 0, builds: 0, floodHearts: 0, blackoutHearts: 0, seconds: 0, bestLevel: 0, bestSeasons: 0 },
   };
 }
 
@@ -59,10 +59,24 @@ export function openStages(m: Meta): number { let n = 1; while (n < STAGES.lengt
 export const runOptions = (m: Meta, stage: number, char: CharId) => ({ stage, char, powerups: { ...m.powerups }, unlocked: [...m.skills] });
 
 export interface RunResult { gems: number; newSkill: CardId | null; newChar: CharId | null; firstClear: boolean }
-/** Book a finished run (won or lost): gems, records, stats, first-clear unlocks. */
+/**
+ * Book a finished run (won or lost): gems, records, stats, first-clear unlocks.
+ * An endless run that started after a clear was booked at the clear; when it ends only the extra
+ * power is paid and it is not counted again as a run (nor as a loss).
+ */
 export function finishRun(m: Meta, w: HydroWorld): RunResult {
+  if (w.endless) {
+    const extra = Math.max(0, w.record.power - w.bookedPower), gems = Math.floor(extra / GEMS.perPower) + w.extraSeasons * GEMS.perStar;
+    w.bookedPower = w.record.power;
+    m.gems += gems;
+    m.stats.power += Math.round(extra); m.stats.bestLevel = Math.max(m.stats.bestLevel, w.level);
+    m.stats.seconds += Math.round(w.tick / 30) - Math.round(w.bookedTicks / 30); w.bookedTicks = w.tick;
+    m.stats.bestSeasons = Math.max(m.stats.bestSeasons ?? 0, w.seasons.length - 1);
+    return { gems, newSkill: null, newChar: null, firstClear: false };
+  }
   const won = w.phase === 'won', st = STAGES[w.stage], rec = m.stages[st.id] ?? { cleared: false, bestHearts: 0, plays: 0 };
   const gems = Math.floor(w.record.power / GEMS.perPower) + (won ? Math.max(0, w.hearts) * GEMS.perStar : 0);
+  w.bookedPower = w.record.power; w.bookedTicks = w.tick;
   const firstClear = won && !rec.cleared;
   rec.plays++;
   if (won) { rec.cleared = true; rec.bestHearts = Math.max(rec.bestHearts, w.hearts); }
@@ -100,12 +114,15 @@ export function snapshotRun(w: HydroWorld): string {
   const grid: Record<string, string> = {};
   for (const k of GRID_KEYS) grid[k] = b64((w.g as unknown as Record<string, ArrayBufferView>)[k]);
   return JSON.stringify({
-    v: 1, origin: w.origin, grid, rng: w.rng.state(), sandbags: [...w.sandbags],
+    v: 2, origin: w.origin, grid, rng: w.rng.state(), rng2: w.rng2.state(), sandbags: [...w.sandbags],
     s: {
       built: w.built, plants: w.plants, tick: w.tick, phase: w.phase, xp: w.xp, level: w.level, coins: w.coins, hearts: w.hearts,
       secPower: w.secPower, lastSecPower: w.lastSecPower, blackout: w.blackout, inflow: w.inflow, drained: w.drained,
       skill: w.skill, spiritTimer: w.spiritTimer, cards: w.cards, floodCooldown: w.floodCooldown, floodFrom: w.floodFrom, record: w.record,
+      nodes: w.nodes, mats: w.mats, lvl: w.lvl,
+      wxKey: w.wxKey, jamTicks: w.jamTicks, endless: w.endless, extraSeasons: w.extraSeasons, bookedPower: w.bookedPower, bookedTicks: w.bookedTicks, totalSec: w.totalSec,
     },
+    seasons: w.seasons.map(x => x.name),
   });
 }
 /** Rebuild a saved run, or null if the data is missing or broken. */
@@ -113,7 +130,7 @@ export function restoreRun(raw: string | null): HydroWorld | null {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
-    if (d.v !== 1) return null;
+    if (d.v !== 2) return null; // older saves (before gathering and upgrades) are dropped
     const w = createHydro(d.origin.seed, d.origin.opt);
     for (const k of GRID_KEYS) {
       const dst = (w.g as unknown as Record<string, ArrayBufferView & { set(a: ArrayLike<number>): void; constructor: new (b: ArrayBuffer) => ArrayLike<number> }>)[k];
@@ -122,7 +139,8 @@ export function restoreRun(raw: string | null): HydroWorld | null {
       dst.set(src);
     }
     Object.assign(w, d.s);
-    w.rng = createRng(d.rng);
+    if (Array.isArray(d.seasons)) w.seasons = d.seasons.map((n: string) => SEASON_BY_NAME[n]).filter(Boolean);
+    w.rng = createRng(d.rng); w.rng2 = createRng(d.rng2);
     w.sandbags = new Map(d.sandbags);
     return w;
   } catch { return null; }

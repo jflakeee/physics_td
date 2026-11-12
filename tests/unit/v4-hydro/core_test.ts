@@ -11,7 +11,7 @@ const runTicks = (w: HydroWorld, n: number) => { for (let k = 0; k < n && w.phas
 const riverSite = (y: number) => SITES.find(s => s.kind === 'river' && s.y === y)!.id;
 
 test('water_is_conserved_with_plants_reservoirs_walls_and_ice', () => {
-  const w = createHydro(1); w.coins = 1e6;
+  const w = createHydro(1); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 };
   placeBuilding(w, riverSite(60), 'wheel');
   placeBuilding(w, SITES.find(s => s.kind === 'bank')!.id, 'reservoir');
   placeBuilding(w, SITES.filter(s => s.kind === 'bank')[3].id, 'wall');
@@ -38,7 +38,7 @@ test('a_plant_makes_power_only_while_water_flows_through_it', () => {
 test('more_inflow_gives_more_power_until_the_turbine_drowns', () => {
   // a wheel on a gentle reach (row 40): slow water there runs deep in a flood
   const at = (mul: number) => {
-    const w = createHydro(1); w.coins = 1e6;
+    const w = createHydro(1); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 };
     placeBuilding(w, riverSite(40), 'wheel');
     const base = T.baseInflow;
     (T as { baseInflow: number }).baseInflow = base * mul;
@@ -52,7 +52,7 @@ test('more_inflow_gives_more_power_until_the_turbine_drowns', () => {
 });
 
 test('a_reservoir_fills_in_high_water_and_gives_it_back_when_the_river_falls', () => {
-  const w = createHydro(1); w.coins = 1e6;
+  const w = createHydro(1); w.coins = 1e6; w.mats = { wood: 1e6, stone: 1e6 };
   const site = SITES.find(s => s.kind === 'bank' && s.y === 18)!;
   placeBuilding(w, site.id, 'reservoir');
   const stored = () => { let s = 0; for (let y = site.y - 4; y <= site.y + 4; y++) for (let x = site.x - 4; x <= site.x + 4; x++) s += w.g.w[y * W + x]; return s; };
@@ -81,8 +81,11 @@ test('building_rules_sites_and_costs', () => {
   assert.equal(canBuild(w, bank, 'wheel'), false);
   assert.equal(canBuild(w, riverSite(60), 'wall'), false);
   assert.equal(canBuild(w, riverSite(27), 'wheel'), false, 'occupied by the starting wheel');
+  assert.equal(placeBuilding(w, riverSite(60), 'wheel'), false, 'needs wood too');
+  w.mats.wood = T.mat.wheel.wood;
   assert.ok(placeBuilding(w, riverSite(60), 'wheel'));
   assert.equal(w.coins, T.startCoins - T.cost.wheel);
+  assert.equal(w.mats.wood, 0);
   assert.equal(placeBuilding(w, bank, 'reservoir'), false, 'not enough coins');
   w.skill.cheap = 2;
   assert.equal(cost(w, 'wall'), Math.round(T.cost.wall * 0.7));
