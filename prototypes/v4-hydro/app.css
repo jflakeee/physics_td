@@ -113,3 +113,7 @@ button:disabled { opacity: .45; }
 /* the main way on: middle, biggest, green */
 .btnrow .big.primary { min-height: 76px; font-size: 19px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
 .center.won > .big, .center.lost > .big { width: min(100%, 320px); min-width: 0; }
+
+/* evolution card: gold frame so it stands out from the other two */
+.card.evo { background: #fff2c2; box-shadow: 0 5px 0 #c9a45a, 0 0 0 3px var(--sun); }
+.mrow.evo { background: #fff2c2; }

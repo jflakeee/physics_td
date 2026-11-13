@@ -27,7 +27,7 @@ const STR = {
   cont: '계속하기', newRun: '새로 시작', chars: '캐릭터', skills: '스킬', items: '아이템', records: '기록', back: '뒤로',
   pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
   next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
-  bonusHint: '버티면 레벨업 카드에 나와요', allClear: '모든 계곡을 지켰어요!',
+  bonusHint: '버티면 레벨업 카드에 나와요', evoHint: '좋은 터빈 ★5 + 물레방아 3개', allClear: '모든 계곡을 지켰어요!',
   jam: '얼음 댐이 강을 막았어요!', burst: '얼음 댐이 터졌어요! 큰물이 와요', slide: '산사태! 강이 막혀 넘쳐요', grid: '물레방아',
   keepGoing: '계속하기', keepHint: '다음 계절이 와요 · 마을이 더 커져요', survived: '도 버텼어요!', endlessOver: '계절을 더 버텼어요',
 };
@@ -50,6 +50,7 @@ const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
   cheap: { icon: 'hammer', name: '솜씨 좋은 일꾼', desc: '짓는 값이 싸져요' },
   rain: { icon: 'rainSpirit', name: '비구름 정령', desc: '가뭄에 비를 내려요' },
   sun: { icon: 'sunSpirit', name: '햇볕 정령', desc: '큰물 때 넘친 물을 말려요' },
+  penstock: { icon: 'penstock', name: '도수관', desc: '진화! 더 위에서 물을 끌어와 낙차가 커져요 (전기 크게 증가)' },
 };
 const WX: Record<string, { icon: SpriteName; name: string }> = {
   clear: { icon: 'sun', name: '맑음' }, rain: { icon: 'rain', name: '장마' }, drought: { icon: 'drought', name: '가뭄' },
@@ -171,7 +172,9 @@ function showSkills(): void {
   const body = frame(STR.skills, showMain), m = loadMeta(store);
   for (const id of Object.keys(CARD) as CardId[]) {
     const bonusOf = STAGES.find(st => st.bonusSkill === id), have = !bonusOf || m.skills.includes(id);
-    const b = row(have ? 'info' : 'locked info', have ? CARD[id].icon : 'lock', CARD[id].name, have ? CARD[id].desc : `${bonusOf?.name ?? ''} ${STR.bonusHint}`);
+    // the evolution is always listed with how to get it
+    const desc = id === 'penstock' ? `${STR.evoHint} · ${CARD[id].desc.replace(/^진화! /, '')}` : have ? CARD[id].desc : `${bonusOf?.name ?? ''} ${STR.bonusHint}`;
+    const b = row(have ? 'info' + (id === 'penstock' ? ' evo' : '') : 'locked info', have ? CARD[id].icon : 'lock', CARD[id].name, desc);
     b.tabIndex = -1; body.append(b);
   }
 }
@@ -356,9 +359,9 @@ function showPlay(w: HydroWorld): void {
   const showLevel = () => {
     const kids: HTMLElement[] = [el('h2', '', STR.levelUp)];
     for (const c of w.cards) {
-      const b = el('button', 'card');
+      const evo = c === 'penstock', b = el('button', 'card' + (evo ? ' evo' : ''));
       const lvNow = c === 'coins' ? 0 : w.skill[c];
-      b.append(icon(CARD[c].icon, 'x3 ic'), el('b', '', CARD[c].name + (c === 'coins' ? '' : ' ' + '★'.repeat(lvNow + 1))), el('span', 'desc', CARD[c].desc));
+      b.append(icon(CARD[c].icon, 'x3 ic'), el('b', '', CARD[c].name + (c === 'coins' || evo ? '' : ' ' + '★'.repeat(lvNow + 1))), el('span', 'desc', CARD[c].desc));
       b.addEventListener('click', () => { chooseCard(w, c); clearOverlay(); lastOverlay = ''; buzz(10); sfx.play('card'); });
       kids.push(b);
     }

@@ -95,6 +95,11 @@
   weather scales with it). Bot that gathers one thing every 2 s — mixed build without upgrades wins
   with 3 / 2 / 1 hearts; with upgrades 3 / 3 / 3 (upgrading pays off). 1.1 / 1.2 was a cliff: without
   upgrades stages 2–3 were lost.
+- **Evolution card 도수관 (2026-11-14):** 좋은 터빈 ★5 + 3 wheels → always the first card at the next
+  level-up. Each wheel then uses the drop over 5 rows up and down instead of 3 (a penstock brings the
+  water from further up). All wheels built, three seeds per stage: power +55–65%, survival unchanged
+  (it speeds up levels and coins). Two earlier designs were measured and left out: 빙하 저수지 (stored
+  28% more, no more power) and 모래 둑 (permanent sandbags; no stage won more, stage 2 lost sooner).
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

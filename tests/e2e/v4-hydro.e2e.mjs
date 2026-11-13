@@ -228,6 +228,17 @@ try {
     check('wheels report what they earn each second', await page.evaluate(() => { const v = __v4; let n = 0; for (let k = 0; k < 30; k++) { v.tick(v.w); n += v.w.gains.length; } return n >= 4; }));
     await page.close();
   }
+  // evolution card: 좋은 터빈 ★5 + 3 wheels → 도수관, first and framed
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; v.w.mats = { wood: 1e6, stone: 1e6 }; for (const s of [0, 3]) v.placeBuilding(v.w, s); v.w.skill.eta = 5; v.start(v.w); v.w.xp = 1e6; v.tick(v.w); });
+    await page.waitForSelector('.center.level .card');
+    check('evolution card comes first and stands out', (await page.locator('.center.level .card').first().getAttribute('class')).includes('evo') && (await page.locator('.center.level .card').first().innerText()).includes('도수관'));
+    await page.screenshot({ path: `${OUT}/v4-evolution-${DATE}.png` });
+    await page.close();
+  }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
   {
     const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });

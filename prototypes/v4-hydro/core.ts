@@ -122,7 +122,7 @@ export interface HydroWorld {
   /** Power made during the current second, and the last full second. */
   secPower: number; lastSecPower: number; blackout: number;
   inflow: number; drained: number;
-  skill: { sand: number; ice: number; eta: number; tough: number; cheap: number; rain: number; sun: number };
+  skill: { sand: number; ice: number; eta: number; tough: number; cheap: number; rain: number; sun: number; penstock: number };
   spiritTimer: { sand: number; ice: number; rain: number; sun: number };
   /** Stage index into STAGES, its seasons and length, the character and the bonuses brought in. */
   stage: number; seasons: Season[]; totalSec: number; char: CharId;
@@ -172,7 +172,7 @@ export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
     mats: { wood: 0, stone: 0 }, lvl: map.sites.map(() => 0), rng2: createRng(seedState(seed, 5)), gains: [], sluiceOpen: [],
     xp: 0, level: 1, coins: T.startCoins + 20 * (pu.purse ?? 0), hearts: T.hearts + (pu.heart ?? 0),
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
-    skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
+    skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0, penstock: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
     sandbags: new Map(), cards: [], events: { lostHeart: null, spirit: null, seasonSurvived: null, disaster: null }, floodCooldown: 0, floodFrom: -1, wxKey: '', jamTicks: 0,
     endless: false, extraSeasons: 0, bookedPower: 0, bookedTicks: 0,
     stage, seasons: st.seasons, totalSec: st.seasons.reduce((a, x) => a + x.seconds, 0), char: ch.id,
@@ -343,6 +343,7 @@ function addSeason(w: HydroWorld): void {
 function plantPower(w: HydroWorld): number {
   const g = w.g, { out, s } = w.sc;
   let total = 0;
+  const span = w.skill.penstock ? T.penstock.span : 3;
   for (const p of w.plants) {
     const row = w.map.sites[p.site].y;
     let q = 0, depth = 0, n = 0, up = 0, dn = 0;
@@ -351,7 +352,7 @@ function plantPower(w: HydroWorld): number {
       const i = at(x, row), j = i + W;
       q += out[i * 4 + 2] * s[i] - out[j * 4 + 3] * s[j];
       depth += g.w[i]; n++;
-      const iu = at(x, row - 3), id = at(x, row + 3);
+      const iu = at(x, Math.max(0, row - span)), id = at(x, Math.min(H - 1, row + span));
       up += g.h[iu] + g.w[iu]; dn += g.h[id] + g.w[id];
     }
     depth /= n;
@@ -617,18 +618,22 @@ function startSpirit(w: HydroWorld, c: CardId): void {
 }
 
 // ---- level up -----------------------------------------------------------------------
-export const CARD_MAX: Record<CardId, number> = { sand: 5, ice: 5, eta: 5, tough: 3, coins: 99, cheap: 3, rain: 5, sun: 5 };
+export const CARD_MAX: Record<CardId, number> = { sand: 5, ice: 5, eta: 5, tough: 3, coins: 99, cheap: 3, rain: 5, sun: 5, penstock: 1 };
+/** Evolution (survivors-style): 좋은 터빈 ★5 + 3 wheels → 도수관. */
+export const canEvolvePenstock = (w: HydroWorld) => w.skill.eta >= CARD_MAX.eta && w.skill.penstock === 0 && w.plants.length >= 3;
 /** Bonus skills (rain, sun) only join the level-up pool once a stage clear unlocked them. */
 const BONUS: CardId[] = ['rain', 'sun'];
 function cardLevel(w: HydroWorld, c: CardId): number { return c === 'coins' ? 0 : w.skill[c]; }
 function levelUp(w: HydroWorld): void {
   w.xp -= xpNeed(w.level);
   w.level++;
-  const pool = (Object.keys(CARD_MAX) as CardId[]).filter(c => cardLevel(w, c) < CARD_MAX[c] && (!BONUS.includes(c) || w.unlocked.includes(c)));
+  const pool = (Object.keys(CARD_MAX) as CardId[]).filter(c => c !== 'penstock' && cardLevel(w, c) < CARD_MAX[c] && (!BONUS.includes(c) || w.unlocked.includes(c)));
   const pick: CardId[] = [];
+  // an evolution, once its conditions are met, is always on offer (first card)
+  if (canEvolvePenstock(w)) pick.push('penstock');
   // the first level always offers the spirits you do not have yet, so a new player meets them early
   if (w.level === 2) for (const c of ['sand', 'ice'] as CardId[]) if (pool.includes(c) && pick.length < 2) pick.push(c);
-  while (pick.length < 3 && pick.length < pool.length) {
+  while (pick.length < 3 && pick.length < pool.length + (pick.includes('penstock') ? 1 : 0)) {
     const c = pool[w.rng.int(pool.length)];
     if (!pick.includes(c)) pick.push(c);
   }

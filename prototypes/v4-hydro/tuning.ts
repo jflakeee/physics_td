@@ -47,6 +47,9 @@ export const T = {
     cost: { wheel: { wood: 4, stone: 2 }, reservoir: { wood: 2, stone: 4 }, wall: { wood: 2, stone: 3 } },
     wheelPower: 0.25, reservoirDepth: 0.12, wallHeight: 0.2,
   },
+  /** Evolution 도수관 (좋은 터빈 ★5 + 3 wheels): each wheel takes its water from `span` rows upstream and
+   *  returns it `span` rows downstream (instead of 3), so it uses the drop over a longer reach (P = ηQH). */
+  penstock: { span: 5 },
   /** Each extra working wheel makes every wheel this much better (shared grid). */
   synergy: 0.1,
   /** Disasters. Storm: rain on every cell (total per tick). Ice jam: for `seconds`, `frac` of the water
@@ -112,7 +115,7 @@ export const ENDLESS = { demandStep: 0.1 } as const;
 /** Stage 1 seasons (kept for code that has no stage in hand). */
 export const SEASONS: Season[] = [SPRING, SUMMER];
 
-export type CardId = 'sand' | 'ice' | 'eta' | 'tough' | 'coins' | 'cheap' | 'rain' | 'sun';
+export type CardId = 'sand' | 'ice' | 'eta' | 'tough' | 'coins' | 'cheap' | 'rain' | 'sun' | 'penstock';
 export type CharId = 'miller' | 'granny' | 'frost';
 export type PowerupId = 'turbine' | 'purse' | 'builder' | 'heart';
 
