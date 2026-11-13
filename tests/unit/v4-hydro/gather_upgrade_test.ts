@@ -169,3 +169,40 @@ test('saved run preserves coin income and wheel count across the next second', (
   assert.equal(back.coins, w.coins);
   assert.equal(back.lastSecPower, w.lastSecPower);
 });
+
+// ---- P0-2 (docs/V4_NEXT_STEP_COMPATIBILITY_20261112.md): coin income edge cases ----
+const coinsOver = (w: HydroWorld, sec: number) => { const before = w.coins; run(w, sec); return w.coins - before; };
+
+test('a_wheel_with_no_water_earns_no_coins', () => {
+  const w = createHydro(1); w.hearts = 999; start(w); run(w, 3);
+  const base = T.baseInflow; (T as { baseInflow: number }).baseInflow = 0;
+  try {
+    w.g.w.fill(0); w.g.ice.fill(0);
+    run(w, 1); // let the second in progress finish
+    assert.equal(coinsOver(w, 5), 0, 'dry river: no wheel coins, and the village is short so no bonus');
+    assert.equal(w.gains.filter(g => g.what === 'coins').length, 0);
+  } finally { (T as { baseInflow: number }).baseInflow = base; }
+});
+
+test('a_broken_wheel_earns_nothing_while_the_others_still_do', () => {
+  const w = createHydro(1); w.coins = 1000; w.mats = { wood: 100, stone: 100 }; w.hearts = 999;
+  placeBuilding(w, 3); placeBuilding(w, 4);
+  start(w); run(w, 5);
+  const all = coinsOver(w, 5) / 5;
+  w.plants[1].hp = 0;
+  run(w, 1);
+  const two = coinsOver(w, 5) / 5;
+  assert.equal(all, 3 * T.coinPerWheel + T.coinVillage);
+  assert.equal(two, 2 * T.coinPerWheel + T.coinVillage, 'one coin a second less');
+});
+
+test('when_the_village_is_short_of_power_wheels_still_earn_but_the_village_bonus_stops', () => {
+  const w = createHydro(1); w.hearts = 999; start(w); run(w, 5);
+  // make the village need far more than one wheel can give
+  const d = T.demand; (T as { demand: number }).demand = 1000;
+  try {
+    run(w, 1);
+    assert.equal(coinsOver(w, 5) / 5, T.coinPerWheel, 'only the wheel\'s own coin');
+    assert.ok(w.blackout > 0 || w.record.blackoutHearts > 0, 'the blackout clock runs');
+  } finally { (T as { demand: number }).demand = d; }
+});

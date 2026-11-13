@@ -6,6 +6,7 @@ import {
 import { AH, AW, createArt, paintSprites, paintTerrain, paintWater, S as ART, seasonKey } from './art.ts';
 import { rgbOf, sprite, type SpriteName } from './sprites.ts';
 import { CHARS, POWERUPS, STAGES, T } from './tuning.ts';
+import { createSfx } from './audio.ts';
 import { buyPowerup, clearRun, finishRun, loadMeta, loadRun, openStages, runOptions, saveMeta, saveRun, type StorageLike } from './meta.ts';
 
 /**
@@ -22,7 +23,7 @@ const STR = {
   built: { wheel: '물레방아를 지었어요!', reservoir: '저수지를 팠어요!', wall: '둑을 쌓았어요!' } as Record<BuildKind, string>,
   levelUp: '레벨 업!', won: '두 계절을 버텼어요!', lost: '마을이 버티지 못했어요',
   lostBlackout: '정전! 물레방아를 더 지어요', lostFlood: '마을이 잠겼어요! 둑을 쌓아요',
-  again: '다시', resume: '계속', speed: '빠르게', home: '메인으로', paused: '잠깐 멈춤', soon: '곧 와요',
+  again: '다시', resume: '계속', speed: '빠르게', home: '메인으로', paused: '잠깐 멈춤', soon: '곧 와요', sound: '소리', on: '켜짐', off: '꺼짐',
   cont: '계속하기', newRun: '새로 시작', chars: '캐릭터', skills: '스킬', items: '아이템', records: '기록', back: '뒤로',
   pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
   next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
@@ -37,6 +38,8 @@ const STAT_ROWS: [keyof ReturnType<typeof loadMeta>['stats'], string][] = [
 const CHAR_ICON: Record<CharId, SpriteName> = { miller: 'wheel0', granny: 'sandSpirit', frost: 'iceSpirit' };
 const PU_ICON: Record<PowerupId, SpriteName> = { turbine: 'wheel0', purse: 'coin', builder: 'hammer', heart: 'heart' };
 const store: StorageLike | null = (() => { try { return globalThis.localStorage; } catch { return null; } })();
+// sound effects: one player for the whole app, created silent until the first tap makes a sound
+const sfx = createSfx(() => { const C = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext; return C ? new C() : null; }, loadMeta(store).sound);
 const B: Record<BuildKind, SpriteName> = { wheel: 'wheel0', reservoir: 'gate', wall: 'stakes' };
 const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
   sand: { icon: 'sandSpirit', name: '모래 정령', desc: '넘치는 곳에 모래를 쌓아요' },
@@ -203,7 +206,7 @@ function showRecords(): void {
 
 function showPlay(w: HydroWorld): void {
   stop?.();
-  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding, upgrade, gather, saveRun: () => saveRun(store, w) };
+  if (q.has('dev')) (globalThis as Record<string, unknown>).__v4 = { w, tick, start, chooseCard, placeBuilding, upgrade, gather, sfx, saveRun: () => saveRun(store, w) };
   app.className = 'play'; app.textContent = '';
   const maxHearts = T.hearts + (w.origin.opt.powerups?.heart ?? 0);
   // the run in progress is saved every 10 s and when the app is hidden (계속하기 on the main menu)
@@ -326,29 +329,29 @@ function showPlay(w: HydroWorld): void {
       w.nodes.forEach((n, k) => { if (!n.kind) return; const d = ((n.cell % W) - gx) ** 2 + (((n.cell / W) | 0) - 1.2 - gy) ** 2; if (d < nd) { nd = d; node = k; } });
       if (node < 0) return;
       const g = gather(w, node);
-      if (g) { pop(g); buzz(10); }
+      if (g) { pop(g); buzz(10); sfx.play(g.what === 'wood' ? 'wood' : g.what === 'stone' ? 'stone' : 'coin'); }
       return;
     }
     const st = w.map.sites[best];
     if (!w.built[best]) {
-      if (placeBuilding(w, best)) { const nw = w.plants.length; say(st.build === 'wheel' && nw > 1 ? `${STR.grid} ${nw}개 · 전기 +${Math.round(T.synergy * (nw - 1) * 100)}%` : STR.built[st.build], B[st.build]); buzz(15); terrainDirty = true; needDraw = true; rec = null; }
-      else if (w.phase !== 'won' && w.phase !== 'lost') { const n = lacking(w, best); say(`${needText(n)} ${STR.need}`, n.coins ? 'coin' : n.wood ? 'log' : 'stone'); buzz(30); }
+      if (placeBuilding(w, best)) { const nw = w.plants.length; say(st.build === 'wheel' && nw > 1 ? `${STR.grid} ${nw}개 · 전기 +${Math.round(T.synergy * (nw - 1) * 100)}%` : STR.built[st.build], B[st.build]); buzz(15); sfx.play('build'); terrainDirty = true; needDraw = true; rec = null; }
+      else if (w.phase !== 'won' && w.phase !== 'lost') { const n = lacking(w, best); say(`${needText(n)} ${STR.need}`, n.coins ? 'coin' : n.wood ? 'log' : 'stone'); buzz(30); sfx.play('deny'); }
       return;
     }
     const p = w.plants.find(pp => pp.site === best);
-    if (p && p.hp <= 0) { if (repair(w, best)) { say(STR.repaired, 'wheel0'); buzz(15); } else say(STR.noCoins, 'coin'); return; }
+    if (p && p.hp <= 0) { if (repair(w, best)) { say(STR.repaired, 'wheel0'); buzz(15); sfx.play('build'); } else { say(STR.noCoins, 'coin'); sfx.play('deny'); } return; }
     // a standing building: upgrade it with wood and stone
     const c = upgradeCost(w, best);
     if (!c) { say(STR.maxLevel, B[st.build]); return; }
-    if (upgrade(w, best)) { say(`${STR.built[st.build].split(/[를을]/)[0]} ★${w.lvl[best]} ${STR.upgraded}`, 'up'); buzz(15); terrainDirty = true; needDraw = true; }
-    else { say(`${STR.upNeed}: ${needText(c)}`, 'up'); buzz(30); }
+    if (upgrade(w, best)) { say(`${STR.built[st.build].split(/[를을]/)[0]} ★${w.lvl[best]} ${STR.upgraded}`, 'up'); buzz(15); sfx.play('upgrade'); terrainDirty = true; needDraw = true; }
+    else { say(`${STR.upNeed}: ${needText(c)}`, 'up'); buzz(30); sfx.play('deny'); }
   });
 
   // ---- overlays
   const overlay = (cls: string, ...kids: HTMLElement[]) => { center.textContent = ''; center.className = 'center on ' + cls; center.append(...kids); };
   const clearOverlay = () => { center.textContent = ''; center.className = 'center'; };
   const startBtn = el('button', 'go'); startBtn.append(icon('play', 'x2'), el('span', '', STR.start));
-  startBtn.addEventListener('click', () => { start(w); bar.remove(); buzz(15); });
+  startBtn.addEventListener('click', () => { start(w); bar.remove(); buzz(15); sfx.play('start'); });
   const showReady = () => { clearOverlay(); bar.append(startBtn); say(STR.ready, 'star', 4000); };
   const showLevel = () => {
     const kids: HTMLElement[] = [el('h2', '', STR.levelUp)];
@@ -356,10 +359,11 @@ function showPlay(w: HydroWorld): void {
       const b = el('button', 'card');
       const lvNow = c === 'coins' ? 0 : w.skill[c];
       b.append(icon(CARD[c].icon, 'x3 ic'), el('b', '', CARD[c].name + (c === 'coins' ? '' : ' ' + '★'.repeat(lvNow + 1))), el('span', 'desc', CARD[c].desc));
-      b.addEventListener('click', () => { chooseCard(w, c); clearOverlay(); lastOverlay = ''; buzz(10); });
+      b.addEventListener('click', () => { chooseCard(w, c); clearOverlay(); lastOverlay = ''; buzz(10); sfx.play('card'); });
       kids.push(b);
     }
     overlay('level', ...kids);
+    sfx.play('levelup');
     buzz(20);
   };
   const showEnd = () => {
@@ -393,6 +397,7 @@ function showPlay(w: HydroWorld): void {
     else rowEl.append(main!, side[0]);
     kids.push(rowEl);
     overlay(won ? 'won' : 'lost', ...kids);
+    sfx.play(won ? 'win' : 'lose');
   };
   const showPause = () => {
     const resume = el('button', 'big'); resume.append(icon('play', 'x2'), el('span', '', STR.resume)); resume.addEventListener('click', () => { paused = false; clearOverlay(); lastOverlay = ''; });
@@ -400,7 +405,12 @@ function showPlay(w: HydroWorld): void {
     fast.addEventListener('click', () => { speed = speed === 1 ? 2 : 1; fast.textContent = `${STR.speed} ${speed === 1 ? '2×' : '1×'}`; });
     // 메인으로 keeps the run: the main menu offers 계속하기
     const home = el('button', 'big alt', STR.home); home.addEventListener('click', () => { saveRun(store, w); showMain(); });
-    overlay('pause', el('h2', '', STR.paused), resume, fast, home);
+    // sound on / off (kept between runs)
+    const snd = el('button', 'big alt'); snd.setAttribute('role', 'switch');
+    const syncSnd = () => { snd.textContent = `${STR.sound} ${sfx.on ? STR.on : STR.off}`; snd.setAttribute('aria-checked', String(sfx.on)); };
+    snd.addEventListener('click', () => { sfx.setOn(!sfx.on); const m = loadMeta(store); m.sound = sfx.on; saveMeta(store, m); syncSnd(); sfx.play('card'); });
+    syncSnd();
+    overlay('pause', el('h2', '', STR.paused), resume, fast, snd, home);
   };
 
   // ---- HUD (icons rebuilt only when what they show changes)
@@ -425,7 +435,7 @@ function showPlay(w: HydroWorld): void {
     }
     wxBar.hidden = !soon;
     if (soon) wxFill.style.width = `${100 * (1 - f.nextIn / T.forecastSeconds)}%`;
-    if (soon && f.next && lastForecast !== f.next) { lastForecast = f.next; say(`${WX[f.next.kind].name}${f.next.boss ? '!!' : ''} ${STR.soon}`, WX[f.next.kind].icon); }
+    if (soon && f.next && lastForecast !== f.next) { lastForecast = f.next; say(`${WX[f.next.kind].name}${f.next.boss ? '!!' : ''} ${STR.soon}`, WX[f.next.kind].icon); sfx.play('forecast'); }
     const ratio = w.tick < T.tps ? 1 : w.lastSecPower / demand(w);
     townFill.style.width = `${Math.min(100, ratio * 100)}%`;
     town.classList.toggle('short', ratio < 1);
@@ -441,14 +451,14 @@ function showPlay(w: HydroWorld): void {
       while (acc >= 1 && n++ < 8 && w.phase === 'run') {
         tick(w); acc -= 1; needDraw = true;
         for (const g of w.gains) pop(g);
-        if (w.events.spirit) { flashes.push({ cells: w.events.spirit.cells, kind: w.events.spirit.kind, until: frame + 40 }); terrainDirty = true; }
+        if (w.events.spirit) { flashes.push({ cells: w.events.spirit.cells, kind: w.events.spirit.kind, until: frame + 40 }); terrainDirty = true; sfx.play('spirit'); }
         if (w.events.disaster) {
           const d = w.events.disaster;
           say(d.kind === 'jam' ? STR.jam : d.kind === 'burst' ? STR.burst : STR.slide, d.kind === 'slide' ? 'slide' : 'jam', 2800);
-          flashes.push({ cells: d.cells, kind: d.kind === 'slide' ? 'sand' : 'ice', until: frame + 30 }); terrainDirty = true; buzz(60);
+          flashes.push({ cells: d.cells, kind: d.kind === 'slide' ? 'sand' : 'ice', until: frame + 30 }); terrainDirty = true; buzz(60); sfx.play('disaster');
         }
-        if (w.events.seasonSurvived) { say(`${w.events.seasonSurvived}${STR.survived}`, 'star', 2600); buzz(20); terrainDirty = true; }
-        if (w.events.lostHeart) { say(w.events.lostHeart === 'blackout' ? STR.lostBlackout : STR.lostFlood, w.events.lostHeart === 'blackout' ? 'houseDark' : 'drown', 2600); buzz(80); }
+        if (w.events.seasonSurvived) { say(`${w.events.seasonSurvived}${STR.survived}`, 'star', 2600); buzz(20); sfx.play('season'); terrainDirty = true; }
+        if (w.events.lostHeart) { say(w.events.lostHeart === 'blackout' ? STR.lostBlackout : STR.lostFlood, w.events.lostHeart === 'blackout' ? 'houseDark' : 'drown', 2600); buzz(80); sfx.play('heart'); }
       }
       if (n >= 8) acc = 0;
     } else acc = 0;

@@ -5,7 +5,7 @@
 - **Run:** `npm run build` → open `dist/v4/index.html` (or `/physics_td/v4/` on Pages).
   `?dev=1` exposes `__v4`, `?play` skips the title, `?seed=n`. Scripted runs: `node prototypes/v4-hydro/calibrate.ts`.
 - **Status:** in progress — 1 map (작은 계곡), spring + summer (4 min), wheel / reservoir / wall,
-  sand and ice spirits, six level-up cards. No sound, no player testing yet.
+  sand and ice spirits, level-up cards, stages, gathering and upgrades, sound. No player testing yet.
 - **Findings so far:**
   - Power P = η·Q·H from the fluid step's own fluxes works; water stays conserved to 1e-8.
   - The pipe flow carries ≈ 0.2 × bed slope per cell per tick in uniform flow, so inflow and
@@ -75,6 +75,11 @@
     (blue) and the coins earned (yellow, over the busiest wheel), and over a gathered spot.
   - Scripted balance with a bot that taps one thing a second — mixed build with upgrades: won
     with 3 / 3 / 1 hearts; without upgrades stage 3 is lost.
+- **Sound (2026-11-12):** 16 short synthesized effects (`audio.ts`, no audio files): gather, build,
+  upgrade, not enough, start, level-up, card, forecast, disaster, spirit, heart lost, season
+  survived, win, lose. Screens call `sfx.play(name)`; the same sound will not stack within 50 ms.
+  Pause menu has a 소리 switch, saved with the progress. Not played per coin or per wheel number
+  (once a second per wheel would be noise).
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.
