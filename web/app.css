@@ -16,7 +16,13 @@ button:disabled { opacity: .35; }
 .stats { display: flex; gap: 8px; min-width: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stat b { margin-left: 2px; }
 .lv { color: var(--text); font-weight: 600; }
-@media (max-width: 360px) { .stats { gap: 5px; font-size: calc(13px * var(--fs)); } .hbtns { gap: 3px; } }
+/* narrow phones: four HUD buttons (P1-D added the outlet button) leave no room for the stats on one
+   line, so the stats fold into two rows; nothing leaves the screen at 320px, also with 120% text */
+@media (max-width: 360px) {
+  .hud { gap: 2px; padding: 0 2px; }
+  .stats { display: grid; grid-template-columns: auto auto; gap: 0 4px; font-size: calc(13px * var(--fs)); line-height: 1.15; }
+  .hbtns { gap: 2px; }
+}
 .hbtns { display: flex; gap: 4px; }
 .hb { width: var(--touch); height: var(--touch); padding: 0; font-size: calc(18px * var(--fs)); }
 .gauge-row { grid-area: gauge; display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: calc(12px * var(--fs)); color: var(--muted); }
