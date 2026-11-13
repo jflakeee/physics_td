@@ -56,6 +56,11 @@ export const T = {
   slide: { height: 0.45, rows: 3, seconds: 25 },
   /** Bonus spirits unlocked by clearing stages (Lv 1..5). Rain adds water from the sky in a drought;
    *  sun evaporates flood water off the river in high water (it leaves the board as vapour). */
+  /** Reservoir sluice (automatic): opens in a drought (weather below `droughtMul`) or while the village is short
+   *  of power, and lets the bowl's water run by gravity into the river `rowsDown` rows downstream (lower bed),
+   *  at most `max` a tick, `k` × head difference. Closed otherwise, so the bowl keeps what high water brought.
+   *  (River depth beside the bowl is no trigger: the bowl's own outflow raises it.) */
+  sluice: { droughtMul: 0.6, rowsDown: 6, k: 0.05, max: 0.12 },
   rain: { every: [12, 11, 10, 9, 8], amount: [6, 8, 10, 12, 14] },
   sun: { every: [12, 11, 10, 9, 8], amount: [4, 6, 8, 10, 12] },
   /** Look-ahead used by the spirits and the recommended build spot. */
@@ -112,11 +117,12 @@ export type CharId = 'miller' | 'granny' | 'frost';
 export type PowerupId = 'turbine' | 'purse' | 'builder' | 'heart';
 
 /** Stages: two seasons each. Clearing one unlocks its bonus skill (a new level-up card) and character. */
-export interface Stage { id: string; name: string; seasons: Season[]; demandMul: number; bonusSkill: CardId | null; unlockChar: CharId | null }
+/** `inflowMul`: the river is this much bigger (all weather scales with it), the main difficulty step between stages. */
+export interface Stage { id: string; name: string; seasons: Season[]; demandMul: number; inflowMul: number; bonusSkill: CardId | null; unlockChar: CharId | null }
 export const STAGES: Stage[] = [
-  { id: 'valley-1', name: '작은 계곡', seasons: [SPRING, SUMMER], demandMul: 1, bonusSkill: 'rain', unlockChar: 'granny' },
-  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.1, bonusSkill: 'sun', unlockChar: 'frost' },
-  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.2, bonusSkill: null, unlockChar: null },
+  { id: 'valley-1', name: '작은 계곡', seasons: [SPRING, SUMMER], demandMul: 1, inflowMul: 1, bonusSkill: 'rain', unlockChar: 'granny' },
+  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.1, inflowMul: 1.05, bonusSkill: 'sun', unlockChar: 'frost' },
+  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.2, inflowMul: 1.15, bonusSkill: null, unlockChar: null },
 ];
 
 /** Characters (pick one per run). Their start bonus applies on top of the power-ups. */

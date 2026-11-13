@@ -80,6 +80,21 @@
   survived, win, lose. Screens call `sfx.play(name)`; the same sound will not stack within 50 ms.
   Pause menu has a 소리 switch, saved with the progress. Not played per coin or per wheel number
   (once a second per wheel would be noise).
+- **Reservoirs fixed (2026-11-13):** reservoirs filled in high water but gave almost nothing back in a
+  drought (41 stored, 1 released). Two causes: the sand spirit took reservoir water for a flood and
+  sandbagged the cut to the river shut, and most of a bowl sits below the river so it can never drain
+  by itself. Now the sand spirit leaves bowls and cuts alone, and an automatic sluice (designed in
+  REDESIGN_V4_HYDRO §4, not built before) opens in a drought or while the village is short of power and
+  lets the bowl drain by gravity into the river 6 rows downstream. Spring drought, one wheel: power
+  130 → 183, seconds short of power 8 → 0. With these fixes the mixed-build bot wins all three stages
+  with 3 hearts (stage 3 was 1 heart, lost to blackouts); raising stage 2–3 demand did not change that.
+  The stage ramp now shows in how fast weaker plans lose (nothing: 106 / 68 / 135 s).
+  The designed evolution 빙하 저수지 (ice spirit ★5 + reservoir) was tried and left out: with a working
+  sluice it stored 28% more but made no more power (stage 2: less), so it would be a dead card.
+- **Stage step restored (2026-11-13):** each stage has a bigger river (`inflowMul` 1 / 1.05 / 1.15; all
+  weather scales with it). Bot that gathers one thing every 2 s — mixed build without upgrades wins
+  with 3 / 2 / 1 hearts; with upgrades 3 / 3 / 3 (upgrading pays off). 1.1 / 1.2 was a cliff: without
+  upgrades stages 2–3 were lost.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

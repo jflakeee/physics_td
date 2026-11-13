@@ -3,6 +3,7 @@ import { gather, upgrade, balance, chooseCard, createHydro, recommend, placeBuil
 
 type Plan = (w: HydroWorld) => void;
 const gatherBot = !process.argv.includes('--no-gather');
+const gatherEvery = Number(process.argv.find(a => a.startsWith('--gather-every='))?.split('=')[1] ?? 1);
 function run(name: string, plan: Plan, log = false, stage = 0) {
   const w = createHydro(1, { stage, unlocked: stage > 0 ? ['rain'] : [], char: 'miller' });
   start(w);
@@ -10,7 +11,7 @@ function run(name: string, plan: Plan, log = false, stage = 0) {
   while (w.phase !== 'won' && w.phase !== 'lost') {
     if (w.phase === 'levelup') chooseCard(w, w.cards[0]);
     // a player who taps one thing a second: whichever material is lower, else anything
-    if (gatherBot && w.tick % 30 === 0) {
+    if (gatherBot && w.tick % (30 * gatherEvery) === 0) {
       const want = w.mats.wood <= w.mats.stone ? 'tree' : 'rock';
       let k = w.nodes.findIndex(n => n.kind === want); if (k < 0) k = w.nodes.findIndex(n => n.kind);
       if (k >= 0) gather(w, k);
