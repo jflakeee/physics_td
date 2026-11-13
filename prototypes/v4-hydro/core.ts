@@ -113,6 +113,8 @@ export interface HydroWorld {
   nodes: GatherNode[]; mats: Mats; lvl: number[]; rng2: Rng;
   /** Numbers to pop up this tick (wheels earning). */
   gains: Gain[];
+  /** Reservoir sites whose sluice ran this tick (for the picture). */
+  sluiceOpen: number[];
   channel: Uint8Array; village: Uint8Array;
   built: (BuildKind | null)[]; plants: Plant[];
   tick: number; phase: Phase;
@@ -167,7 +169,7 @@ export function createHydro(seed = 1, opt: RunOptions = {}): HydroWorld {
     g, sc: createFluidScratch(W * H), rng: createRng(seedState(seed, 4)), channel, village,
     map, built: map.sites.map(() => null), plants: [], tick: 0, phase: 'ready',
     nodes: nodeSpots(map).map((cell, k) => { const h = hash(k, 3); return { cell, kind: h < 150 ? 'tree' : h < 195 ? 'rock' : h < 235 ? 'flower' : 'bush', timer: 0 } as GatherNode; }),
-    mats: { wood: 0, stone: 0 }, lvl: map.sites.map(() => 0), rng2: createRng(seedState(seed, 5)), gains: [],
+    mats: { wood: 0, stone: 0 }, lvl: map.sites.map(() => 0), rng2: createRng(seedState(seed, 5)), gains: [], sluiceOpen: [],
     xp: 0, level: 1, coins: T.startCoins + 20 * (pu.purse ?? 0), hearts: T.hearts + (pu.heart ?? 0),
     secPower: 0, lastSecPower: 0, blackout: 0, inflow: 0, drained: 0,
     skill: { sand: 0, ice: 0, eta: 0, tough: 0, cheap: 0, rain: 0, sun: 0 }, spiritTimer: { sand: 0, ice: 0, rain: 0, sun: 0 },
@@ -386,6 +388,7 @@ export function tick(w: HydroWorld): void {
   // faster in a drought (stored flood water comes back)
   if (now.freeze) { for (let i = 0; i < W * H; i++) if (w.channel[i] && g.w[i] > 0.02) { const f = Math.min(g.w[i] - 0.02, now.freeze); g.w[i] -= f; g.ice[i] += f; } }
   else meltIce(g, mul < 0.6 ? T.ice.droughtMelt : T.iceMelt, 1e-6);
+  sluices(w, mul);
   // bottom edge drains
   for (let x = 0; x < W; x++) { const i = at(x, H - 1); const d = Math.min(g.w[i], T.outletRate); g.w[i] -= d; w.drained += d; }
   // sandbags expire
@@ -492,10 +495,12 @@ function spirits(w: HydroWorld, mul: number): void {
   if (w.skill.sand > 0 && --w.spiritTimer.sand <= 0) {
     const L = w.skill.sand - 1;
     w.spiritTimer.sand = T.sand.every[L] * T.tps;
-    // the most dangerous overflow: water outside the channel, weighted towards the village
+    // the most dangerous overflow: water outside the channel, weighted towards the village.
+    // Water held in a reservoir is not overflow, and its cut to the river must stay open.
+    const keep = reservoirZone(w);
     let best = -1, bi = -1;
     for (let i = 0; i < W * H; i++) {
-      if (w.channel[i] || w.village[i] || g.w[i] < 0.03) continue;
+      if (w.channel[i] || w.village[i] || g.w[i] < 0.03 || keep.has(i)) continue;
       const y = (i / W) | 0, x = i % W;
       const near = 1 / (1 + Math.hypot(x - (VILLAGE.x0 + VILLAGE.x1) / 2, y - VILLAGE.y0) / 10);
       const v = g.w[i] * (0.3 + near);
@@ -507,6 +512,7 @@ function spirits(w: HydroWorld, mul: number): void {
         const y = y0 - (T.sand.cells[L] >> 1) + k;
         if (y < 1 || y >= H - 1) continue;
         const i = at(Math.round(riverX(y) + side * 3.5), y);
+        if (keep.has(i)) continue;
         g.tmp[i] = Math.max(g.tmp[i], T.sand.height); w.sandbags.set(i, T.sand.seconds * T.tps); cells.push(i);
       }
       w.events.spirit = { kind: 'sand', cells };
@@ -553,6 +559,59 @@ function spirits(w: HydroWorld, mul: number): void {
     } else w.spiritTimer.sun = T.tps;
   }
 }
+/** Water cells of every reservoir bowl (radius 5 around built reservoir sites, off the river and village). */
+export function reservoirCells(w: HydroWorld): number[] {
+  const out: number[] = [];
+  w.map.sites.forEach((s, id) => { if (w.built[id] === 'reservoir') out.push(...siteBowl(w, s)); });
+  return out;
+}
+/**
+ * Automatic sluices (docs/REDESIGN_V4_HYDRO.md §4): in a drought, or while the village is short of power,
+ * the gates open and each bowl drains by gravity into the river a few rows downstream, where the bed is lower.
+ * Water only moves (bowl → river); nothing is created or lost.
+ */
+function sluices(w: HydroWorld, mul: number): void {
+  const g = w.g, S = T.sluice;
+  w.sluiceOpen.length = 0;
+  const short = w.tick > T.tps && w.lastSecPower < demand(w);
+  if (mul >= S.droughtMul && !short) return;
+  w.map.sites.forEach((s, id) => {
+    if (w.built[id] !== 'reservoir') return;
+    const oy = Math.min(H - 2, s.y + S.rowsDown), out: number[] = [];
+    for (let x = 0; x < W; x++) if (w.channel[at(x, oy)]) out.push(at(x, oy));
+    const bowl = siteBowl(w, s).filter(i => g.w[i] > 0.005);
+    if (!bowl.length || !out.length) return;
+    let have = 0, head = 0, outHead = 0;
+    for (const i of bowl) { have += g.w[i]; head += g.h[i] + g.w[i]; }
+    for (const i of out) outHead += g.h[i] + g.w[i];
+    head /= bowl.length; outHead /= out.length;
+    const q = Math.min(S.max, have, S.k * Math.max(0, head - outHead));
+    if (q <= 1e-9) return;
+    for (const i of bowl) g.w[i] -= q * (g.w[i] / have);
+    for (const i of out) g.w[i] += q / out.length;
+    w.sluiceOpen.push(id);
+  });
+}
+function siteBowl(w: HydroWorld, s: Site): number[] {
+  const out: number[] = [];
+  for (let y = s.y - 5; y <= s.y + 5; y++) for (let x = s.x - 5; x <= s.x + 5; x++) {
+    if (x < 1 || x > W - 2 || y < 1 || y > H - 2 || (x - s.x) ** 2 + (y - s.y) ** 2 > 25) continue;
+    const i = at(x, y); if (!w.channel[i] && !w.village[i]) out.push(i);
+  }
+  return out;
+}
+/** Every reservoir's bowl plus the cut that joins it to the river (cells the sand spirit leaves alone). */
+export function reservoirZone(w: HydroWorld): Set<number> {
+  const out = new Set(reservoirCells(w));
+  w.map.sites.forEach((s, id) => {
+    if (w.built[id] !== 'reservoir') return;
+    const rx = Math.round(w.map.river(s.y));
+    for (let x = Math.min(s.x, rx) - 1; x <= Math.max(s.x, rx) + 1; x++) for (const y of [s.y - 1, s.y, s.y + 1, s.y + 2]) {
+      const i = at(x, y); if (x > 0 && x < W - 1 && !w.channel[i]) out.add(i);
+    }
+  });
+  return out;
+}
 function startSpirit(w: HydroWorld, c: CardId): void {
   if (c === 'sand' || c === 'ice' || c === 'rain' || c === 'sun') w.spiritTimer[c] = T.tps;
 }
@@ -597,7 +656,7 @@ export function cloneHydro(w: HydroWorld): HydroWorld {
     ...w, g: cloneGrid(w.g), sc: createFluidScratch(W * H), rng: createRng(w.rng.state()),
     built: w.built.slice(), plants: w.plants.map(p => ({ ...p })), skill: { ...w.skill }, spiritTimer: { ...w.spiritTimer },
     record: { ...w.record }, unlocked: w.unlocked.slice(), costMul: { ...w.costMul },
-    nodes: w.nodes.map(n => ({ ...n })), mats: { ...w.mats }, lvl: w.lvl.slice(), rng2: createRng(w.rng2.state()), gains: [],
+    nodes: w.nodes.map(n => ({ ...n })), mats: { ...w.mats }, lvl: w.lvl.slice(), rng2: createRng(w.rng2.state()), gains: [], sluiceOpen: [],
     sandbags: new Map(w.sandbags), cards: w.cards.slice(), events: { lostHeart: null, spirit: null, seasonSurvived: null, disaster: null }, seasons: w.seasons.slice(),
   };
 }
