@@ -118,7 +118,7 @@ try {
       await page.waitForTimeout(120);
       await page.screenshot({ path: `${OUT}/b3-pump-tint-${DATE}.png` });
     }
-    const speed = page.locator('.hbtns button').nth(2);
+    const speed = page.locator('.hbtns [data-hb=speed]');
     await speed.tap();
     check('speed toggles to 2×', (await S(() => __ptd.play.speed)) === 2 && (await speed.textContent()) === '2×');
     await speed.tap();
@@ -127,7 +127,7 @@ try {
     await page.waitForTimeout(150);
     if (name === 'iphone-13') await page.screenshot({ path: `${OUT}/b1-villagers-alarmed-${DATE}.png` });
     await speed.tap(); await speed.tap();
-    const pause = page.locator('.hbtns button').nth(1);
+    const pause = page.locator('.hbtns [data-hb=pause]');
     await pause.tap();
     const t0 = await S(() => __ptd.play.world.tick);
     await page.waitForTimeout(400);
@@ -213,7 +213,7 @@ try {
     check('levee advances to step 3 (hidden until the wave)', await page.evaluate(() => document.getElementById('app').dataset.tutorial === ''));
     await page.locator('button.start').tap();
     await page.waitForSelector('.bubble:not([hidden])');
-    check('step 3 shows in W1 with speed locked', (await page.locator('.bubble p').textContent()).includes('막히는') && await page.locator('.hbtns button').nth(2).isDisabled());
+    check('step 3 shows in W1 with speed locked', (await page.locator('.bubble p').textContent()).includes('막히는') && await page.locator('.hbtns [data-hb=speed]').isDisabled());
     await page.screenshot({ path: `${OUT}/story-004-tutorial-3-${DATE}.png` });
     await page.reload();
     await page.locator('.map-card[data-map="dike-village"]').tap();

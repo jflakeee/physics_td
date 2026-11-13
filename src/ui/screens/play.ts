@@ -97,10 +97,10 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   };
   const [hpS, hpV] = stat('❤', t('hud.hp')), [cashS, cashV] = stat('💰', t('hud.cash'));
   const [waveS, waveV] = stat('🌊', t('hud.wave')), [lvS, lvV] = stat('Lv', t('hud.level'));
-  const pumpsBtn = h('button', { class: 'hb', 'aria-label': t('hud.pumpsOff') }, '💧');
-  const routeBtn = h('button', { class: 'hb', 'aria-label': '펌프 배출 위치 설정', 'aria-pressed': 'false', title: '펌프 선택 → 배출 위치 선택' }, '🚰');
-  const pauseBtn = h('button', { class: 'hb', 'aria-label': t('hud.pause'), 'aria-pressed': 'false' }, '⏸');
-  const speedBtn = h('button', { class: 'hb', 'aria-label': t('hud.speed', { x: 1 }) }, '1×');
+  const pumpsBtn = h('button', { class: 'hb', 'data-hb': 'pumps', 'aria-label': t('hud.pumpsOff') }, '💧');
+  const routeBtn = h('button', { class: 'hb', 'data-hb': 'route', 'aria-label': '펌프 배출 위치 설정', 'aria-pressed': 'false', title: '펌프 선택 → 배출 위치 선택' }, '🚰');
+  const pauseBtn = h('button', { class: 'hb', 'data-hb': 'pause', 'aria-label': t('hud.pause'), 'aria-pressed': 'false' }, '⏸');
+  const speedBtn = h('button', { class: 'hb', 'data-hb': 'speed', 'aria-label': t('hud.speed', { x: 1 }) }, '1×');
   const stats = h('div', { class: 'stats' }); stats.append(hpS, cashS, waveS);
   lvS.classList.add('lv');
   const btns = h('div', { class: 'hbtns' }); btns.append(pumpsBtn, routeBtn, pauseBtn, speedBtn);
