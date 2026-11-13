@@ -100,6 +100,12 @@
   water from further up). All wheels built, three seeds per stage: power +55–65%, survival unchanged
   (it speeds up levels and coins). Two earlier designs were measured and left out: 빙하 저수지 (stored
   28% more, no more power) and 모래 둑 (permanent sandbags; no stage won more, stage 2 lost sooner).
+- **Performance re-check (2026-11-14):** every feature on (stage 3, all 12 buildings, four spirits,
+  autumn storm). Sim tick 0.18 ms mean (fluid 0.13). Chromium 390×664 @2×, 4× CPU: frame p50 5.1 ms,
+  p95 9.2 ms, max 11.7 ms (was 65.8 ms: the star's look-ahead ran 90 ticks in one go every 3 s; it now
+  runs in 5-tick slices, at most 3 ms a frame, and not at all when nothing is affordable). Numbers and
+  the star pulse no longer force a redraw every frame. Median is above the 4 ms aim set for the
+  simpler scene but every frame fits 60 fps.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

@@ -667,6 +667,12 @@ export function cloneHydro(w: HydroWorld): HydroWorld {
 }
 /** Run a copy ahead (level-ups are skipped) and report what happened. */
 function lookAhead(w: HydroWorld, ticks: number): { power: number; hearts: number; flood: number } {
+  const it = lookAheadSteps(w, ticks);
+  for (;;) { const r = it.next(); if (r.done) return r.value; }
+}
+/** The same rollout in slices of `LOOK_SLICE` ticks (`yield` between), so a screen never stalls on it. */
+const LOOK_SLICE = 5;
+function* lookAheadSteps(w: HydroWorld, ticks: number): Generator<void, { power: number; hearts: number; flood: number }> {
   const c = cloneHydro(w);
   if (c.phase === 'ready') c.phase = 'run';
   let power = 0, flood = 0;
@@ -674,6 +680,7 @@ function lookAhead(w: HydroWorld, ticks: number): { power: number; hearts: numbe
     const xp = c.xp; tick(c); if ((c.phase as Phase) === 'levelup') c.phase = 'run';
     power += Math.max(0, c.xp - xp);
     for (let i = 0; i < W * H; i++) if (c.village[i]) flood += c.g.w[i];
+    if ((k + 1) % LOOK_SLICE === 0) yield;
   }
   return { power, hearts: c.hearts, flood };
 }
@@ -695,18 +702,18 @@ export function recommend(w: HydroWorld, k: BuildKind, ticks: number = T.horizon
 /**
  * The star on the map: among the sites you can pay for now, the one that helps most over the next
  * `ticks`, compared with building nothing. Hearts saved count most, then village flood avoided,
- * then power. One rollout per step (`yield`) so a screen can spread the work over frames.
+ * then power. Rollouts run in slices of 5 ticks (`yield`) so a screen can spread the work over frames.
  * Returns null when nothing affordable helps.
  */
 export function* recommendSteps(w: HydroWorld, ticks: number = T.horizon): Generator<void, number | null> {
-  const base = lookAhead(w, ticks);
-  yield;
+  const sites = w.map.sites.filter(s => canBuild(w, s.id));
+  if (!sites.length) return null; // nothing affordable: no rollout at all
+  const base = yield* lookAheadSteps(w, ticks);
   let best: number | null = null, score = 0;
-  for (const s of w.map.sites) {
-    if (!canBuild(w, s.id)) continue;
+  for (const s of sites) {
     const c = cloneHydro(w);
     placeBuilding(c, s.id);
-    const r = lookAhead(c, ticks);
+    const r = yield* lookAheadSteps(c, ticks);
     const v = (r.hearts - base.hearts) * 1000 + (base.flood - r.flood) * 10 + (r.power - base.power);
     if (v > score + 1e-9) { score = v; best = s.id; }
     yield;

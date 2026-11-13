@@ -266,7 +266,7 @@ function showPlay(w: HydroWorld): void {
     if (!recJob && (key !== recKey || now - recAt > 3000) && w.phase !== 'won' && w.phase !== 'lost') { recJob = recommendSteps(w); recKey = key; recAt = now; }
     if (!recJob) return;
     const t0 = performance.now();
-    while (recJob && performance.now() - t0 < 6) { const r = recJob.next(); if (r.done) { rec = r.value; recJob = null; needDraw = true; } }
+    while (recJob && performance.now() - t0 < 3) { const r = recJob.next(); if (r.done) { rec = r.value; recJob = null; needDraw = true; } }
   };
   pause.addEventListener('click', () => { paused = true; showPause(); });
 
@@ -292,7 +292,10 @@ function showPlay(w: HydroWorld): void {
   const draw = (frame: number) => {
     if (seasonKey(seconds(w), w.seasons) !== shownSeason) { shownSeason = seasonKey(seconds(w), w.seasons); terrainDirty = true; }
     for (let k = popups.length - 1; k >= 0; k--) if (frame > popups[k].born + 40) popups.splice(k, 1);
-    if (!needDraw && rec === null && !flashes.length && !terrainDirty && !popups.length) return;
+    // numbers only rise 1 px every 3 frames: with nothing else changing, redraw for them every 3rd frame
+    // the star pulses every 8 frames and numbers rise 1 px every 3: with nothing else changing, redraw only then
+    const anim = (rec !== null && frame % 8 === 0) || (popups.length > 0 && frame % 3 === 0);
+    if (!needDraw && !flashes.length && !terrainDirty && !anim) return;
     needDraw = false;
     // repaint the ground only when it changes (building, spirits, a sandbag expiring)
     if (terrainDirty || w.sandbags.size !== shownBags) { paintTerrain(art, w); terrainDirty = false; shownBags = w.sandbags.size; }
