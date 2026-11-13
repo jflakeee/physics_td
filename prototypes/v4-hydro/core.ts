@@ -378,7 +378,7 @@ export function tick(w: HydroWorld): void {
   // inflow at the top of the channel
   const top: number[] = [];
   for (let x = 0; x < W; x++) if (w.channel[at(x, 0)]) top.push(at(x, 0));
-  const add = T.baseInflow * mul / top.length;
+  const add = T.baseInflow * STAGES[w.stage].inflowMul * mul / top.length;
   for (const i of top) g.w[i] += add;
   w.inflow += add * top.length;
   disasters(w, now);
