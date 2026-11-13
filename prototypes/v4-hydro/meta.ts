@@ -24,6 +24,8 @@ export interface Meta {
   stats: Stats;
   /** Sound effects on (pause menu toggle). */
   sound: boolean;
+  /** Text size percent (100 or 120), pause menu. */
+  textSize: 100 | 120;
 }
 
 export function defaultMeta(): Meta {
@@ -33,6 +35,7 @@ export function defaultMeta(): Meta {
     stages: Object.fromEntries(STAGES.map(s => [s.id, { cleared: false, bestHearts: 0, plays: 0 }])),
     stats: { runs: 0, wins: 0, losses: 0, power: 0, builds: 0, floodHearts: 0, blackoutHearts: 0, seconds: 0, bestLevel: 0, bestSeasons: 0 },
     sound: true,
+    textSize: 100,
   };
 }
 
@@ -51,6 +54,7 @@ export function loadMeta(store: StorageLike | null): Meta {
       stages: { ...d.stages, ...(m.stages ?? {}) },
       stats: { ...d.stats, ...(m.stats ?? {}) },
       sound: m.sound !== false,
+      textSize: m.textSize === 120 ? 120 : 100,
     };
   } catch { return d; }
 }

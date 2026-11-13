@@ -133,7 +133,7 @@ try {
     await page.evaluate(() => { const v = __v4; v.start(v.w); for (let k = 0; k < 30 * 20; k++) { if (v.w.phase === 'levelup') v.chooseCard(v.w, v.w.cards[0]); v.tick(v.w); } });
     const t0 = await page.evaluate(() => __v4.w.tick);
     await page.locator('button.pause').tap();
-    check('pause menu: resume, speed, sound, main menu', (await page.locator('.center.pause .big').count()) === 4);
+    check('pause menu: resume, speed, sound, text size, main menu', (await page.locator('.center.pause .big').count()) === 5);
     const snd = page.locator('.center.pause [role=switch]');
     await snd.tap();
     check('sound can be switched off and the choice is saved', (await snd.getAttribute('aria-checked')) === 'false' && await page.evaluate(() => JSON.parse(localStorage.getItem('physics-td:v4-meta')).sound === false));
@@ -238,6 +238,40 @@ try {
     check('evolution card comes first and stands out', (await page.locator('.center.level .card').first().getAttribute('class')).includes('evo') && (await page.locator('.center.level .card').first().innerText()).includes('도수관'));
     await page.screenshot({ path: `${OUT}/v4-evolution-${DATE}.png` });
     await page.close();
+  }
+  // text size 120% on the smallest phone: nothing leaves the screen or clips its label
+  {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await ctx.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('physics-td:v4-meta', JSON.stringify({ textSize: 120, gems: 200 })); } });
+    const page = await ctx.newPage();
+    const clipped = () => page.evaluate(() => [...document.querySelectorAll('button, .card, .mrow')].filter(e => { const r = e.getBoundingClientRect(); return r.width && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1); }).map(e => e.className + ':' + e.innerText.slice(0, 10)));
+    await page.goto(BASE);
+    await page.waitForSelector('#app.title');
+    check('120%: the root font is scaled', await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fs').trim() === '1.2'));
+    check('120%: main menu fits', ...await fits(page));
+    check('120%: main menu labels are not clipped', (await clipped()).length === 0, JSON.stringify(await clipped()));
+    await page.locator('.subnav .sub').nth(2).tap();
+    await page.waitForSelector('.mrow');
+    check('120%: item rows fit', (await clipped()).length === 0, JSON.stringify(await clipped()));
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.waitForSelector('.bar .go');
+    check('120%: play screen fits', ...await fits(page));
+    await page.evaluate(() => { const v = __v4; v.start(v.w); v.w.xp = 1e6; v.tick(v.w); });
+    await page.waitForSelector('.center.level .card');
+    check('120%: level-up cards fit', (await clipped()).length === 0, JSON.stringify(await clipped()));
+    await page.screenshot({ path: `${OUT}/v4-text120-levelup-${DATE}.png` });
+    await page.locator('.center.level .card').first().tap();
+    await page.locator('button.pause').tap();
+    await page.waitForSelector('.center.pause');
+    check('120%: pause menu (5 buttons) fits', (await clipped()).length === 0, JSON.stringify(await clipped()));
+    await page.screenshot({ path: `${OUT}/v4-text120-pause-${DATE}.png` });
+    await page.locator('.center.pause .big').first().tap();
+    await page.evaluate(() => { const v = __v4; v.w.phase = 'run'; v.w.tick = v.w.totalSec * 30 - 1; v.w.hearts = 3; v.tick(v.w); });
+    await page.waitForSelector('.center.won .btnrow');
+    check('120%: the three buttons after a clear fit', (await clipped()).length === 0, JSON.stringify(await clipped()));
+    await page.screenshot({ path: `${OUT}/v4-text120-clear-${DATE}.png` });
+    await ctx.close();
   }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
   {

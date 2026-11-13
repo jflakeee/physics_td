@@ -106,6 +106,11 @@
   runs in 5-tick slices, at most 3 ms a frame, and not at all when nothing is affordable). Numbers and
   the star pulse no longer force a redraw every frame. Median is above the 4 ms aim set for the
   simpler scene but every frame fits 60 fps.
+- **Text size 100 / 120% (2026-11-14):** pause-menu switch, saved with the progress; every CSS font size
+  scales via `--fs` (pixel icons keep their size). Checked at 320×568 with 120%: main menu, item rows,
+  play screen, level-up cards, the 5-button pause menu and the result screen fit with no clipped label.
+  On narrow phones with big text the result screen puts 다음 스테이지 on its own full-width row (still
+  centred, biggest) with 계속하기 and 메인으로 below, and leaves out the big hearts row (also in the top bar).
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

@@ -1,8 +1,8 @@
 /* V4 hydro prototype (docs/REDESIGN_V4_HYDRO.md §3): no build menu (tap the map's circles), two numbers (level, coins). */
-:root { --bg: #123247; --panel: #1d4762; --ink: #fffaf0; --muted: #cfe3f2; --sun: #ffd166; --volt: #7de2ff; --leaf: #6cc070; --warn: #ff7a5c; }
+:root { --bg: #123247; --panel: #1d4762; --ink: #fffaf0; --muted: #cfe3f2; --sun: #ffd166; --volt: #7de2ff; --leaf: #6cc070; --warn: #ff7a5c; --fs: 1; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
-  font: 600 16px/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; overscroll-behavior: none; }
+  font: 600 calc(16px * var(--fs))/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; overscroll-behavior: none; }
 button { font: inherit; color: inherit; border: 0; border-radius: 20px; background: var(--panel); touch-action: manipulation;
   -webkit-user-select: none; user-select: none; cursor: pointer; }
 button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
@@ -11,21 +11,21 @@ button:disabled { opacity: .45; }
 #app.title { height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center;
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .title .logo { display: flex; gap: 12px; align-items: flex-end; }
-.title h1 { margin: 0; font-size: 34px; color: var(--sun); }
+.title h1 { margin: 0; font-size: calc(34px * var(--fs)); color: var(--sun); }
 .title .lead { margin: 0 0 8px; color: var(--muted); }
 
 #app.play { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .top { display: grid; gap: 4px; padding: 6px 10px 4px; }
 .row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.lv { font-size: 17px; color: var(--volt); white-space: nowrap; }
+.lv { font-size: calc(17px * var(--fs)); color: var(--volt); white-space: nowrap; }
 .meter { position: relative; height: 12px; border-radius: 6px; background: #0007; overflow: hidden; }
 .meter i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--volt); border-radius: 6px; transition: width .15s; }
 .meter.xp { flex: 1; min-width: 50px; }
 .coins { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hearts { display: flex; gap: 2px; }
 .wx { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.wx .season { font-size: 15px; }
+.wx .season { font-size: calc(15px * var(--fs)); }
 .wx .now, .wx .next { display: flex; align-items: center; gap: 4px; }
 .wx .arrow, .wx .boss { color: var(--sun); }
 .meter.soon { width: 46px; height: 8px; }
@@ -34,7 +34,7 @@ button:disabled { opacity: .45; }
 .meter.power { width: 56px; }
 .meter.power i { background: var(--sun); }
 .town.short .meter.power i { background: var(--warn); }
-.pause { width: 48px; height: 48px; font-size: 20px; flex: none; }
+.pause { width: 48px; height: 48px; font-size: calc(20px * var(--fs)); flex: none; }
 .board { position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
 .board canvas.art { display: block; touch-action: manipulation; image-rendering: pixelated; image-rendering: crisp-edges; }
 /* pixel icons: same pixel size as the board (--px = CSS px per art px), nearest neighbour */
@@ -49,47 +49,47 @@ button:disabled { opacity: .45; }
 .center.on { display: flex; background: rgba(8, 22, 34, .6); }
 .center.ready { background: transparent; justify-content: flex-end; padding-bottom: 24px; pointer-events: none; }
 .center.ready > * { pointer-events: auto; }
-.center h2 { margin: 0; font-size: 28px; color: var(--sun); text-shadow: 0 2px 0 #0008; }
+.center h2 { margin: 0; font-size: calc(28px * var(--fs)); color: var(--sun); text-shadow: 0 2px 0 #0008; }
 .center p { margin: 0; background: rgba(8, 22, 34, .8); padding: 8px 14px; border-radius: 16px; }
 .big, .go { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.big { min-width: 220px; min-height: 62px; font-size: 21px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
+.big { min-width: 220px; min-height: 62px; font-size: calc(21px * var(--fs)); background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
 .big.alt { background: var(--panel); color: var(--ink); box-shadow: 0 5px 0 #0b2233; }
 .card { width: min(100%, 320px); min-height: 84px; display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; align-items: center;
   text-align: left; gap: 0 10px; padding: 10px 14px; background: #fff7e0; color: #3a2a10; box-shadow: 0 5px 0 #c9a45a; }
 .card .ic { grid-row: 1 / 3; justify-self: center; }
-.card b { font-size: 19px; }
-.card .desc { color: #6b5530; font-size: 14px; }
+.card b { font-size: calc(19px * var(--fs)); }
+.card .desc { color: #6b5530; font-size: calc(14px * var(--fs)); }
 .starline { display: flex; gap: 8px; background: none !important; }
 .center .sum { display: flex; align-items: center; gap: 6px; }
 
 .bar { position: relative; display: flex; justify-content: center; gap: 10px; padding: 8px 12px 12px; }
-.go { flex: 1; max-width: 160px; height: 72px; font-size: 22px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
+.go { flex: 1; max-width: 160px; height: 72px; font-size: calc(22px * var(--fs)); background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
 
   background: #fff7e0; color: #3a2a10; box-shadow: 0 4px 0 #c9a45a; }
 
 @media (prefers-reduced-motion: reduce) { .meter i, .toast { transition: none; } }
-@media (max-width: 360px) { .meter.power { width: 40px; } .meter.soon { width: 30px; } .lv { font-size: 15px; } .wx .season { display: none; } }
+@media (max-width: 360px) { .meter.power { width: 40px; } .meter.soon { width: 30px; } .lv { font-size: calc(15px * var(--fs)); } .wx .season { display: none; } }
 
 /* ---- main menu and sub screens (survivors-like hub) ---- */
 .title .gems, .mhead .gems { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .mainnav { display: grid; gap: 14px; width: min(100%, 360px); }
 .mainnav .big { min-width: 0; width: 100%; }
 .big.cont { flex-wrap: wrap; row-gap: 0; }
-.big.cont small { flex-basis: 100%; font-size: 14px; color: #1f4a28; }
+.big.cont small { flex-basis: 100%; font-size: calc(14px * var(--fs)); color: #1f4a28; }
 .subnav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.sub { min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; box-shadow: 0 4px 0 #0b2233; }
+.sub { min-height: 64px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: calc(17px * var(--fs)); box-shadow: 0 4px 0 #0b2233; }
 #app.menu { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr);
   padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .mhead { display: flex; align-items: center; gap: 10px; padding-block: 6px 10px; }
-.mhead h1 { flex: 1; margin: 0; font-size: 22px; color: var(--sun); min-width: 0; }
+.mhead h1 { flex: 1; margin: 0; font-size: calc(22px * var(--fs)); color: var(--sun); min-width: 0; }
 .mhead .back { min-width: 64px; min-height: 48px; padding: 0 12px; }
 .mbody { overflow-y: auto; display: grid; align-content: start; gap: 10px; padding-bottom: 12px; }
 .mrow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; min-height: 76px; padding: 10px 14px; text-align: left;
   background: #fff7e0; color: #3a2a10; box-shadow: 0 4px 0 #c9a45a; }
 .mrow .mi { width: calc(36 * var(--px)); display: flex; justify-content: center; }
 .mrow .mt { display: grid; gap: 2px; min-width: 0; }
-.mrow .mt b { font-size: 18px; }
-.mrow .desc { font-size: 14px; color: #6b5530; }
+.mrow .mt b { font-size: calc(18px * var(--fs)); }
+.mrow .desc { font-size: calc(14px * var(--fs)); color: #6b5530; }
 .mrow.locked { background: #3a5268; color: #c6d4e0; box-shadow: 0 4px 0 #0b2233; }
 .mrow.locked .desc { color: #a9bccc; }
 .mrow.info { cursor: default; }
@@ -103,17 +103,32 @@ button:disabled { opacity: .45; }
 
 /* result screen: compact so 계속하기 / 다음 스테이지 / 메인으로 fit a small phone; scrolls if still too tall */
 .center.won, .center.lost { justify-content: safe center; overflow-y: auto; gap: 10px; }
-.center.won h2, .center.lost h2 { font-size: 24px; }
+.center.won h2, .center.lost h2 { font-size: calc(24px * var(--fs)); }
 .card.bonus { min-height: 0; padding: 8px 12px; grid-template-columns: 44px 1fr; }
-.card.bonus b { font-size: 16px; }
+.card.bonus b { font-size: calc(16px * var(--fs)); }
 .btnrow { display: grid; align-items: center; gap: 8px; width: min(100%, 380px); }
 .btnrow.three { grid-template-columns: 1fr 2fr 1fr; }
 .btnrow.two { grid-template-columns: 2fr 1fr; }
-.btnrow .big { min-width: 0; min-height: 52px; font-size: 15px; padding: 0 6px; gap: 6px; white-space: nowrap; }
+.btnrow .big { min-width: 0; min-height: 52px; font-size: calc(15px * var(--fs)); padding: 0 6px; gap: 6px; white-space: nowrap; }
 /* the main way on: middle, biggest, green */
-.btnrow .big.primary { min-height: 76px; font-size: 19px; background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
+.btnrow .big.primary { min-height: 76px; font-size: calc(19px * var(--fs)); background: var(--leaf); color: #10301a; box-shadow: 0 5px 0 #2f6b33; }
 .center.won > .big, .center.lost > .big { width: min(100%, 320px); min-width: 0; }
 
 /* evolution card: gold frame so it stands out from the other two */
 .card.evo { background: #fff2c2; box-shadow: 0 5px 0 #c9a45a, 0 0 0 3px var(--sun); }
 .mrow.evo { background: #fff2c2; }
+
+/* big text on a narrow phone: the main button takes its own full-width row (still centred and biggest),
+   계속하기 and 메인으로 share the row below, so no label spills out of its button */
+@media (max-width: 400px) {
+  .text-120 .btnrow.three { grid-template-columns: 1fr 1fr; grid-template-areas: "main main" "left right"; }
+  .text-120 .btnrow.three > :nth-child(1) { grid-area: left; }
+  .text-120 .btnrow.three > :nth-child(2) { grid-area: main; }
+  .text-120 .btnrow.three > :nth-child(3) { grid-area: right; }
+  .text-120 .btnrow.two { grid-template-columns: 1fr; }
+}
+
+/* result screen: nothing in it may be squeezed (it scrolls instead); with big text on a narrow phone the
+   big hearts row is left out — the hearts are in the top bar too */
+.center.won > *, .center.lost > * { flex-shrink: 0; }
+@media (max-width: 400px) { .text-120 .center.won .starline, .text-120 .center.lost .starline { display: none; } }

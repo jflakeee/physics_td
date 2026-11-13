@@ -23,7 +23,7 @@ const STR = {
   built: { wheel: '물레방아를 지었어요!', reservoir: '저수지를 팠어요!', wall: '둑을 쌓았어요!' } as Record<BuildKind, string>,
   levelUp: '레벨 업!', won: '두 계절을 버텼어요!', lost: '마을이 버티지 못했어요',
   lostBlackout: '정전! 물레방아를 더 지어요', lostFlood: '마을이 잠겼어요! 둑을 쌓아요',
-  again: '다시', resume: '계속', speed: '빠르게', home: '메인으로', paused: '잠깐 멈춤', soon: '곧 와요', sound: '소리', on: '켜짐', off: '꺼짐',
+  again: '다시', resume: '계속', speed: '빠르게', home: '메인으로', paused: '잠깐 멈춤', soon: '곧 와요', sound: '소리', on: '켜짐', off: '꺼짐', textSize: '글자 크기',
   cont: '계속하기', newRun: '새로 시작', chars: '캐릭터', skills: '스킬', items: '아이템', records: '기록', back: '뒤로',
   pickStage: '어디를 지킬까?', pickChar: '누구와 갈까?', locked: '잠김', gems: '보석', buy: '사기', max: '최고 단계',
   next: '다음 스테이지', bonus: '보너스 스킬 획득!', newChar: '새 친구!', earned: '보석', unlockHint: '버티면 열려요',
@@ -39,6 +39,9 @@ const CHAR_ICON: Record<CharId, SpriteName> = { miller: 'wheel0', granny: 'sandS
 const PU_ICON: Record<PowerupId, SpriteName> = { turbine: 'wheel0', purse: 'coin', builder: 'hammer', heart: 'heart' };
 const store: StorageLike | null = (() => { try { return globalThis.localStorage; } catch { return null; } })();
 // sound effects: one player for the whole app, created silent until the first tap makes a sound
+/** Text size (100/120%) scales every CSS font size through --fs. */
+const applyTextSize = (pct: number) => { document.documentElement.style.setProperty('--fs', String(pct / 100)); document.documentElement.classList.toggle('text-120', pct > 100); };
+applyTextSize(loadMeta(store).textSize);
 const sfx = createSfx(() => { const C = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext; return C ? new C() : null; }, loadMeta(store).sound);
 const B: Record<BuildKind, SpriteName> = { wheel: 'wheel0', reservoir: 'gate', wall: 'stakes' };
 const CARD: Record<CardId, { icon: SpriteName; name: string; desc: string }> = {
@@ -374,6 +377,7 @@ function showPlay(w: HydroWorld): void {
   };
   const showEnd = () => {
     // book the run once: gems, records, first-clear unlocks; the saved run is finished
+    toast.classList.remove('on'); // an old hint must not sit behind the result title
     const meta = loadMeta(store), res = finishRun(meta, w);
     saveMeta(store, meta); clearRun(store);
     const won = w.phase === 'won', last = w.stage + 1 >= STAGES.length;
@@ -416,7 +420,12 @@ function showPlay(w: HydroWorld): void {
     const syncSnd = () => { snd.textContent = `${STR.sound} ${sfx.on ? STR.on : STR.off}`; snd.setAttribute('aria-checked', String(sfx.on)); };
     snd.addEventListener('click', () => { sfx.setOn(!sfx.on); const m = loadMeta(store); m.sound = sfx.on; saveMeta(store, m); syncSnd(); sfx.play('card'); });
     syncSnd();
-    overlay('pause', el('h2', '', STR.paused), resume, fast, snd, home);
+    // text size 100 / 120% (kept between runs)
+    const txt = el('button', 'big alt');
+    const syncTxt = () => { txt.textContent = `${STR.textSize} ${loadMeta(store).textSize}%`; };
+    txt.addEventListener('click', () => { const m = loadMeta(store); m.textSize = m.textSize === 120 ? 100 : 120; saveMeta(store, m); applyTextSize(m.textSize); syncTxt(); sfx.play('card'); });
+    syncTxt();
+    overlay('pause', el('h2', '', STR.paused), resume, fast, snd, txt, home);
   };
 
   // ---- HUD (icons rebuilt only when what they show changes)
