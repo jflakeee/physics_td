@@ -91,6 +91,10 @@
   The stage ramp now shows in how fast weaker plans lose (nothing: 106 / 68 / 135 s).
   The designed evolution 빙하 저수지 (ice spirit ★5 + reservoir) was tried and left out: with a working
   sluice it stored 28% more but made no more power (stage 2: less), so it would be a dead card.
+- **Stage step restored (2026-11-13):** each stage has a bigger river (`inflowMul` 1 / 1.05 / 1.15; all
+  weather scales with it). Bot that gathers one thing every 2 s — mixed build without upgrades wins
+  with 3 / 2 / 1 hearts; with upgrades 3 / 3 / 3 (upgrading pays off). 1.1 / 1.2 was a cliff: without
+  upgrades stages 2–3 were lost.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

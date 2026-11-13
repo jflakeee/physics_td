@@ -121,8 +121,8 @@ export type PowerupId = 'turbine' | 'purse' | 'builder' | 'heart';
 export interface Stage { id: string; name: string; seasons: Season[]; demandMul: number; inflowMul: number; bonusSkill: CardId | null; unlockChar: CharId | null }
 export const STAGES: Stage[] = [
   { id: 'valley-1', name: '작은 계곡', seasons: [SPRING, SUMMER], demandMul: 1, inflowMul: 1, bonusSkill: 'rain', unlockChar: 'granny' },
-  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.1, inflowMul: 1, bonusSkill: 'sun', unlockChar: 'frost' },
-  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.2, inflowMul: 1, bonusSkill: null, unlockChar: null },
+  { id: 'valley-2', name: '가을 계곡', seasons: [SUMMER, AUTUMN], demandMul: 1.1, inflowMul: 1.05, bonusSkill: 'sun', unlockChar: 'frost' },
+  { id: 'valley-3', name: '겨울 계곡', seasons: [AUTUMN, WINTER], demandMul: 1.2, inflowMul: 1.15, bonusSkill: null, unlockChar: null },
 ];
 
 /** Characters (pick one per run). Their start bonus applies on top of the power-ups. */
