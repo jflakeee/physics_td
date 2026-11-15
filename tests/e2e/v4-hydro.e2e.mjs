@@ -54,7 +54,7 @@ try {
     // one pixel grid (docs/ART_DIRECTION_V4_PIXEL.md): 192×288 art px at a whole-number device scale
     const px = await page.evaluate(() => {
       const c = document.querySelector('canvas.art'), r = c.getBoundingClientRect(), k = Number(c.dataset.scale);
-      const icons = [...document.querySelectorAll('.top canvas.pi')].map(e => e.getBoundingClientRect().width * devicePixelRatio / e.width);
+      const icons = [...document.querySelectorAll('.top canvas.pi:not([hidden])')].map(e => e.getBoundingClientRect().width * devicePixelRatio / e.width);
       return { w: c.width, h: c.height, k, dev: r.width * devicePixelRatio, icons };
     });
     check('art buffer is 192×288', px.w === 192 && px.h === 288);
@@ -272,6 +272,23 @@ try {
     check('120%: the three buttons after a clear fit', (await clipped()).length === 0, JSON.stringify(await clipped()));
     await page.screenshot({ path: `${OUT}/v4-text120-clear-${DATE}.png` });
     await ctx.close();
+  }
+  // colour is never the only cue (UI rules): lost hearts are hollow, a short village shows a dark house,
+  // floating numbers carry a symbol; a greyscale screenshot keeps as evidence
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.goto(BASE + '&play');
+    await page.waitForSelector('#app.play canvas.art');
+    await page.evaluate(() => { const v = __v4; v.w.coins = 1e6; v.w.mats = { wood: 1e6, stone: 1e6 }; for (const s of [0, 3]) v.placeBuilding(v.w, s); v.start(v.w); for (let k = 0; k < 90; k++) v.tick(v.w); v.w.hearts = 2; });
+    await page.waitForTimeout(150);
+    const hearts = await page.evaluate(() => [...document.querySelectorAll('.hearts canvas')].map(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; }));
+    check('a lost heart has a different shape (hollow)', hearts.length === 3 && hearts[2] < hearts[0] * 0.7, JSON.stringify(hearts));
+    const shortHouse = await page.evaluate(() => { const v = __v4; v.w.lastSecPower = 0; v.w.tick += 30; return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => { const [lit, dark] = document.querySelectorAll('.town canvas'); r({ lit: lit.hidden, dark: dark.hidden }); }))); });
+    check('a short village shows a dark house, not only a red bar', shortHouse.lit === true && shortHouse.dark === false, JSON.stringify(shortHouse));
+    await page.addStyleTag({ content: 'html { filter: grayscale(1); }' });
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${OUT}/v4-greyscale-${DATE}.png` });
+    await page.close();
   }
   // play feedback: water must stay visible — rapids under the wheels, and a flood in the village
   {

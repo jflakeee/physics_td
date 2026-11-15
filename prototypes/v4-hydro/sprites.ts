@@ -322,7 +322,8 @@ export const SPRITES = {
     '.00...00.',
   ]),
   heart,
-  heartEmpty: recolor(heart, { '7': '4' }),
+  /** A lost heart is hollow (outline only), so it differs by shape, not only by colour. */
+  heartEmpty: recolor(heart, { '7': '.' }),
   coin: make([
     '..00000..',
     '.0888880.',

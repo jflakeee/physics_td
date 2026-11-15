@@ -272,6 +272,8 @@ const FONT: Record<string, string[]> = {
   '3': ['111', '001', '111', '001', '111'], '4': ['101', '101', '111', '001', '001'], '5': ['111', '100', '111', '001', '111'],
   '6': ['111', '100', '111', '101', '111'], '7': ['111', '001', '010', '010', '010'], '8': ['111', '101', '111', '101', '111'],
   '9': ['111', '101', '111', '001', '111'], '+': ['000', '010', '111', '010', '000'],
+  // symbols before a number: P lightning (power), C coin, W log (wood), S rock (stone)
+  P: ['011', '010', '111', '010', '110'], C: ['010', '101', '101', '101', '010'], W: ['000', '111', '101', '111', '000'], S: ['000', '010', '111', '111', '000'],
 };
 /** Draw digits and '+' at art pixel (x, y) = top-left, with a dark outline so they read on any ground. */
 export function drawText(rgba: Uint8ClampedArray, x: number, y: number, text: string, rgb: readonly [number, number, number], scale = 1): void {

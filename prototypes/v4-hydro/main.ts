@@ -234,7 +234,8 @@ function showPlay(w: HydroWorld): void {
   const wx = el('div', 'wx'), wxSeason = el('span', 'season'), wxNow = el('span', 'now'), wxNext = el('span', 'next'), wxBar = el('div', 'meter soon'), wxFill = el('i');
   wxBar.append(wxFill); wx.append(wxSeason, wxNow, wxNext, wxBar);
   const town = el('div', 'town'), townBar = el('div', 'meter power'), townFill = el('i');
-  townBar.append(townFill); town.append(icon('house'), townBar);
+  const townLit = icon('house'), townDark = icon('houseDark'); townDark.hidden = true;
+  townBar.append(townFill); town.append(townLit, townDark, townBar);
   town.setAttribute('aria-label', '마을 전기');
   const pause = el('button', 'pause', 'Ⅱ'); pause.setAttribute('aria-label', STR.paused);
   const row2 = el('div', 'row'); row2.append(wx, hearts, town, pause);
@@ -317,9 +318,11 @@ function showPlay(w: HydroWorld): void {
 
   // ---- input: tap a site (sites are in cell coordinates)
   // numbers that float up where something was gained
+  // a tiny symbol before each number says what it is, so colour is not the only cue
+  const GLYPH: Record<Gain['what'], string> = { power: 'P', coins: 'C', wood: 'W', stone: 'S' };
   const POP: Record<Gain['what'], readonly [number, number, number]> = { power: [125, 226, 255], coins: [255, 209, 102], wood: [215, 155, 82], stone: [195, 204, 211] };
   const pop = (g: Gain) => {
-    const text = '+' + g.amount, cx = (g.cell % W) * ART + 1, cy = ((g.cell / W) | 0) * ART + 1;
+    const text = GLYPH[g.what] + '+' + g.amount, cx = (g.cell % W) * ART + 1, cy = ((g.cell / W) | 0) * ART + 1;
     popups.push({ x: Math.max(1, Math.min(AW - text.length * 8 - 1, cx - text.length * 4)), y: Math.max(14, cy - 18), text, rgb: POP[g.what], born: frameNow });
     if (popups.length > 40) popups.shift();
     needDraw = true;
@@ -454,6 +457,8 @@ function showPlay(w: HydroWorld): void {
     const ratio = w.tick < T.tps ? 1 : w.lastSecPower / demand(w);
     townFill.style.width = `${Math.min(100, ratio * 100)}%`;
     town.classList.toggle('short', ratio < 1);
+    // not only red: the house goes dark when the village is short of power
+    townLit.hidden = ratio < 1; townDark.hidden = ratio >= 1;
   };
 
   // ---- loop

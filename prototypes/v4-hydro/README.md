@@ -111,6 +111,10 @@
   play screen, level-up cards, the 5-button pause menu and the result screen fit with no clipped label.
   On narrow phones with big text the result screen puts 다음 스테이지 on its own full-width row (still
   centred, biggest) with 계속하기 and 메인으로 below, and leaves out the big hearts row (also in the top bar).
+- **Colour is never the only cue (2026-11-15, UI rules):** a lost heart is hollow (not just grey), a
+  village short of power shows a dark house beside the bar (not just a red bar), and floating numbers
+  carry a 3×5 symbol for what they are (power, coin, wood, stone). Already shape-coded: build circles
+  (plus sign only when affordable), star, badges, weather icons. Greyscale screenshot kept as evidence.
 - Files: `core.ts` rules (no DOM), `tuning.ts` numbers and weather, `main.ts` screen,
   `art.ts` pixel renderer (no DOM), `sprites.ts` palette-string sprites, `meta.ts` progress and saved run (no DOM).
 - Tests: `tests/unit/v4-hydro/`, `tests/e2e/v4-hydro.e2e.mjs`.

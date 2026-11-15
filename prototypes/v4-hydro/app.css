@@ -132,3 +132,5 @@ button:disabled { opacity: .45; }
    big hearts row is left out — the hearts are in the top bar too */
 .center.won > *, .center.lost > * { flex-shrink: 0; }
 @media (max-width: 400px) { .text-120 .center.won .starline, .text-120 .center.lost .starline { display: none; } }
+
+[hidden] { display: none !important; }
