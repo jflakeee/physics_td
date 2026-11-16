@@ -1,7 +1,7 @@
 # Story 004: 지역 2곳 × 맵 2장, 5웨이브, 튜토리얼
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: L
@@ -89,3 +89,18 @@
 
 - Depends on: `production/epics/physics-td/story-001-water-ice-sim-core.md`, `production/epics/physics-td/story-002-mobile-ui-zone-control.md`, `production/epics/physics-td/story-003-characters-and-skills.md`
 - Unlocks: `production/epics/physics-td/story-006-result-ending-save.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-16
+**Criteria**: 8/8 passing (user-confirmed via /story-done; tutorial steps 1–4·6 retained as screenshots, driven with real taps)
+**Deviations** (advisory):
+- 튜토리얼 1단계 문구는 "화살표가 다음 물길"이지만 유입 경로 화살표가 그려지지 않음 (경로 미리보기 필요)
+- 튜토리얼 5단계(카드 고르기)는 카드 시스템(Story 005) 전이라 말풍선 없이 통과
+- 스타일이 `v2.html` 대신 `src/ui/styles.ts`에서 주입됨, 맵 선택으로 나가기는 페이지 새로고침
+- `play.ts` 하드코딩 가능성(웨이브 길이 등) 점검 필요
+- 설계 v2.4 반영: 제방 1선 비용 6, 시작 자금 150 유지, 스킬 얼음 둑(0.002/s 융해, 호수 붕괴 제외), 재동결 비용 2, 빙하 맵 I1 110/100 (`docs/GAME_DESIGN_V2.md` §3.0)
+**Test Evidence**: waived at qa.level minimal; 스크린샷·봇 매트릭스 `production/qa/evidence/story-004-regions-maps-waves-tutorial/`
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
