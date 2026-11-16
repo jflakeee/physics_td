@@ -8,7 +8,7 @@
 import type { SimState } from '../core/types.ts';
 import { TICKS_PER_SEC, ZONE } from '../sim/constants.ts';
 import { zoneType } from '../input/hit.ts';
-import { advanceEffects, createEffectEnv, endWaveEffects, isRedundant, parseOps, runOps, swipeCells } from './effects.ts';
+import { advanceEffects, createEffectEnv, endWaveEffects, isRedundant, parseOps, runOps, swipeCells, useCost } from './effects.ts';
 import type { EffectEnv, Op } from './effects.ts';
 import { arr, fail, num, obj, oneOf, str } from './validate.ts';
 import type { Obj } from './validate.ts';
@@ -298,7 +298,7 @@ export function canUse(rt: SkillRuntime, state: SimState, id: string, ctx: UseCo
   if (def.slot === 'ultimate') {
     if (rt.gauge < rt.data.rules.gaugeMax) return bad('NO_GAUGE');
   } else if ((rt.cooldown.get(id) ?? 0) > 0) return bad('COOLDOWN');
-  if (ctx.cash < def.cost) return bad('NO_CASH');
+  if (ctx.cash < targetCost(rt, state, def, target)) return bad('NO_CASH');
   if (def.target === 'zone') {
     let any = false;
     for (let z = 0; z < state.zones.count && !any; z++) any = zoneAllowed(def, state, z);
@@ -315,6 +315,13 @@ export function canUse(rt: SkillRuntime, state: SimState, id: string, ctx: UseCo
   return { ok: true };
 }
 
+/** Cash cost of using `def` on the target: re-freezing a melting ice line is cheaper (`refreezeCost`). */
+function targetCost(rt: SkillRuntime, state: SimState, def: SkillDef, target?: UseTarget): number {
+  const z = target?.zone;
+  if (def.target !== 'zone' || z === undefined || z < 0 || z >= state.zones.count) return def.cost;
+  return useCost(state, rt.env, rankOps(rt, def), z, def.cost);
+}
+
 /**
  * Use a skill: validates with `canUse`, runs the rank's ops, starts the cooldown, resets
  * the gauge for ultimates, and adds the axis score. The caller deducts `spent` from cash.
@@ -325,6 +332,7 @@ export function useSkill(rt: SkillRuntime, state: SimState, id: string, ctx: Use
   const chk = canUse(rt, state, id, ctx, target);
   if (!chk.ok) return chk;
   const def = resolveSkill(rt, id);
+  const spent = targetCost(rt, state, def, target);
   if (def.target === 'pump') for (const p of state.pumps) p.on = false;
   else runOps(state, rt.env, rankOps(rt, def), { zone: target.zone ?? -1, cells: target.cells ?? [] });
   if (def.cooldown > 0) rt.cooldown.set(id, Math.round(def.cooldown * TICKS_PER_SEC));
@@ -332,7 +340,7 @@ export function useSkill(rt: SkillRuntime, state: SimState, id: string, ctx: Use
   const ax = rt.data.rules.axis;
   if (def.cooldown > 0) addAxis(rt, def, def.cooldown / ax.cooldownDivisor);
   else if (def.cost > 0) addAxis(rt, def, ax.costOnlyUse);
-  return { ok: true, spent: def.cost };
+  return { ok: true, spent };
 }
 
 /**

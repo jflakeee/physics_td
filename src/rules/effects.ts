@@ -23,6 +23,8 @@ export interface BuildLeveeOp {
   op: 'buildLevee'; height: number; topUp: number; cap: number; material: 'wall' | 'ice'; melt: number;
   /** Ice only: a built line whose thinnest cell is below this fraction of its built height counts as melting and is re-frozen first. */
   refreezeBelow: number;
+  /** Ice only: cash cost of a cast that re-freezes a melting line (instead of the skill's `cost`). */
+  refreezeCost: number;
 }
 /** Temporary wall on a swipe path; `ttl` in seconds. */
 export interface TempWallPathOp { op: 'tempWallPath'; height: number; ttl: number; maxCells: number; width: number; exclusionRadius: number }
@@ -82,7 +84,8 @@ export function parseOp(raw: unknown, where: string): Op {
       const material = o.material === undefined ? 'wall' : oneOf(o, 'material', w, ['wall', 'ice']);
       const melt = material === 'ice' ? num(o, 'melt', w, 0) : 0;
       const refreezeBelow = material === 'ice' ? num(o, 'refreezeBelow', w, 0) : 0;
-      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material, melt, refreezeBelow };
+      const refreezeCost = material === 'ice' ? num(o, 'refreezeCost', w, 0) : 0;
+      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material, melt, refreezeBelow, refreezeCost };
     }
     case 'tempWallPath':
       return {
@@ -186,6 +189,18 @@ export function meltingIceLine(state: SimState, env: EffectEnv, lines: readonly 
     }
   }
   return pick;
+}
+
+/**
+ * Cash cost of running `ops` on `zone`: an ice `buildLevee` that would re-freeze a melting
+ * line costs its `refreezeCost`; anything else costs `baseCost` (the skill's cost).
+ * @example const cost = useCost(state, env, ops, zone, def.cost);
+ */
+export function useCost(state: SimState, env: EffectEnv, ops: readonly Op[], zone: number, baseCost: number): number {
+  for (const op of ops) {
+    if (op.op === 'buildLevee' && op.material === 'ice' && meltingIceLine(state, env, env.leveeLines(zone), op.refreezeBelow)) return op.refreezeCost;
+  }
+  return baseCost;
 }
 
 function buildLeveeOp(state: SimState, env: EffectEnv, op: BuildLeveeOp, zone: number): void {
