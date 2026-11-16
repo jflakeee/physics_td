@@ -1,0 +1,7 @@
+{
+  "id": "pump", "owner": "common", "slot": "common", "axis": null, "target": "pump",
+  "zoneTypes": [], "cooldown": 0, "cost": 0, "borrowable": false,
+  "pump": { "maxConcurrent": 2, "costPerSec": 1 },
+  "ranks": [{ "ops": [] }],
+  "icon": "⚙", "i18n": "skill.pump"
+}

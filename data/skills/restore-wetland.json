@@ -1,0 +1,10 @@
+{
+  "id": "restore-wetland", "owner": "wetland-researcher", "slot": "tactical", "axis": "coexistence", "target": "zone",
+  "zoneTypes": ["field", "plain"], "cooldown": 30, "cost": 30, "borrowable": true,
+  "ranks": [
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttl": 10 }] },
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttl": 8 }] },
+    { "ops": [{ "op": "convertZone", "to": "wetland", "ttl": 6 }] }
+  ],
+  "icon": "🪷", "i18n": "skill.restoreWetland"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "wetland-researcher",
+  "i18n": "character.wetlandResearcher",
+  "axis": "coexistence",
+  "skills": ["wetland-passive", "open-floodplain", "restore-wetland", "river-breath"],
+  "start": ["wetland-passive", "open-floodplain"],
+  "gauge": { "source": "ecology", "perUnit": 1.0, "gain": 5 }
+}

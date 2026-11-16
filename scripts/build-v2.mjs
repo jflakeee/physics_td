@@ -1,9 +1,9 @@
 // Dev build for the v2 TypeScript sources: strips types with Node's built-in
 // stripTypeScriptTypes (erasable syntax only), rewrites relative `.ts` import
-// specifiers to `.js`, and writes dist-v2/ together with v2.html and i18n/ko.json.
+// specifiers to `.js`, and writes dist-v2/ together with v2.html, i18n/ko.json and data/ (fetched at runtime).
 // Usage: node scripts/build-v2.mjs   (then serve dist-v2/ and open v2.html)
 import { stripTypeScriptTypes } from 'node:module';
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,4 +33,5 @@ for (const file of walk(srcDir)) {
 copyFileSync(join(root, 'v2.html'), join(outDir, 'v2.html'));
 mkdirSync(join(outDir, 'i18n'), { recursive: true });
 copyFileSync(join(root, 'i18n', 'ko.json'), join(outDir, 'i18n', 'ko.json'));
+cpSync(join(root, 'data'), join(outDir, 'data'), { recursive: true });
 console.log(`build-v2: ${count} modules -> ${relative(root, outDir)}/`);

@@ -1,0 +1,9 @@
+{
+  "rules": "data/rules/skill-rules.json",
+  "characters": ["data/characters/dike-keeper.json", "data/characters/wetland-researcher.json"],
+  "skills": [
+    "data/skills/pump.json", "data/skills/freeze.json",
+    "data/skills/dike-passive.json", "data/skills/build-levee.json", "data/skills/sandbag.json", "data/skills/night-repair.json",
+    "data/skills/wetland-passive.json", "data/skills/open-floodplain.json", "data/skills/restore-wetland.json", "data/skills/river-breath.json"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "freeze", "owner": "common", "slot": "common", "axis": null, "target": "zone",
+  "zoneTypes": ["all"], "cooldown": 60, "cost": 0, "borrowable": false,
+  "ranks": [{ "ops": [{ "op": "freezeZone", "ratio": 0.5 }] }],
+  "icon": "❄", "i18n": "skill.freeze"
+}

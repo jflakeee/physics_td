@@ -1,0 +1,4 @@
+{
+  "gaugeMax": 100,
+  "axis": { "acquire": 3, "rankUp": 1, "passivePerWave": 1, "costOnlyUse": 1, "cooldownDivisor": 10 }
+}

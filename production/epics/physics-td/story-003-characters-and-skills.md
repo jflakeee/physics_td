@@ -56,11 +56,16 @@
 
 ## Files
 
-- `src/rules/skills.ts`, `src/rules/effects.ts`
-- `data/characters/*.json`, `data/skills/*.json`
-- `tests/unit/skills/skills_test.ts`
-
----
+- `src/rules/skills.ts` — created (schema, loader, canUse 8 reasons, cooldown ticks, gauge, axis hooks, variant lookup)
+- `src/rules/effects.ts` — created (7-op registry, levee-line selection, swipe path, timers)
+- `src/rules/validate.ts` — created (data-boundary validation)
+- `data/index.json`, `data/rules/skill-rules.json` — created
+- `data/characters/dike-keeper.json`, `data/characters/wetland-researcher.json` — created
+- `data/skills/*.json` — 10 skills created
+- `src/ui/screens/play.ts`, `src/main.ts`, `i18n/ko.json`, `scripts/build-v2.mjs` — modified (wire real skills, copy data/)
+- `src/ui/demoSkills.ts` — deleted (replaced)
+- Tests: none (waived at qa.level: minimal); verification script kept outside the repo
+- Evidence: `production/qa/evidence/story-003-characters-and-skills/` (3 screenshots + stamp.txt)
 
 ## QA Test Cases
 

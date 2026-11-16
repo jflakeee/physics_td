@@ -1,0 +1,8 @@
+{
+  "id": "dike-keeper",
+  "i18n": "character.dikeKeeper",
+  "axis": "safety",
+  "skills": ["dike-passive", "build-levee", "sandbag", "night-repair"],
+  "start": ["dike-passive", "build-levee"],
+  "gauge": { "source": "blocked", "perUnit": 1.0, "gain": 0.5 }
+}

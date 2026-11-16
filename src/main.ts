@@ -1,12 +1,12 @@
 import { createSim } from './sim/step.ts';
 import { zoneCenterCell } from './input/hit.ts';
-import { DEMO_SKILLS } from './ui/demoSkills.ts';
+import { acquireSkill, createSkillRuntime, loadSkillData } from './rules/skills.ts';
 import { createTranslate, loadDictionary } from './ui/i18n.ts';
 import { mountPlay } from './ui/screens/play.ts';
 import type { PlayDebug } from './ui/screens/play.ts';
 
 /**
- * v2 entry (Story 002 demo). Until Story 004 ships map data, the board is the
+ * v2 entry (Story 002/003 demo). Until Story 004 ships map data, the board is the
  * "둑마을" tile draft (spec 11.3) with a fixed noise salt, one demo pump (off) and
  * placeholder run values.
  */
@@ -21,15 +21,24 @@ const DEMO_CASH = 200;
 const DEMO_LEVEL = 1;
 /** Zone (tile) holding the demo pump: tx 5, ty 4, next to the base. */
 const DEMO_PUMP_ZONE = 4 * 8 + 5;
+/** Second demo pump (tx 2, ty 7) to exercise the 2-pump cap. */
+const DEMO_PUMP_ZONE_2 = 7 * 8 + 2;
 
 async function boot(): Promise<void> {
   const t = createTranslate(await loadDictionary('i18n/ko.json'));
   document.title = t('app.title');
   const state = createSim(DEMO_TILES, DEMO_I1, DEMO_SALT);
   state.pumps.push({ id: 1, cell: zoneCenterCell(DEMO_PUMP_ZONE), on: false });
+  state.pumps.push({ id: 2, cell: zoneCenterCell(DEMO_PUMP_ZONE_2), on: false });
+  // Demo selectors until Story 004/005: ?char=wetland-researcher, ?variant=glacier.
+  const q = new URLSearchParams(location.search);
+  const data = await loadSkillData(async (p) => (await fetch(p)).json());
+  const rt = createSkillRuntime(data, q.get('char') ?? 'dike-keeper', state, q.get('variant'));
+  // Until Story 005 (level-up cards) grants skills, the demo owns the whole kit so the bar shows every active.
+  for (const id of rt.character.skills) acquireSkill(rt, state, id);
   const root = document.getElementById('app') as HTMLElement;
   (window as unknown as { __v2: PlayDebug }).__v2 = mountPlay(root, {
-    state, t, i1: DEMO_I1, waveMax: DEMO_WAVES, skills: DEMO_SKILLS, cash: DEMO_CASH, level: DEMO_LEVEL,
+    state, t, i1: DEMO_I1, waveMax: DEMO_WAVES, rt, cash: DEMO_CASH, level: DEMO_LEVEL,
   });
 }
 

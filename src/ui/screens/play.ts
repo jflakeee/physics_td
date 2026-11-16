@@ -8,13 +8,16 @@ import { boardTap, cancelTargeting, createTargeting, skillLongPress, skillTap } 
 import type { TargetEvent, TargetSkill } from '../../input/targeting.ts';
 import { fitBoard } from '../../render/canvas.ts';
 import { createBoard } from '../../render/board.ts';
-import type { DemoSkill } from '../demoSkills.ts';
+import { advanceSkills, barSkills, canUse, onWaveEnd, pumpUpkeep, resolveSkill, togglePump, useSkill, FAIL_TOAST } from '../../rules/skills.ts';
+import type { SkillDef, SkillRuntime, UseContext } from '../../rules/skills.ts';
+import { PUMP_LIMIT_TOAST } from '../../rules/skills.ts';
 import { el } from '../dom.ts';
 import { createHaptics } from '../haptics.ts';
 import type { Translate } from '../i18n.ts';
 import { createHud } from '../widgets/hud.ts';
 import type { HudView } from '../widgets/hud.ts';
 import { createSkillBar } from '../widgets/skillBar.ts';
+import type { SkillButtonSpec } from '../widgets/skillBar.ts';
 import { createToaster } from '../widgets/toast.ts';
 
 const TICK_MS = 1000 / TICKS_PER_SEC;
@@ -39,7 +42,8 @@ export interface PlayOptions {
   /** Map base inflow (wave volume scale). */
   i1: number;
   waveMax: number;
-  skills: readonly DemoSkill[];
+  /** Skill runtime (Story 003): the bar shows its common + active skills. */
+  rt: SkillRuntime;
   /** Run values with no owning system yet (economy / leveling arrive in later stories). */
   cash: number;
   level: number;
@@ -63,6 +67,8 @@ export interface PlayDebug {
   readonly phase: 'wave' | 'prep' | 'over';
   readonly selectedZone: number;
   readonly armedSkill: string | null;
+  readonly cash: number;
+  readonly rt: SkillRuntime;
 }
 
 /**
@@ -72,7 +78,16 @@ export interface PlayDebug {
  * @example const dbg = mountPlay(document.getElementById('app')!, { state, t, ... });
  */
 export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
-  const { state, t, skills } = o;
+  const { state, t, rt } = o;
+  /** Bar entry: skill data plus the fields skill bar and targeting need. */
+  interface BarSkill extends TargetSkill, SkillButtonSpec { def: SkillDef }
+  const skills: BarSkill[] = barSkills(rt).map((def) => ({
+    id: def.id, i18n: def.i18n, icon: def.icon, size: def.slot === 'common' ? 48 : 56, ultimate: def.slot === 'ultimate',
+    target: def.target === 'zone' || def.target === 'swipe' ? 'zone' : 'global', def,
+  }));
+  const bySkillId = (sk: TargetSkill): BarSkill => skills.find((s) => s.id === sk.id) as BarSkill;
+  let cash = o.cash;
+  const useCtx = (): UseContext => ({ cash, paused });
   const zoneNames: string[] = [];
   for (const [k, v] of Object.entries(ZONE)) zoneNames[v] = k;
 
@@ -104,7 +119,7 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   let acc = 0;
   let last = -1;
 
-  const view: HudView = { hp: state.hp, cash: o.cash, wave: 0, waveMax: o.waveMax, level: o.level, flood: 0, paused, speed };
+  const view: HudView = { hp: state.hp, cash, wave: 0, waveMax: o.waveMax, level: o.level, flood: 0, paused, speed };
   const hud = createHud(hudEl, t, {
     onPause: () => setPaused(!paused),
     onSpeed: () => {
@@ -116,16 +131,24 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     onLongPress: (sk) => handle(skillLongPress(tg, sk)),
   });
 
-  const canTarget = (sk: TargetSkill, z: number): boolean => (sk as DemoSkill).canTarget(state, z);
+  // Swipe skills never take a zone tap: the board tap cancels them, the swipe gesture runs them.
+  const canTarget = (sk: TargetSkill, z: number): boolean =>
+    bySkillId(sk).def.target !== 'swipe' && canUse(rt, state, sk.id, useCtx(), { zone: z }).ok;
   const refreshDisabled = (): void => {
-    for (const sk of skills) {
-      if (sk.target !== 'zone') continue;
-      let any = false;
-      for (let z = 0; z < ZONE_COUNT && !any; z++) any = sk.canTarget(state, z);
-      bar.setDisabled(sk.id, !any);
-    }
+    for (const sk of skills) bar.setDisabled(sk.id, canUse(rt, state, sk.id, { cash: Infinity, paused: false }).ok === false);
   };
-  const skillName = (sk: TargetSkill): string => t(`${(sk as DemoSkill).i18n}.name`);
+  const skillName = (sk: TargetSkill): string => t(`${bySkillId(sk).i18n}.name`);
+
+  /** Run a skill through the rules layer; on failure show its toast and clear targeting. */
+  function runSkill(sk: TargetSkill, target: { zone?: number; cells?: number[] }): void {
+    const r = useSkill(rt, state, sk.id, useCtx(), target);
+    if (!r.ok) return reject(r.toast ?? 'toast.badTarget');
+    cash -= r.spent;
+    bar.setArmed(null);
+    refreshDisabled();
+    haptic(HAPTIC_USE);
+    toast(t('toast.used', { skill: skillName(sk) }));
+  }
 
   function setPaused(on: boolean): void {
     paused = on;
@@ -150,26 +173,25 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
         break;
       case 'deselect':
         break;
-      case 'arm':
+      case 'arm': {
+        const r = canUse(rt, state, ev.skill.id, useCtx());
+        if (!r.ok) return reject(r.toast ?? 'toast.badTarget');
         bar.setArmed(ev.skill.id);
-        toast(t('toast.selectTarget', { skill: skillName(ev.skill) }));
+        toast(t(bySkillId(ev.skill).def.target === 'swipe' ? 'toast.swipeTarget' : 'toast.selectTarget', { skill: skillName(ev.skill) }));
         break;
+      }
       case 'cancel':
         bar.setArmed(null);
         toast(t('toast.cancelled'));
         break;
       case 'run':
-        bar.setArmed(null);
-        (ev.skill as DemoSkill).apply(state, ev.zone);
-        refreshDisabled();
-        haptic(HAPTIC_USE);
-        toast(t('toast.used', { skill: skillName(ev.skill) }));
+        runSkill(ev.skill, ev.zone >= 0 ? { zone: ev.zone } : {});
         break;
       case 'toggle': {
-        const p = state.pumps[ev.pump];
-        p.on = !p.on;
+        const r = togglePump(rt, state, ev.pump, useCtx());
+        if (!r.ok) return reject(r.toast ?? PUMP_LIMIT_TOAST);
         haptic(HAPTIC_USE);
-        toast(t(p.on ? 'toast.pumpOn' : 'toast.pumpOff'));
+        toast(t(state.pumps[ev.pump].on ? 'toast.pumpOn' : 'toast.pumpOff'));
         break;
       }
       case 'needLongPress':
@@ -188,6 +210,7 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
 
   function endWave(): void {
     phase = 'prep';
+    onWaveEnd(rt, state);
     if (tg.skill) handle(cancelTargeting(tg));
     toast(t('toast.waveEnd', { n: wave }));
     if (wave < o.waveMax) {
@@ -201,6 +224,20 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     onTap: (x, y) => {
       const cell = cellAt(canvas.getBoundingClientRect(), x, y);
       handle(boardTap(tg, cell < 0 ? NO_HIT : hitTest(state, cell), canTarget));
+    },
+  });
+  attachGestures(canvas, {
+    onSwipe: (path) => {
+      const sk = tg.skill;
+      if (!sk || bySkillId(sk).def.target !== 'swipe') return;
+      const rect = canvas.getBoundingClientRect();
+      const cells: number[] = [];
+      for (let k = 0; k + 1 < path.length; k += 2) {
+        const c = cellAt(rect, path[k], path[k + 1]);
+        if (c >= 0) cells.push(c);
+      }
+      tg.skill = null;
+      runSkill(sk, { cells });
     },
   });
   document.addEventListener('keydown', (e) => {
@@ -246,6 +283,8 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
       let n = 0;
       while (acc >= TICK_MS && n < maxSteps) {
         step(state);
+        cash = pumpUpkeep(rt, state, cash);
+        advanceSkills(rt, state, phase);
         acc -= TICK_MS;
         n++;
         if (state.hp <= 0) {
@@ -263,12 +302,16 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     let flood = 0;
     for (const c of state.base) flood += state.grid.w[c];
     view.hp = state.hp;
+    view.cash = Math.floor(cash);
     view.wave = wave;
     view.flood = flood / BASE_FLOOD_THRESHOLD;
     view.paused = paused;
     view.speed = speed;
     hud.update(view);
-    if (tg.skill) for (let z = 0; z < ZONE_COUNT; z++) valid[z] = canTarget(tg.skill, z) ? 1 : 0;
+    if (tg.skill) {
+      const swipe = bySkillId(tg.skill).def.target === 'swipe';
+      for (let z = 0; z < ZONE_COUNT; z++) valid[z] = swipe || canTarget(tg.skill, z) ? 1 : 0;
+    }
     board.render(state, tg.zone, tg.skill ? valid : null, reducedMotion.matches ? 0 : now);
     samples[sampleCount++ % FRAME_SAMPLES] = performance.now() - t0;
     requestAnimationFrame(frame);
@@ -304,5 +347,9 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     get armedSkill() {
       return tg.skill ? tg.skill.id : null;
     },
+    get cash() {
+      return cash;
+    },
+    rt,
   };
 }
