@@ -57,9 +57,15 @@
 
 ## Files
 
-- `src/render/*.ts`, `src/input/*.ts`, `src/ui/**/*.ts`, `index.html`, `i18n/ko.json`
-
----
+- `v2.html` — created (v2 entry; v1 `index.html` unchanged per user decision)
+- `src/main.ts` — created
+- `src/render/` — canvas.ts, board.ts, terrainLayer.ts, waterLayer.ts, overlayLayer.ts — created
+- `src/input/` — gestures.ts, hit.ts, targeting.ts — created
+- `src/ui/` — i18n.ts, dom.ts, haptics.ts, demoSkills.ts, widgets/{hud,skillBar,toast}.ts, screens/play.ts — created
+- `i18n/ko.json` — created
+- `scripts/build-v2.mjs` — created (TS strip build → `dist-v2/`)
+- `package.json` (build:v2), `.gitignore` (dist-v2/) — modified
+- Evidence: `production/qa/evidence/story-002-mobile-ui-zone-control/` (4 screenshots + stamp.txt)
 
 ## QA Test Cases
 

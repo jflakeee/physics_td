@@ -1,1 +1,1 @@
-{"name":"physics-td","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test","build":"node scripts/build.mjs"},"engines":{"node":">=20"}}
+{"name":"physics-td","version":"1.0.0","private":true,"type":"module","scripts":{"test":"node --test","build":"node scripts/build.mjs","build:v2":"node scripts/build-v2.mjs"},"engines":{"node":">=20"}}
