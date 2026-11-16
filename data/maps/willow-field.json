@@ -1,5 +1,5 @@
 {
-  "id": "willow-field", "region": "flood", "order": 2, "i18n": "map.willowField",
+  "id": "willow-field", "region": "flood", "standard": "wetland-researcher", "challenge": ["dike-keeper"], "order": 2, "i18n": "map.willowField",
   "tiles": ["PPPOPPPP", "PFPPPPFP", "PPPPPPPP", "PDDPPDDP", "PDDPPDDP", "PPPBBPPP",
             "PPPBBPPP", "PDDPPDDP", "PDDPPWWP", "PWWPPWWP", "PPPPPPPP", "PPPIIPPP"],
   "zones": ["aaa.bccc", "aaabbccc", "aaabbccc", "dddeefff", "dddeefff", "hhhggiii",

@@ -278,7 +278,8 @@ export function barSkills(rt: SkillRuntime): SkillDef[] {
   return [...pick(['common']), ...own];
 }
 
-function zoneAllowed(def: SkillDef, state: SimState, zone: number): boolean {
+/** Whether `def` can target zone `zone` of the map (zone type match). */
+export function zoneAllowed(def: SkillDef, state: SimState, zone: number): boolean {
   const code = zoneType(state, zone);
   if (def.zoneTypes.includes('all')) return code !== ZONE.none && code !== ZONE.inlet && code !== ZONE.outlet && code !== ZONE.base;
   return def.zoneTypes.some((n) => ZONE[n as keyof typeof ZONE] === code);

@@ -1,0 +1,30 @@
+{
+  "xp": { "base": 100, "growth": 1.35 },
+  "score": { "drainedPer": 0.3, "blockedPer": 0.35, "ecologyPerPercent": 8, "noDamageWave": 60, "waveClear": 100 },
+  "lateLevelScore": 50,
+  "cards": {
+    "ownSlots": 1,
+    "crossSlots": 2,
+    "maxCrossActives": 2,
+    "activeSlots": 4,
+    "crossRank": 1,
+    "standardWeight": 1.5,
+    "rerolls": 1,
+    "skipCash": 40,
+    "rarity": {
+      "weights": { "common": 70, "rare": 25, "legendary": 5 },
+      "launchDemote": { "legendary": "rare" },
+      "rareNewExtraRanks": 1,
+      "rareUpgradeExtraRanks": 1
+    },
+    "pity": {
+      "fusionAfter": 4,
+      "spikes": [{ "level": 3, "slot": "tactical" }, { "level": 5, "slot": "ultimate" }]
+    },
+    "fallback": [
+      { "id": "supply", "value": 60 },
+      { "id": "repair", "value": 10, "max": 100 },
+      { "id": "maintenance", "value": 0.15, "max": 2 }
+    ]
+  }
+}

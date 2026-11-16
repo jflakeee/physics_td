@@ -1,12 +1,13 @@
 /**
  * Wave-start checkpoint and state hash (docs/GAME_DESIGN_V2.md 20 "웨이브 재도전",
  * docs/DETAILED_DESIGN_V2.md 12 `stateHash`). A checkpoint is a deep snapshot of every
- * mutable part of the run; restoring writes it back into the same objects, so views that
+ * mutable part of the run (incl. XP, pending level-ups, pity, reroll and the cards RNG state); restoring writes it back into the same objects, so views that
  * hold `run.state` keep working. Same checkpoint + same inputs -> same state hash.
  */
 import type { SimGrid, SimState } from '../core/types.ts';
 import { sfc32FromState } from '../core/rng.ts';
 import type { RngStreams } from '../core/rng.ts';
+import type { DraftState } from '../rules/leveling.ts';
 import type { EffectEnv } from '../rules/effects.ts';
 import type { SkillRuntime } from '../rules/skills.ts';
 
@@ -21,6 +22,7 @@ export interface CheckpointTarget {
   cash: number;
   level: number;
   wave: number;
+  draft: DraftState | null;
 }
 
 /** Opaque deep snapshot of a run. */
@@ -33,6 +35,7 @@ export interface Checkpoint {
   cash: number;
   level: number;
   wave: number;
+  draft: DraftState | null;
 }
 
 /**
@@ -59,6 +62,7 @@ export function saveCheckpoint(r: CheckpointTarget): Checkpoint {
     cash: r.cash,
     level: r.level,
     wave: r.wave,
+    draft: r.draft === null ? null : structuredClone(r.draft),
   };
 }
 
@@ -89,6 +93,7 @@ export function restoreCheckpoint(r: CheckpointTarget, cp: Checkpoint): void {
   r.cash = cp.cash;
   r.level = cp.level;
   r.wave = cp.wave;
+  r.draft = cp.draft === null ? null : structuredClone(cp.draft);
 }
 
 /** FNV-1a over raw bytes, continuing from `h`. */

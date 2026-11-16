@@ -21,6 +21,7 @@ import type { HudView } from '../widgets/hud.ts';
 import { createSkillBar } from '../widgets/skillBar.ts';
 import type { SkillButtonSpec } from '../widgets/skillBar.ts';
 import { createToaster } from '../widgets/toast.ts';
+import { mountLevelUp } from './levelUp.ts';
 
 const TICK_MS = 1000 / TICKS_PER_SEC;
 /** Accumulated time cap per frame (spec 18). */
@@ -86,10 +87,11 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   const tut = o.tutorial;
   /** Bar entry: skill data plus the fields skill bar and targeting need. */
   interface BarSkill extends TargetSkill, SkillButtonSpec { def: SkillDef }
-  const skills: BarSkill[] = barSkills(rt).map((def) => ({
+  const barSpecs = (): BarSkill[] => barSkills(rt).map((def) => ({
     id: def.id, i18n: def.i18n, icon: def.icon, size: def.slot === 'common' ? 48 : 56, ultimate: def.slot === 'ultimate',
     target: def.target === 'zone' || def.target === 'swipe' ? 'zone' : 'global', def,
   }));
+  let skills = barSpecs();
   const bySkillId = (sk: TargetSkill): BarSkill => skills.find((s) => s.id === sk.id) as BarSkill;
   const useCtx = (): UseContext => ({ cash: run.cash, paused });
   const over = (): boolean => run.phase === 'defeat' || run.phase === 'result';
@@ -129,16 +131,36 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   let acc = 0;
   let last = -1;
 
-  const view: HudView = { hp: state.hp, cash: run.cash, wave: run.wave, waveMax: run.waveMax, level: run.level, flood: 0, paused, speed };
+  const view: HudView = { hp: state.hp, cash: run.cash, wave: run.wave, waveMax: run.waveMax, level: run.level, flood: 0, paused, speed, pending: 0, lateLevels: 0, finalWave: false };
   const hud = createHud(hudEl, t, {
     onPause: () => setPaused(!paused),
     onSpeed: () => {
       speed = speed === 1 && !lockedSpeed() ? 2 : 1;
     },
   });
-  const bar = createSkillBar(nav, skills, t, {
-    onTap: (sk) => handle(skillTap(tg, sk)),
-    onLongPress: (sk) => handle(skillLongPress(tg, sk)),
+  const makeBar = (): ReturnType<typeof createSkillBar> =>
+    createSkillBar(nav, skills, t, {
+      onTap: (sk) => handle(skillTap(tg, sk)),
+      onLongPress: (sk) => handle(skillLongPress(tg, sk)),
+    });
+  let bar = makeBar();
+  /** A card changed the owned skills: rebuild the skill bar. */
+  function rebuildBar(): void {
+    skills = barSpecs();
+    nav.textContent = '';
+    bar = makeBar();
+    refreshDisabled();
+  }
+  const levelUp = mountLevelUp(root, {
+    run, t,
+    hint: () => (tut !== null && tut.step === 5 && tutorialShown(tut, run) ? t('tutorial.step5') : null),
+    onPick: () => {
+      rebuildBar();
+      tutor('cardPick');
+    },
+    onDone: () => {
+      if (run.phase === 'prep') showPrep();
+    },
   });
 
   // Swipe skills never take a zone tap: the board tap cancels them, the swipe gesture runs them.
@@ -240,6 +262,8 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     startBtn.textContent = t('play.startWave', { n: run.wave + 1 });
     startBtn.hidden = false;
     refreshTutorial();
+    // Wave-end settlement: consecutive card picks before the next wave (spec 6.3).
+    if (run.draft !== null && run.draft.pending > 0) levelUp.open();
   }
 
   function beginWave(): void {
@@ -371,6 +395,9 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     view.flood = flood / BASE_FLOOD_THRESHOLD;
     view.paused = paused;
     view.speed = speed;
+    view.pending = run.draft?.pending ?? 0;
+    view.lateLevels = run.draft?.lateLevels ?? 0;
+    view.finalWave = run.draft !== null && run.phase === 'wave' && run.wave >= run.waveMax;
     hud.update(view);
     // Tutorial step 2 lights the zones the levee skill can take (plain zones blink).
     const levee = skills.find((sk) => sk.id === 'build-levee');

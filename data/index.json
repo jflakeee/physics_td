@@ -1,5 +1,7 @@
 {
   "rules": "data/rules/skill-rules.json",
+  "draft": "data/rules/draft-rules.json",
+  "fusions": "data/fusions.json",
   "characters": [
     "data/characters/dike-keeper.json",
     "data/characters/wetland-researcher.json"

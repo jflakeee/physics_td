@@ -1,5 +1,5 @@
 {
-  "id": "dike-village", "region": "flood", "order": 1, "i18n": "map.dikeVillage",
+  "id": "dike-village", "region": "flood", "standard": "dike-keeper", "challenge": ["wetland-researcher"], "order": 1, "i18n": "map.dikeVillage",
   "tutorial": true, "startHere": true,
   "tiles": ["PPPIPPPO", "PPFPPPPP", "PPPPPPFP", "PDPPPPPP", "PPPPPPPP", "IPPBBPPP",
             "PPPBBPPI", "PPPPPPPP", "PPFPPPDP", "PPPPPPPP", "PPPPFPPP", "OPPPIPPP"],

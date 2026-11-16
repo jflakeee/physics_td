@@ -12,6 +12,11 @@ export interface HudView {
   flood: number;
   paused: boolean;
   speed: 1 | 2;
+  /** Level-ups waiting for a pick (waiting badge). */
+  pending: number;
+  /** Last wave in progress: level-ups convert to score; value = levels converted so far. */
+  lateLevels: number;
+  finalWave: boolean;
 }
 
 /** HUD widget handle. */
@@ -38,6 +43,9 @@ export function createHud(root: HTMLElement, t: Translate, on: { onPause(): void
   const cash = stat('\u{1F4B0}', 'hud.cash');
   const wave = stat('\u{1F30A}', 'hud.wave');
   const level = stat('', 'hud.level', 'hide-short');
+  const badge = el('span', 'lv-badge');
+  badge.hidden = true;
+  stats.appendChild(badge);
   const pause = el('button', 'hud-btn');
   const speed = el('button', 'hud-btn');
   pause.addEventListener('click', on.onPause);
@@ -53,7 +61,7 @@ export function createHud(root: HTMLElement, t: Translate, on: { onPause(): void
   gauge.append(el('span', 'ic hide-short', '\u{1F3E0}'), track);
   root.append(stats, pause, speed, gauge);
 
-  const last = { hp: -1, cash: -1, wave: -1, waveMax: -1, level: -1, flood: -1, paused: null as boolean | null, speed: 0 };
+  const last = { hp: -1, cash: -1, wave: -1, waveMax: -1, level: -1, flood: -1, paused: null as boolean | null, speed: 0, badge: '' };
   return {
     update(v: Readonly<HudView>): void {
       if (v.hp !== last.hp) hp.textContent = String((last.hp = v.hp));
@@ -76,6 +84,13 @@ export function createHud(root: HTMLElement, t: Translate, on: { onPause(): void
         pause.textContent = v.paused ? '▶' : '⏸';
         pause.setAttribute('aria-label', t(v.paused ? 'hud.resume' : 'hud.pause'));
         pause.setAttribute('aria-pressed', String(v.paused));
+      }
+      const label = v.finalWave ? t('hud.lateBadge', { n: v.lateLevels }) : v.pending > 0 ? t('hud.pendingBadge', { dots: '●'.repeat(Math.min(v.pending, 5)), n: v.pending }) : '';
+      if (label !== last.badge) {
+        last.badge = label;
+        badge.hidden = label === '';
+        badge.textContent = label;
+        badge.setAttribute('aria-label', label);
       }
       if (v.speed !== last.speed) {
         last.speed = v.speed;

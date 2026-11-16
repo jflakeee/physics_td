@@ -1,7 +1,8 @@
 /**
  * Run state machine (docs/DETAILED_DESIGN_V2.md 10, launch subset): prep -> wave ->
- * prep ... -> result, wave -> defeat -> (retry) prep. Level-up and briefing states arrive
- * with Stories 005/007. Pure logic, no DOM: the play screen and the balance bots drive
+ * prep ... -> result, wave -> defeat -> (retry) prep. The level-up settlement is not a phase:
+ * a `prep` with `draft.pending > 0` shows the card screen and `beginWave` refuses until it is 0
+ * (docs/DETAILED_DESIGN_V2.md 10; briefing arrives with Story 007). Pure logic, no DOM: the play screen and the balance bots drive
  * the same functions.
  */
 import type { SimState } from '../core/types.ts';
@@ -13,6 +14,9 @@ import { setGate } from '../sim/structures.ts';
 import { WAVE_COUNT, planMapWave } from '../sim/waves.ts';
 import { advanceSkills, createSkillRuntime, onWaveEnd, pumpUpkeep, togglePump, useSkill } from '../rules/skills.ts';
 import type { CanUse, SkillData, SkillRuntime, UseResult, UseTarget } from '../rules/skills.ts';
+import type { DraftData } from '../rules/cards.ts';
+import { accrueScore, createDraft, drafting, waveEndScore } from '../rules/leveling.ts';
+import type { DraftState } from '../rules/leveling.ts';
 import { restoreCheckpoint, saveCheckpoint } from './checkpoint.ts';
 import type { Checkpoint } from './checkpoint.ts';
 import { createMapSim } from './maps.ts';
@@ -43,6 +47,11 @@ export interface Run {
   cash: number;
   level: number;
   retries: number;
+  /** Level-up draft progress (XP, pending picks, pity, reroll); null when the run has no draft data. */
+  draft: DraftState | null;
+  draftData: DraftData | null;
+  /** Fusion ids discovered (minimal codex record; Story 006 persists and shows it). Survives retries. */
+  codex: string[];
   /** Snapshot taken at the start of the current wave. */
   checkpoint: Checkpoint | null;
 }
@@ -58,24 +67,26 @@ function go(run: Run, to: Phase): void {
 /**
  * Create a run in `prep` before wave 1. Cash and level come from the map's `start`;
  * the pump cap comes from `data/skills/pump.json`; glacier maps use the glacier skill variant.
- * @example const run = createRun(map, skillData, 'dike-keeper', 7);
+ * @param draftData Level-up rules and fusions; without it the run has no XP or cards.
+ * @example const run = createRun(map, skillData, 'dike-keeper', 7, draftData);
  */
-export function createRun(map: MapData, data: SkillData, characterId: string, seed: number): Run {
+export function createRun(map: MapData, data: SkillData, characterId: string, seed: number, draftData: DraftData | null = null): Run {
   const state = createMapSim(map, data.skills.get('pump')?.pump?.maxConcurrent);
   const rt = createSkillRuntime(data, characterId, state, map.region === 'glacier' ? 'glacier' : null);
   return {
     map, state, rt, seed, rng: createRngStreams(seed), phase: 'prep', wave: 0, waveMax: WAVE_COUNT,
-    cash: map.start.cash, level: map.start.level, retries: 0, checkpoint: null,
+    cash: map.start.cash, level: map.start.level, retries: 0,
+    draft: draftData ? createDraft(draftData.rules, state) : null, draftData, codex: [], checkpoint: null,
   };
 }
 
 /**
  * prep -> wave: save the checkpoint, then install the next wave's inflow plan.
- * @returns false outside `prep`.
+ * @returns false outside `prep` or while level-up picks are pending.
  * @example if (beginWave(run)) toast('wave');
  */
 export function beginWave(run: Run): boolean {
-  if (run.phase !== 'prep') return false;
+  if (run.phase !== 'prep' || (run.draft !== null && run.draft.pending > 0)) return false;
   run.checkpoint = saveCheckpoint(run);
   run.wave++;
   run.rt.env.nextWeights = undefined;
@@ -99,7 +110,9 @@ export function tickRun(run: Run): TickEvent {
     go(run, 'defeat');
     return 'defeat';
   }
+  if (drafting(run)) accrueScore(run);
   if (state.inflow && state.waveTick >= state.inflow.len) {
+    if (drafting(run)) waveEndScore(run);
     onWaveEnd(run.rt, state);
     if (run.wave >= run.waveMax) {
       go(run, 'result');

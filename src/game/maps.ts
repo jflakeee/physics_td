@@ -21,6 +21,10 @@ export const GUIDE = {
 export interface MapData {
   id: string;
   region: 'flood' | 'glacier';
+  /** Id of the map style's standard (정석) character, or null when the map has none; any other character is the challenge matchup. */
+  standard: string | null;
+  /** Ids of the characters that are this map's challenge matchup (no standard-character card weighting for them). */
+  challenge: string[];
   order: number;
   /** i18n key prefix (`<i18n>.name`, `<i18n>.blurb`). */
   i18n: string;
@@ -88,7 +92,8 @@ export function parseMap(raw: unknown, where: string): MapData {
     for (const [tx, ty] of lake.tiles) if (tiles[ty][tx] !== 'R') fail(`${where}.lake`, `lake tile [${tx},${ty}] must be R`);
   }
   const map: MapData = {
-    id: str(o, 'id', where), region: oneOf(o, 'region', where, ['flood', 'glacier']), order: num(o, 'order', where), i18n: str(o, 'i18n', where),
+    id: str(o, 'id', where), region: oneOf(o, 'region', where, ['flood', 'glacier']), order: num(o, 'order', where), standard: o.standard === undefined ? null : str(o, 'standard', where),
+    challenge: o.challenge === undefined ? [] : arr(o, 'challenge', where).map((c) => String(c)), i18n: str(o, 'i18n', where),
     tiles, zones, noiseSalt: num(o, 'noiseSalt', where), inlets,
     pumps: arr(o, 'pumps', where).map((p, k) => cell(p, `${where}.pumps[${k}]`)),
     gates, lake,

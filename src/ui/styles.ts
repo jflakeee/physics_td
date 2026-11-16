@@ -17,6 +17,29 @@ const CSS = `
 .end-box{position:absolute;inset:30% 10% auto;background:rgba(10,20,28,.94);border:2px solid #3b5a70;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:stretch;text-align:center}
 .end-btn{min-height:48px}
 .hud.tut-gauge .gauge{outline:3px solid #ffd54f;border-radius:4px}
+.lv-badge{background:#ffd54f;color:#1a1a1a;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700}
+.lv-badge[hidden]{display:none}
+.lvup{position:fixed;inset:0;z-index:20;background:rgba(10,20,28,.98);display:flex;flex-direction:column;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px max(10px,env(safe-area-inset-bottom))}
+.lvup[hidden]{display:none}
+.lvup-head{display:flex;justify-content:space-between;align-items:baseline;font-size:16px;font-weight:700}
+.lvup-note{margin:0;font-size:13px;color:#ffd54f;min-height:16px}
+.lvup-cards{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.lvcard{flex:1 1 0;min-height:64px;max-height:130px;width:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:8px 12px;text-align:left;border-width:3px;position:relative}
+.lvcard.r-common{border-color:#6b8799}
+.lvcard.r-rare{border-color:#4fc3f7;background:#1d3a52}
+.lvcard.r-none{border-color:#8bc34a}
+.lvcard .top{display:flex;gap:6px;align-items:center;font-size:12px;color:#cfdde7}
+.lvcard .nm{font-size:16px;font-weight:700}
+.lvcard .ds{font-size:12px;color:#cfdde7}
+.lvcard .fx{position:absolute;top:6px;right:8px;font-size:12px;font-weight:700;color:#ffd54f}
+.lvup-foot{display:flex;gap:8px}
+.lvup-foot button{min-height:48px;padding:0 10px}
+.lvup-foot .grow{flex:1}
+.lvup-foot .ic48{width:48px}
+.lvup-odds{margin:0;font-size:12px;color:#cfdde7;background:#162a38;border-radius:8px;padding:8px}
+.lvup-odds[hidden]{display:none}
+.lvup-sheet{display:flex;flex-direction:column;gap:8px}
+.lvup-sheet button{min-height:56px;text-align:left;padding:0 12px}
 `;
 
 /**

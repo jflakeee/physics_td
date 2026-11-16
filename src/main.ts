@@ -2,6 +2,7 @@ import { createRun } from './game/machine.ts';
 import { loadMaps } from './game/maps.ts';
 import type { MapData } from './game/maps.ts';
 import { createTutorial } from './game/tutorial.ts';
+import { loadDraftData } from './rules/cards.ts';
 import { loadSkillData } from './rules/skills.ts';
 import { getFlag, setFlag } from './ui/flags.ts';
 import { createTranslate, loadDictionary } from './ui/i18n.ts';
@@ -24,13 +25,13 @@ async function boot(): Promise<void> {
   const read = async (p: string): Promise<unknown> => (await fetch(p)).json();
   const t = createTranslate(await loadDictionary('i18n/ko.json'));
   document.title = t('app.title');
-  const [data, maps] = await Promise.all([loadSkillData(read), loadMaps(read)]);
+  const [data, maps, draftData] = await Promise.all([loadSkillData(read), loadMaps(read), loadDraftData(read)]);
   const q = new URLSearchParams(location.search);
   const root = document.getElementById('app') as HTMLElement;
   const showList = (): void => mountMapSelect(root, maps, t, !getFlag(FIRST_RUN_FLAG), play);
   function play(map: MapData): void {
     setFlag(FIRST_RUN_FLAG);
-    const run = createRun(map, data, q.get('char') ?? DEFAULT_CHARACTER, Number(q.get('seed') ?? 1));
+    const run = createRun(map, data, q.get('char') ?? DEFAULT_CHARACTER, Number(q.get('seed') ?? 1), draftData);
     const tutorial = map.tutorial && !getFlag(TUTORIAL_FLAG) ? createTutorial() : null;
     (window as unknown as { __v2: PlayDebug }).__v2 = mountPlay(root, {
       run, t, tutorial, onTutorialDone: () => setFlag(TUTORIAL_FLAG), onExit: () => location.reload(),
