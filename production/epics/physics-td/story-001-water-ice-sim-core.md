@@ -1,12 +1,12 @@
 # Story 001: 물·얼음 시뮬레이션 코어
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: L
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: 2026-11-15
+> **Last Updated**: 2026-11-16
 
 ## Context
 
@@ -89,3 +89,15 @@
 
 - Depends on: None
 - Unlocks: `production/epics/physics-td/story-002-mobile-ui-zone-control.md`, `production/epics/physics-td/story-003-characters-and-skills.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-16
+**Criteria**: 9/9 passing (user-confirmed via /story-done)
+**Deviations** (advisory):
+- 설계 v2.3 반영: 제방 마모 0.012×압력/s, 빙하호 붕괴 규칙(두께 < 수심×1.25 → 붕괴 + 이웃 연쇄), 빙하호 기본 깊이 0.3, 물 배열 Float64 (`docs/GAME_DESIGN_V2.md` §3.0)
+- AC9: 4× CPU 스로틀 평균 1.04–1.18ms, p99 1.86–2.02ms — 꼬리가 기준선(2.0ms)에 닿음. 스로틀은 클라우드 VM 기준이며 실기기 측정 아님
+**Test Evidence**: waived at qa.level: minimal (verification scripts kept outside the repo)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
