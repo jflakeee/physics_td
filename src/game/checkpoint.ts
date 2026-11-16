@@ -43,7 +43,7 @@ export function saveCheckpoint(r: CheckpointTarget): Checkpoint {
   const { state: s, rt } = r;
   const grid: Record<string, ArrayLike<number>> = {};
   for (const [k, v] of Object.entries(s.grid)) if (!SCRATCH.has(k)) grid[k] = (v as Float64Array).slice();
-  const { timers, opened, repaired, nextWeights } = rt.env;
+  const { timers, opened, repaired, iceBuilt, nextWeights } = rt.env;
   return {
     grid,
     sim: structuredClone({
@@ -53,7 +53,7 @@ export function saveCheckpoint(r: CheckpointTarget): Checkpoint {
     gatesOpen: s.gates.map((g) => g.open),
     rt: structuredClone({
       owned: rt.owned, cooldown: rt.cooldown, gauge: rt.gauge, axis: rt.axis, lastBlocked: rt.lastBlocked, maxEcology: rt.maxEcology,
-      env: { timers, opened, repaired, nextWeights },
+      env: { timers, opened, repaired, iceBuilt, nextWeights },
     }),
     rng: { cards: r.rng.cards.getState(), events: r.rng.events.getState(), weather: r.rng.weather.getState() },
     cash: r.cash,

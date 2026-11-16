@@ -10,9 +10,9 @@
     "glacier": {
       "icon": "🧊", "i18n": "skill.iceDam",
       "ranks": [
-        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.3, "topUp": 0.1, "cap": 0.6 }] },
-        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.4, "topUp": 0.1, "cap": 0.6 }] },
-        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.5, "topUp": 0.1, "cap": 0.6 }] }
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "refreezeBelow": 0.8, "height": 0.45, "topUp": 0.1, "cap": 0.6 }] },
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "refreezeBelow": 0.8, "height": 0.5, "topUp": 0.1, "cap": 0.6 }] },
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "refreezeBelow": 0.8, "height": 0.55, "topUp": 0.1, "cap": 0.6 }] }
       ]
     }
   },

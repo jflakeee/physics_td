@@ -17,8 +17,13 @@ export const MOD_KEYS = ['wallDurabilityMul', 'absorbMul'] as const satisfies re
 /**
  * Levee that gets +topUp (capped) once all lines of the zone exist; `material: "ice"` makes an
  * ice dam that melts `melt` per second (required for ice) and is exempt from the lake collapse.
+ * Ice priority: re-freeze the thinnest melting line to its built height, else build a new line, else raise.
  */
-export interface BuildLeveeOp { op: 'buildLevee'; height: number; topUp: number; cap: number; material: 'wall' | 'ice'; melt: number }
+export interface BuildLeveeOp {
+  op: 'buildLevee'; height: number; topUp: number; cap: number; material: 'wall' | 'ice'; melt: number;
+  /** Ice only: a built line whose thinnest cell is below this fraction of its built height counts as melting and is re-frozen first. */
+  refreezeBelow: number;
+}
 /** Temporary wall on a swipe path; `ttl` in seconds. */
 export interface TempWallPathOp { op: 'tempWallPath'; height: number; ttl: number; maxCells: number; width: number; exclusionRadius: number }
 export interface RepairAllOp { op: 'repairAll'; addHeight: number }
@@ -44,6 +49,8 @@ export interface EffectEnv {
   opened: Set<number>;
   /** cell -> height added by `repairAll`, reverted at wave end. */
   repaired: Map<number, number>;
+  /** cell -> full height of the skill ice dam built there (what a re-freeze restores). */
+  iceBuilt: Map<number, number>;
   /** Levee lines of a zone (the map's, derived at load from the zone layer). */
   leveeLines(zone: number): readonly LeveeLine[];
   /** Weights of the next wave's inlets (spec 6.4); falls back to the current wave plan. */
@@ -59,7 +66,7 @@ export interface OpTarget { zone: number; cells: readonly number[] }
  * @example const env = createEffectEnv((z) => state.zones.lines[z]);
  */
 export function createEffectEnv(leveeLines: (zone: number) => readonly LeveeLine[]): EffectEnv {
-  return { timers: [], opened: new Set(), repaired: new Map(), leveeLines };
+  return { timers: [], opened: new Set(), repaired: new Map(), iceBuilt: new Map(), leveeLines };
 }
 
 /**
@@ -74,7 +81,8 @@ export function parseOp(raw: unknown, where: string): Op {
     case 'buildLevee': {
       const material = o.material === undefined ? 'wall' : oneOf(o, 'material', w, ['wall', 'ice']);
       const melt = material === 'ice' ? num(o, 'melt', w, 0) : 0;
-      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material, melt };
+      const refreezeBelow = material === 'ice' ? num(o, 'refreezeBelow', w, 0) : 0;
+      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material, melt, refreezeBelow };
     }
     case 'tempWallPath':
       return {
@@ -157,16 +165,48 @@ export function pickLine(state: SimState, env: EffectEnv, candidates: readonly L
   return pick;
 }
 
+/**
+ * The thinnest built ice line of a zone that has melted below `ratio` of its built height
+ * (and not away completely), or null.
+ * @example const line = meltingIceLine(state, env, env.leveeLines(z), 0.8);
+ */
+export function meltingIceLine(state: SimState, env: EffectEnv, lines: readonly LeveeLine[], ratio: number): LeveeLine | null {
+  const { ice } = state.grid;
+  let pick: LeveeLine | null = null;
+  let worst = ratio;
+  for (const l of lines) {
+    let r = Infinity;
+    for (const c of l.cells) {
+      const built = env.iceBuilt.get(c);
+      r = built === undefined ? -1 : Math.min(r, ice[c] / built);
+    }
+    if (r > 0 && r < worst) {
+      worst = r;
+      pick = l;
+    }
+  }
+  return pick;
+}
+
 function buildLeveeOp(state: SimState, env: EffectEnv, op: BuildLeveeOp, zone: number): void {
   const g = state.grid;
   const level = levelOf(state, op);
   const lines = env.leveeLines(zone);
   if (lines.length === 0) return;
+  const melt = op.melt / TICKS_PER_SEC;
+  if (op.material === 'ice') {
+    const melting = meltingIceLine(state, env, lines, op.refreezeBelow);
+    if (melting) {
+      for (const c of melting.cells) freezeSkillIce(g, [c], env.iceBuilt.get(c) as number, melt);
+      return;
+    }
+  }
   const open = lines.filter((l) => lineMin(level, l) <= 0);
   if (open.length > 0) {
     const line = pickLine(state, env, open);
     if (op.material === 'ice') {
-      freezeSkillIce(g, line.cells, op.height, op.melt / TICKS_PER_SEC);
+      freezeSkillIce(g, line.cells, op.height, melt);
+      for (const c of line.cells) env.iceBuilt.set(c, op.height);
     } else {
       buildLevee(g, line.cells.filter((c) => g.wall[c] < op.height), op.height);
       for (const c of line.cells) if (g.wall[c] >= op.height) g.dur[c] = LEVEE_START_DURABILITY;
@@ -176,7 +216,11 @@ function buildLeveeOp(state: SimState, env: EffectEnv, op: BuildLeveeOp, zone: n
   let low = lines[0];
   for (const l of lines) if (lineMin(level, l) < lineMin(level, low)) low = l;
   if (op.material === 'ice') {
-    for (const c of low.cells) freezeSkillIce(g, [c], Math.min(op.cap, level[c] + op.topUp), op.melt / TICKS_PER_SEC);
+    for (const c of low.cells) {
+      const hgt = Math.min(op.cap, level[c] + op.topUp);
+      freezeSkillIce(g, [c], hgt, melt);
+      env.iceBuilt.set(c, hgt);
+    }
   } else {
     for (const c of low.cells) level[c] = Math.max(level[c], Math.min(op.cap, level[c] + op.topUp));
   }

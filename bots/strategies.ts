@@ -10,6 +10,8 @@ import { zoneType } from '../src/input/hit.ts';
 import { TILES_X, TILES_Y, ZONE } from '../src/sim/constants.ts';
 import { waveSeconds } from '../src/sim/waves.ts';
 import { resolveSkill } from '../src/rules/skills.ts';
+import { meltingIceLine } from '../src/rules/effects.ts';
+import type { BuildLeveeOp } from '../src/rules/effects.ts';
 
 /** A bot: `act` is called once per prep phase and every 10 ticks of a wave. */
 export interface Strategy {
@@ -92,6 +94,26 @@ function freeze(run: Run): void {
 
 const inWave = (run: Run): boolean => run.phase === 'wave';
 
+/**
+ * Ice-dam maps: re-freeze the thinnest melting ice line among the zones (one cast per call),
+ * keeping the upkeep reserve of `pumpsKept` pumps. No-op for wall levees.
+ */
+function refreeze(run: Run, zones: readonly number[], pumpsKept: number): void {
+  const def = resolveSkill(run.rt, 'build-levee');
+  const op = def.ranks[(run.rt.owned.get(def.id) ?? 1) - 1].ops.find((o): o is BuildLeveeOp => o.op === 'buildLevee');
+  if (!op || op.material !== 'ice') return;
+  const reserve = pumpsKept * (run.rt.data.skills.get('pump')?.pump?.costPerSec ?? 0) * 10;
+  let zone = -1;
+  let worst = Infinity;
+  for (const z of zones) {
+    const line = meltingIceLine(run.state, run.rt.env, run.state.zones.lines[z], op.refreezeBelow);
+    if (!line) continue;
+    const r = line.cells.reduce((m, c) => Math.min(m, run.state.grid.ice[c] / (run.rt.env.iceBuilt.get(c) ?? 1)), Infinity);
+    if (r < worst) (worst = r), (zone = z);
+  }
+  if (zone >= 0 && run.cash - def.cost >= reserve) runSkill(run, 'build-levee', { zone });
+}
+
 /** The 7 strategies. */
 export const STRATEGIES: readonly Strategy[] = [
   { name: 'idle', mixed: false, act: () => {} },
@@ -102,8 +124,10 @@ export const STRATEGIES: readonly Strategy[] = [
   {
     name: 'leveePump', mixed: true,
     act: (r) => {
-      if (inWave(r)) pumps(r, 1);
-      else levees(r, zoneRings(r)[0], 1);
+      if (inWave(r)) {
+        pumps(r, 1);
+        refreeze(r, zoneRings(r)[0], 1);
+      } else levees(r, zoneRings(r)[0], 1);
     },
   },
   {
@@ -113,6 +137,7 @@ export const STRATEGIES: readonly Strategy[] = [
       if (inWave(r)) {
         pumps(r, r.state.maxPumpsOn);
         freeze(r);
+        refreeze(r, zoneRings(r)[0], r.state.maxPumpsOn);
       } else {
         levees(r, zoneRings(r)[0], r.state.maxPumpsOn);
       }
