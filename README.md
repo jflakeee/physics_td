@@ -9,6 +9,7 @@
 - [v1 세션 기록 (ChatGPT)](docs/SESSION_HISTORY_V1_CHATGPT.md) — 아래 "2026-11-08 대화 세션 전체 기록"과 본문 동일, 출처·v2 연결 머리말 추가본
 - [스토리·세계 확장 설계](docs/STORY_WORLD_EXPANSION.md)
 - [TD 장르 딥리서치 (장단점·참신한 시스템·플레이어 요청)](docs/TD_GENRE_RESEARCH_2026-11.md)
+- [물질 층 시스템 설계 (물·용암·모래·눈사태·기름·플라즈마, 출시 후 지역 확장)](docs/MATERIAL_LAYERS_DESIGN.md)
 - [통합 설계·조사·구현 자료집](docs/PHYSICS_TD_MASTER_DESIGN.md)
 - [2026-11-08 대화 세션 전체 기록](docs/SESSION_TRANSCRIPT_2026-11-08.md)
 - [설계 검토·장르 벤치마크 리포트 (2026-11)](docs/DESIGN_REVIEW_2026-11.md)
