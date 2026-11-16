@@ -1,12 +1,12 @@
 # Story 002: 모바일 한 화면 UI + 구역 탭 조작
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: L
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-16
 
 ## Context
 
