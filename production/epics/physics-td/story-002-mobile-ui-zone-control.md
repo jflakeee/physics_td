@@ -1,7 +1,7 @@
 # Story 002: 모바일 한 화면 UI + 구역 탭 조작
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: L
@@ -88,3 +88,18 @@
 
 - Depends on: `production/epics/physics-td/story-001-water-ice-sim-core.md`
 - Unlocks: `production/epics/physics-td/story-003-characters-and-skills.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-16
+**Criteria**: 8/8 passing (user-confirmed via /story-done; AC5 gate toggle deferred to Story 004 — sim has no gate structure yet)
+**Deviations** (advisory):
+- 수문 토글 미구현: Story 004에서 수문 구조물이 생기면 히트 테스트(펌프 > 수문 > 구역)에 추가
+- 데모 하드코딩: 자금 200, Lv 1, 웨이브 5개(`src/main.ts`), 임시 스킬(`src/ui/demoSkills.ts`) — Story 003·004·006에서 데이터/실제 시스템으로 교체
+- 웨이브 시작 버튼이 가로 화면에서도 보드 아래에 있음 (설계 §13.1은 우측 패널)
+- 플레이 스크린샷에서 기지 수위 게이지가 가득 찬 빨간 줄로 보임 — 실제 수위인지 표시 버그인지 미확인, Story 004 맵 작업 때 점검
+- 범위: 스토리 Files의 `index.html` 대신 사용자 결정으로 `v2.html` 신규 생성(v1 `index.html` 불변), `scripts/build-v2.mjs`·`package.json`·`.gitignore` 추가/수정
+**Test Evidence**: waived at qa.level minimal; UI 스크린샷 `production/qa/evidence/story-002-mobile-ui-zone-control/` (+ stamp.txt)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
