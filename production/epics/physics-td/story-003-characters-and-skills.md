@@ -1,12 +1,12 @@
 # Story 003: 캐릭터 2명 + 공통·특수 스킬
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: L
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-16
 
 ## Context
 
