@@ -6,7 +6,7 @@
  */
 import type { SimGrid, SimState } from '../core/types.ts';
 import { sfc32FromState } from '../core/rng.ts';
-import type { RngStreams } from '../core/rng.ts';
+import type { Rng, RngStreams } from '../core/rng.ts';
 import type { DraftState } from '../rules/leveling.ts';
 import type { EffectEnv } from '../rules/effects.ts';
 import type { SkillRuntime } from '../rules/skills.ts';
@@ -38,12 +38,37 @@ export interface Checkpoint {
   draft: DraftState | null;
 }
 
+/** Streams created from checkpoint words: the words and the state right after creation. */
+const ORIGIN = new WeakMap<Rng, { words: number[]; fresh: string }>();
+
+/** Stream from checkpoint words, remembered so an unused one saves the same words again. */
+function fromWords(words: number[]): Rng {
+  const live = sfc32FromState(words);
+  ORIGIN.set(live, { words, fresh: live.getState().join() });
+  return live;
+}
+
 /**
- * Snapshot every mutable part of the run.
+ * Words to checkpoint for one stream. `sfc32FromState` warms up, so restored words do not
+ * continue the old stream; the live stream is re-seated from the saved words so the wave and
+ * every retry of it draw the same sequence. A stream still untouched since it was seated keeps
+ * its words (a retry re-saving the checkpoint must not shift the cards).
+ */
+function seat(streams: RngStreams, k: keyof RngStreams): number[] {
+  const o = ORIGIN.get(streams[k]);
+  if (o && o.fresh === streams[k].getState().join()) return o.words;
+  const words = streams[k].getState();
+  streams[k] = fromWords(words);
+  return words;
+}
+
+/**
+ * Snapshot every mutable part of the run (re-seats the run's RNG streams, see below).
  * @example run.checkpoint = saveCheckpoint(run);
  */
 export function saveCheckpoint(r: CheckpointTarget): Checkpoint {
   const { state: s, rt } = r;
+  const rng = { cards: seat(r.rng, 'cards'), events: seat(r.rng, 'events'), weather: seat(r.rng, 'weather') };
   const grid: Record<string, ArrayLike<number>> = {};
   for (const [k, v] of Object.entries(s.grid)) if (!SCRATCH.has(k)) grid[k] = (v as Float64Array).slice();
   const { timers, opened, repaired, iceBuilt, nextWeights } = rt.env;
@@ -58,7 +83,7 @@ export function saveCheckpoint(r: CheckpointTarget): Checkpoint {
       owned: rt.owned, cooldown: rt.cooldown, gauge: rt.gauge, axis: rt.axis, lastBlocked: rt.lastBlocked, maxEcology: rt.maxEcology,
       env: { timers, opened, repaired, iceBuilt, nextWeights },
     }),
-    rng: { cards: r.rng.cards.getState(), events: r.rng.events.getState(), weather: r.rng.weather.getState() },
+    rng,
     cash: r.cash,
     level: r.level,
     wave: r.wave,
@@ -87,9 +112,9 @@ export function restoreCheckpoint(r: CheckpointTarget, cp: Checkpoint): void {
   rt.lastBlocked = saved.lastBlocked;
   rt.maxEcology = saved.maxEcology;
   Object.assign(rt.env, saved.env);
-  r.rng.cards = sfc32FromState(cp.rng.cards);
-  r.rng.events = sfc32FromState(cp.rng.events);
-  r.rng.weather = sfc32FromState(cp.rng.weather);
+  r.rng.cards = fromWords(cp.rng.cards);
+  r.rng.events = fromWords(cp.rng.events);
+  r.rng.weather = fromWords(cp.rng.weather);
   r.cash = cp.cash;
   r.level = cp.level;
   r.wave = cp.wave;

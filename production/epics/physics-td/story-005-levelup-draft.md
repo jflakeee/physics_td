@@ -55,11 +55,12 @@
 
 ## Files
 
-- `src/rules/leveling.ts`, `src/rules/cards.ts`, `src/rules/fusion.ts`, `data/fusions.json`
-- `src/ui/screens/levelUp.ts`
-- `tests/unit/draft/draft_test.ts`
-
----
+- `src/rules/leveling.ts`, `src/rules/cards.ts`, `src/rules/fusion.ts` — created
+- `src/ui/screens/levelUp.ts` — created
+- `data/rules/draft-rules.json`, `data/fusions.json` — created; `data/index.json`, `data/maps/{dike-village,willow-field}.json` (standard/challenge character) — modified
+- `src/game/{machine,checkpoint,maps,tutorial}.ts`, `src/rules/skills.ts`, `src/ui/screens/play.ts`, `src/ui/widgets/hud.ts`, `src/ui/styles.ts`, `src/main.ts`, `i18n/ko.json` — modified
+- Tests: none (waived at qa.level: minimal); verification scripts outside the repo
+- Evidence: `production/qa/evidence/story-005-levelup-draft/` (levelup.png, pending.png, stamp.txt)
 
 ## QA Test Cases
 
