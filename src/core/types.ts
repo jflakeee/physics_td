@@ -121,7 +121,7 @@ export interface SimState {
   gates: Gate[];
   /** Cells of the glacier-lake dam (empty on maps without a lake). */
   lakeDam: number[];
-  /** True between an ice-collapse warning and the collapse itself. */
+  /** True once the glacier-lake collapse warning has been raised (one lake, one warning). */
   iceWarned: boolean;
   pumps: Pump[];
   /** Max pumps running at once (from `data/skills/pump.json`); `Infinity` when not supplied. */

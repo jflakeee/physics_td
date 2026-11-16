@@ -1,6 +1,6 @@
 import type { SimGrid, SimState } from '../core/types.ts';
 import {
-  CELLS, FLAG_LAKE_DAM, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK, ICE_WARN_SEC, TICKS_PER_SEC,
+  CELLS, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK, ICE_WARN_SEC, TICKS_PER_SEC,
 } from './constants.ts';
 
 /**
@@ -24,7 +24,7 @@ export function freezeCells(g: SimGrid, cells: ArrayLike<number>, thickness: num
  * releases its whole reservoir in one burst instead of a trickle. Collapsed cells
  * are listed in `state.fx.iceCollapsed`. When the lake dam (`state.lakeDam`) would
  * fail within `ICE_WARN_SEC` at the current melt rate and water level,
- * `state.fx.iceWarning` is raised once (re-armed after the dam collapses).
+ * `state.fx.iceWarning` is raised once per run (the lake has one dam).
  * @example updateIce(state);
  */
 export function updateIce(state: SimState): void {
@@ -50,13 +50,10 @@ export function updateIce(state: SimState): void {
   if (state.lakeDam.length > 0) warnLakeCollapse(state);
 }
 
-/** Raise `fx.iceWarning` once when the lake dam is within `ICE_WARN_SEC` of its first failure. */
+/** Raise `fx.iceWarning` (once per run) when the lake dam is within `ICE_WARN_SEC` of its first failure. */
 function warnLakeCollapse(state: SimState): void {
-  const { ice, h, w, flags } = state.grid;
-  if (state.iceWarned) {
-    for (const i of state.fx.iceCollapsed) if (flags[i] & FLAG_LAKE_DAM) state.iceWarned = false;
-    return;
-  }
+  const { ice, h, w } = state.grid;
+  if (state.iceWarned) return;
   let soonest = Infinity;
   for (const i of state.lakeDam) {
     const held = heldBack(h, w, i);

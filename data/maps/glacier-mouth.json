@@ -1,0 +1,14 @@
+{
+  "id": "glacier-mouth", "region": "glacier", "order": 3, "i18n": "map.glacierMouth",
+  "tiles": ["PPIPPPPO", "PHHPRRPP", "PPPPPPHP", "PPFPPPPP", "PPPPPPPP", "IPPBBPPP",
+            "PPPBBPPP", "PPPPPPPP", "PFPPPPDP", "PPPPPPPP", "PPPPHPPP", "PPPPPIPO"],
+  "zones": ["aa.bbbc.", "aaabbbcc", "aaabbbcc", "ddeeeecc", "ddeeeecc", ".ffgghhc",
+            "iffgghhl", "iijjjjll", "iijjjjll", "iikkkkll", "iikkkkll", "iikkk.l."],
+  "noiseSalt": 37,
+  "inlets": [{ "tile": [2, 0], "weight": 1.2 }, { "tile": [0, 5], "weight": 1 }, { "tile": [5, 11], "weight": 1 }],
+  "pumps": [[33, 36], [21, 50], [38, 56]],
+  "gates": [{ "tile": [4, 3], "axis": "h", "height": 0.8, "open": true }],
+  "lake": { "tiles": [[4, 1], [5, 1]], "depth": 0.3, "damIce": 0.9 },
+  "waves": { "I1": 120, "rain": 0.2, "pulseEvery": 45 },
+  "start": { "cash": 150, "level": 1, "waveIncome": 60 }
+}

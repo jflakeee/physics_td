@@ -1,0 +1,15 @@
+{
+  "id": "dike-village", "region": "flood", "order": 1, "i18n": "map.dikeVillage",
+  "tutorial": true, "startHere": true,
+  "tiles": ["PPPIPPPO", "PPFPPPPP", "PPPPPPFP", "PDPPPPPP", "PPPPPPPP", "IPPBBPPP",
+            "PPPBBPPI", "PPPPPPPP", "PPFPPPDP", "PPPPPPPP", "PPPPFPPP", "OPPPIPPP"],
+  "zones": ["aaa.bbc.", "aaabbbcc", "aaabbbcc", "ddeeeecc", "ddeeeecc", ".ffgghhc",
+            "iffgghh.", "iijjjjll", "iijjjjll", "iikkkkll", "iikkkkll", ".ikk.kll"],
+  "noiseSalt": 11,
+  "inlets": [{ "tile": [3, 0], "weight": 1 }, { "tile": [0, 5], "weight": 1 }, { "tile": [7, 6], "weight": 1.2 }, { "tile": [4, 11], "weight": 1 }],
+  "pumps": [[34, 37], [41, 53], [28, 57]],
+  "gates": [{ "tile": [5, 9], "axis": "h", "height": 0.8, "open": true }],
+  "lake": null,
+  "waves": { "I1": 120, "rain": 0.2, "pulseEvery": 45 },
+  "start": { "cash": 150, "level": 1, "waveIncome": 60 }
+}

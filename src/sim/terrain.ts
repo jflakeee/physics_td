@@ -153,7 +153,16 @@ function buildLake(grid: SimGrid, lake: LakeSpec): number[] {
     if (inLake[i]) continue;
     const x = i % GRID_W;
     const y = (i / GRID_W) | 0;
-    if ((x > 0 && inLake[i - 1]) || (x < GRID_W - 1 && inLake[i + 1]) || (y > 0 && inLake[i - GRID_W]) || (y < GRID_H - 1 && inLake[i + GRID_W])) ring.push(i);
+    // 8-neighbourhood so the ring is 4-connected around the corners and fails as one dam.
+    let touches = false;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < GRID_W && ny < GRID_H && inLake[ny * GRID_W + nx]) touches = true;
+      }
+    }
+    if (touches) ring.push(i);
   }
   let ground = 0;
   for (const i of ring) ground += grid.h[i];
