@@ -56,10 +56,16 @@
 
 ## Files
 
-- `data/maps/*.json`, `src/sim/waves.ts`, `src/game/machine.ts`, `src/game/checkpoint.ts`
-- `tests/integration/maps/maps_test.ts`, `bots/*.ts`
-
----
+- `data/maps/{dike-village,willow-field,glacier-mouth,frost-lakeside}.json` — created (tiles + zones + inlets/pumps/gate/lake)
+- `data/index.json`, `data/skills/build-levee.json` (cost 6, glacier ice dam + re-freeze), `data/skills/pump.json` — modified
+- `src/sim/waves.ts`, `src/sim/zones.ts` — created; `src/sim/{constants,grid,fluid,terrain,step,structures,sinks,ice}.ts`, `src/core/types.ts` — modified (zone layer, gates, skill ice, pump cap from data)
+- `src/game/{maps,machine,checkpoint,tutorial}.ts` — created
+- `src/rules/{effects,skills}.ts`, `src/input/{hit,targeting}.ts` — modified (real levee lines, re-freeze cost, gate hit tier)
+- `src/ui/screens/{play,mapSelect}.ts`, `src/ui/{flags,styles}.ts`, `src/render/{board,overlayLayer}.ts`, `src/main.ts`, `i18n/ko.json` — created/modified
+- `bots/{strategies,play,run}.ts` — created (7 strategies × 4 maps)
+- `docs/GAME_DESIGN_V2.md` §3.0 — rows: levee cost 6, start cash 150, skill ice dam, re-freeze cost 2
+- Tests: none (waived at qa.level: minimal); verification scripts outside the repo
+- Evidence: `production/qa/evidence/story-004-regions-maps-waves-tutorial/` (5 screenshots, bots-matrix.txt, stamp.txt)
 
 ## QA Test Cases
 

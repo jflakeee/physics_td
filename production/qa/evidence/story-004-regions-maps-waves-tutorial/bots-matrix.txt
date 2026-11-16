@@ -1,0 +1,33 @@
+dike-village (I1=120, pulse=45, cash=150)
+  idle        single lose W2  hp   0 cash  210 ok
+  pumpsOnly   single lose W3  hp   0 cash  111 ok
+  leveesOnly  single lose W5  hp   0 cash    0 ok
+  gatesOnly   single lose W2  hp   0 cash  210 ok
+  iceOnly     single lose W2  hp   0 cash  210 ok
+  leveePump   mixed  CLEAR    hp  52 cash   69 ok
+  fullMix     mixed  CLEAR    hp  35 cash   99 ok
+willow-field (I1=138, pulse=45, cash=150)
+  idle        single lose W3  hp   0 cash  270 ok
+  pumpsOnly   single lose W4  hp   0 cash   24 ok
+  leveesOnly  single lose W5  hp   0 cash   78 ok
+  gatesOnly   single lose W3  hp   0 cash  270 ok
+  iceOnly     single lose W3  hp   0 cash  270 ok
+  leveePump   mixed  CLEAR    hp  61 cash   24 ok
+  fullMix     mixed  CLEAR    hp  53 cash    0 ok
+glacier-mouth (I1=110, pulse=45, cash=150)
+  idle        single lose W2  hp   0 cash  210 ok
+  pumpsOnly   single lose W3  hp   0 cash  122 ok
+  leveesOnly  single lose W5  hp   0 cash    2 ok
+  gatesOnly   single lose W2  hp   0 cash  210 ok
+  iceOnly     single lose W2  hp   0 cash  210 ok
+  leveePump   mixed  CLEAR    hp  23 cash   24 ok
+  fullMix     mixed  CLEAR    hp  44 cash   48 ok
+frost-lakeside (I1=100, pulse=45, cash=150)
+  idle        single lose W2  hp   0 cash  210 ok
+  pumpsOnly   single lose W3  hp   0 cash  123 ok
+  leveesOnly  single lose W5  hp   0 cash    2 ok
+  gatesOnly   single lose W2  hp   0 cash  210 ok
+  iceOnly     single lose W2  hp   0 cash  210 ok
+  leveePump   mixed  CLEAR    hp  31 cash   16 ok
+  fullMix     mixed  CLEAR    hp  36 cash   34 ok
+bots: all expectations hold

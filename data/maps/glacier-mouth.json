@@ -9,6 +9,6 @@
   "pumps": [[33, 36], [21, 50], [38, 56]],
   "gates": [{ "tile": [4, 3], "axis": "h", "height": 0.8, "open": true }],
   "lake": { "tiles": [[4, 1], [5, 1]], "depth": 0.3, "damIce": 0.9 },
-  "waves": { "I1": 120, "rain": 0.2, "pulseEvery": 45 },
+  "waves": { "I1": 110, "rain": 0.2, "pulseEvery": 45 },
   "start": { "cash": 150, "level": 1, "waveIncome": 60 }
 }
