@@ -1,6 +1,6 @@
 {
   "id": "build-levee", "owner": "dike-keeper", "slot": "basic", "axis": "safety", "target": "zone",
-  "zoneTypes": ["plain"], "cooldown": 0, "cost": 20, "borrowable": true,
+  "zoneTypes": ["plain"], "cooldown": 0, "cost": 6, "borrowable": true,
   "ranks": [
     { "ops": [{ "op": "buildLevee", "height": 0.3, "topUp": 0.1, "cap": 0.6 }] },
     { "ops": [{ "op": "buildLevee", "height": 0.4, "topUp": 0.1, "cap": 0.6 }] },
@@ -10,9 +10,9 @@
     "glacier": {
       "icon": "🧊", "i18n": "skill.iceDam",
       "ranks": [
-        { "ops": [{ "op": "buildLevee", "material": "ice", "height": 0.3, "topUp": 0.1, "cap": 0.6 }] },
-        { "ops": [{ "op": "buildLevee", "material": "ice", "height": 0.4, "topUp": 0.1, "cap": 0.6 }] },
-        { "ops": [{ "op": "buildLevee", "material": "ice", "height": 0.5, "topUp": 0.1, "cap": 0.6 }] }
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.3, "topUp": 0.1, "cap": 0.6 }] },
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.4, "topUp": 0.1, "cap": 0.6 }] },
+        { "ops": [{ "op": "buildLevee", "material": "ice", "melt": 0.002, "height": 0.5, "topUp": 0.1, "cap": 0.6 }] }
       ]
     }
   },

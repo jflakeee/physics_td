@@ -5,7 +5,7 @@
  */
 import type { LeveeLine, SimMods, SimState } from '../core/types.ts';
 import { FLAG_BASE_CORE, FLAG_INLET, GRID_H, GRID_W, LEVEE_START_DURABILITY, TICKS_PER_SEC, ZONE } from '../sim/constants.ts';
-import { freezeCells } from '../sim/ice.ts';
+import { freezeSkillIce } from '../sim/ice.ts';
 import { buildLevee, placeTempWall } from '../sim/structures.ts';
 import { zoneCells, zoneType } from '../input/hit.ts';
 import { arr, fail, num, obj, oneOf, str } from './validate.ts';
@@ -14,8 +14,11 @@ import type { Obj } from './validate.ts';
 /** Sim modifier keys an op may change. */
 export const MOD_KEYS = ['wallDurabilityMul', 'absorbMul'] as const satisfies readonly (keyof SimMods)[];
 
-/** Levee that gets +topUp (capped) once all lines of the zone exist; `material: "ice"` makes an ice dam. */
-export interface BuildLeveeOp { op: 'buildLevee'; height: number; topUp: number; cap: number; material: 'wall' | 'ice' }
+/**
+ * Levee that gets +topUp (capped) once all lines of the zone exist; `material: "ice"` makes an
+ * ice dam that melts `melt` per second (required for ice) and is exempt from the lake collapse.
+ */
+export interface BuildLeveeOp { op: 'buildLevee'; height: number; topUp: number; cap: number; material: 'wall' | 'ice'; melt: number }
 /** Temporary wall on a swipe path; `ttl` in seconds. */
 export interface TempWallPathOp { op: 'tempWallPath'; height: number; ttl: number; maxCells: number; width: number; exclusionRadius: number }
 export interface RepairAllOp { op: 'repairAll'; addHeight: number }
@@ -70,7 +73,8 @@ export function parseOp(raw: unknown, where: string): Op {
   switch (name) {
     case 'buildLevee': {
       const material = o.material === undefined ? 'wall' : oneOf(o, 'material', w, ['wall', 'ice']);
-      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material };
+      const melt = material === 'ice' ? num(o, 'melt', w, 0) : 0;
+      return { op: name, height: num(o, 'height', w, 0), topUp: num(o, 'topUp', w, 0), cap: num(o, 'cap', w, 0), material, melt };
     }
     case 'tempWallPath':
       return {
@@ -162,7 +166,7 @@ function buildLeveeOp(state: SimState, env: EffectEnv, op: BuildLeveeOp, zone: n
   if (open.length > 0) {
     const line = pickLine(state, env, open);
     if (op.material === 'ice') {
-      freezeCells(g, line.cells, op.height);
+      freezeSkillIce(g, line.cells, op.height, op.melt / TICKS_PER_SEC);
     } else {
       buildLevee(g, line.cells.filter((c) => g.wall[c] < op.height), op.height);
       for (const c of line.cells) if (g.wall[c] >= op.height) g.dur[c] = LEVEE_START_DURABILITY;
@@ -171,7 +175,11 @@ function buildLeveeOp(state: SimState, env: EffectEnv, op: BuildLeveeOp, zone: n
   }
   let low = lines[0];
   for (const l of lines) if (lineMin(level, l) < lineMin(level, low)) low = l;
-  for (const c of low.cells) level[c] = Math.max(level[c], Math.min(op.cap, level[c] + op.topUp));
+  if (op.material === 'ice') {
+    for (const c of low.cells) freezeSkillIce(g, [c], Math.min(op.cap, level[c] + op.topUp), op.melt / TICKS_PER_SEC);
+  } else {
+    for (const c of low.cells) level[c] = Math.max(level[c], Math.min(op.cap, level[c] + op.topUp));
+  }
 }
 
 /**

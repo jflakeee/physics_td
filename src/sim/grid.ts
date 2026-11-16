@@ -1,5 +1,5 @@
 import type { SimGrid } from '../core/types.ts';
-import { CELLS, NO_ZONE } from './constants.ts';
+import { CELLS, ICE_MELT_PER_TICK, NO_ZONE } from './constants.ts';
 
 /**
  * Allocate an empty grid (all zero). Every per-tick scratch array is allocated here,
@@ -12,6 +12,7 @@ export function createGrid(): SimGrid {
     gate: new Float32Array(CELLS),
     w: new Float64Array(CELLS),
     ice: new Float32Array(CELLS),
+    iceMelt: new Float32Array(CELLS).fill(ICE_MELT_PER_TICK),
     h: new Float32Array(CELLS),
     wall: new Float32Array(CELLS),
     tmp: new Float32Array(CELLS),

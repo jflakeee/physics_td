@@ -1,6 +1,6 @@
 import type { SimGrid, SimState } from '../core/types.ts';
 import {
-  CELLS, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK, ICE_WARN_SEC, TICKS_PER_SEC,
+  CELLS, FLAG_SKILL_ICE, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK, ICE_WARN_SEC, TICKS_PER_SEC,
 } from './constants.ts';
 
 /**
@@ -16,25 +16,46 @@ export function freezeCells(g: SimGrid, cells: ArrayLike<number>, thickness: num
 }
 
 /**
- * Tick 4: melt every ice cell by 0.0008, then collapse ice that is too thin for the
+ * Build a skill ice dam: at least `thickness` ice that melts `meltPerTick` and never takes
+ * part in the glacier-lake collapse (marked with `FLAG_SKILL_ICE` until it has melted).
+ * @example freezeSkillIce(grid, line.cells, 0.4, 0.002 / 30);
+ */
+export function freezeSkillIce(g: SimGrid, cells: ArrayLike<number>, thickness: number, meltPerTick: number): void {
+  for (let k = 0; k < cells.length; k++) {
+    const c = cells[k];
+    if (g.ice[c] < thickness) g.ice[c] = thickness;
+    g.flags[c] |= FLAG_SKILL_ICE;
+    g.iceMelt[c] = meltPerTick;
+  }
+}
+
+/**
+ * Tick 4: melt every ice cell by its `iceMelt` (0.0008 for map ice), then collapse ice that is too thin for the
  * water it holds. An ice cell fails (ice -> 0 at once) when
  * `ice < ICE_COLLAPSE_RATIO * max_neighbour(ground + water - own ground)`. A failure
  * unzips the dam: every ice cell next to a collapsed one that still holds back water
  * collapses too (flood fill within the same tick), so a melting glacier-lake dam
- * releases its whole reservoir in one burst instead of a trickle. Collapsed cells
+ * releases its whole reservoir in one burst instead of a trickle. Skill-built ice
+ * (`FLAG_SKILL_ICE`) only melts: it neither collapses nor unzips, and turns back into
+ * ordinary cells once melted. Collapsed cells
  * are listed in `state.fx.iceCollapsed`. When the lake dam (`state.lakeDam`) would
  * fail within `ICE_WARN_SEC` at the current melt rate and water level,
  * `state.fx.iceWarning` is raised once per run (the lake has one dam).
  * @example updateIce(state);
  */
 export function updateIce(state: SimState): void {
-  const { ice, h, w } = state.grid;
+  const { ice, iceMelt, flags, h, w } = state.grid;
   const failed = state.fx.iceCollapsed;
   for (let i = 0; i < CELLS; i++) {
     if (ice[i] <= 0) continue;
-    const t = ice[i] - ICE_MELT_PER_TICK;
+    const t = ice[i] - iceMelt[i];
     ice[i] = t > 0 ? t : 0;
-    if (ice[i] > 0 && ice[i] < ICE_COLLAPSE_RATIO * heldBack(h, w, i)) failed.push(i);
+    if (flags[i] & FLAG_SKILL_ICE) {
+      if (ice[i] === 0) {
+        flags[i] &= ~FLAG_SKILL_ICE;
+        iceMelt[i] = ICE_MELT_PER_TICK;
+      }
+    } else if (ice[i] > 0 && ice[i] < ICE_COLLAPSE_RATIO * heldBack(h, w, i)) failed.push(i);
   }
   // Collapse after the scan so the scan result does not depend on cell order.
   for (let k = 0; k < failed.length; k++) ice[failed[k]] = 0;
@@ -79,8 +100,8 @@ function heldBack(h: Float32Array, w: Float64Array, i: number): number {
 
 /** Collapse ice cell i (queued for further unzipping) if it is holding back water. */
 function unzip(state: SimState, i: number): void {
-  const { ice, h, w } = state.grid;
-  if (ice[i] > 0 && heldBack(h, w, i) > 0) {
+  const { ice, flags, h, w } = state.grid;
+  if (ice[i] > 0 && (flags[i] & FLAG_SKILL_ICE) === 0 && heldBack(h, w, i) > 0) {
     ice[i] = 0;
     state.fx.iceCollapsed.push(i);
   }

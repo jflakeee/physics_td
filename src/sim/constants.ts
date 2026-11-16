@@ -60,6 +60,8 @@ export const FLAG_INLET = 2;
 export const FLAG_BASE_CORE = 4;
 /** Glacier-lake dam ice cell (warned before it collapses). */
 export const FLAG_LAKE_DAM = 8;
+/** Skill-built ice dam cell: own melt rate (`SimGrid.iceMelt`), exempt from the glacier-lake collapse. */
+export const FLAG_SKILL_ICE = 16;
 /** `SimGrid.zoneId` value for cells outside every authored zone. */
 export const NO_ZONE = 255;
 

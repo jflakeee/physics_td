@@ -9,6 +9,8 @@ export interface SimGrid {
   w: Float64Array;
   /** Ice thickness (adds to the water head, so ice acts as a wall). */
   ice: Float32Array;
+  /** Ice melt per tick of each cell (`ICE_MELT_PER_TICK` except skill-built ice dams). */
+  iceMelt: Float32Array;
   /** Ground height. */
   h: Float32Array;
   /** Permanent levee height. */
@@ -27,7 +29,7 @@ export interface SimGrid {
   gate: Float32Array;
   /** Forest / wetland health 0..1. */
   health: Float32Array;
-  /** Bit flags: 1 outlet, 2 inlet, 4 base core, 8 glacier-lake dam. */
+  /** Bit flags: 1 outlet, 2 inlet, 4 base core, 8 glacier-lake dam, 16 skill-built ice. */
   flags: Uint8Array;
   /** Consecutive ticks with depth >= forest flood depth. */
   floodTicks: Uint16Array;
