@@ -1,12 +1,12 @@
 # Story 004: 지역 2곳 × 맵 2장, 5웨이브, 튜토리얼
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: L
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-16
 
 ## Context
 
