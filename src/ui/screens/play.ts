@@ -1,14 +1,16 @@
 import type { SimState } from '../../core/types.ts';
-import { BASE_FLOOD_THRESHOLD, TICKS_PER_SEC, ZONE } from '../../sim/constants.ts';
-import { planWave, startWave } from '../../sim/inflow.ts';
-import { step } from '../../sim/step.ts';
+import { BASE_FLOOD_THRESHOLD, FLAG_LAKE_DAM, TICKS_PER_SEC, ZONE } from '../../sim/constants.ts';
+import { beginWave as machineBeginWave, retryWave, runSkill as machineRunSkill, runToggleGate, runTogglePump, tickRun } from '../../game/machine.ts';
+import type { Run } from '../../game/machine.ts';
+import { tutorialEvent, tutorialShown } from '../../game/tutorial.ts';
+import type { Tutorial, TutorialEvent } from '../../game/tutorial.ts';
 import { attachGestures } from '../../input/gestures.ts';
-import { NO_HIT, ZONE_COUNT, cellAt, hitTest, zoneType } from '../../input/hit.ts';
+import { NO_HIT, cellAt, hitTest, zoneType } from '../../input/hit.ts';
 import { boardTap, cancelTargeting, createTargeting, skillLongPress, skillTap } from '../../input/targeting.ts';
 import type { TargetEvent, TargetSkill } from '../../input/targeting.ts';
 import { fitBoard } from '../../render/canvas.ts';
 import { createBoard } from '../../render/board.ts';
-import { advanceSkills, barSkills, canUse, onWaveEnd, pumpUpkeep, resolveSkill, togglePump, useSkill, FAIL_TOAST } from '../../rules/skills.ts';
+import { barSkills, canUse } from '../../rules/skills.ts';
 import type { SkillDef, SkillRuntime, UseContext } from '../../rules/skills.ts';
 import { PUMP_LIMIT_TOAST } from '../../rules/skills.ts';
 import { el } from '../dom.ts';
@@ -37,16 +39,15 @@ const HAPTIC_FAIL = [30, 30];
 
 /** Inputs to the play screen. */
 export interface PlayOptions {
-  state: SimState;
+  /** The run (map, sim, skills, cash, level, phase) driven through `game/machine.ts`. */
+  run: Run;
   t: Translate;
-  /** Map base inflow (wave volume scale). */
-  i1: number;
-  waveMax: number;
-  /** Skill runtime (Story 003): the bar shows its common + active skills. */
-  rt: SkillRuntime;
-  /** Run values with no owning system yet (economy / leveling arrive in later stories). */
-  cash: number;
-  level: number;
+  /** Tutorial state when this play is the first 둑마을 play, else null. */
+  tutorial: Tutorial | null;
+  /** Called once when the tutorial finishes or is skipped. */
+  onTutorialDone(): void;
+  /** Back to the map list. */
+  onExit(): void;
 }
 
 /** Render frame time summary in ms. */
@@ -64,7 +65,9 @@ export interface PlayDebug {
   resetFrameStats(): void;
   readonly paused: boolean;
   readonly speed: 1 | 2;
-  readonly phase: 'wave' | 'prep' | 'over';
+  readonly phase: Run['phase'];
+  readonly run: Run;
+  readonly tutorialStep: number;
   readonly selectedZone: number;
   readonly armedSkill: string | null;
   readonly cash: number;
@@ -78,7 +81,9 @@ export interface PlayDebug {
  * @example const dbg = mountPlay(document.getElementById('app')!, { state, t, ... });
  */
 export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
-  const { state, t, rt } = o;
+  const { run, t } = o;
+  const { state, rt } = run;
+  const tut = o.tutorial;
   /** Bar entry: skill data plus the fields skill bar and targeting need. */
   interface BarSkill extends TargetSkill, SkillButtonSpec { def: SkillDef }
   const skills: BarSkill[] = barSkills(rt).map((def) => ({
@@ -86,8 +91,8 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     target: def.target === 'zone' || def.target === 'swipe' ? 'zone' : 'global', def,
   }));
   const bySkillId = (sk: TargetSkill): BarSkill => skills.find((s) => s.id === sk.id) as BarSkill;
-  let cash = o.cash;
-  const useCtx = (): UseContext => ({ cash, paused });
+  const useCtx = (): UseContext => ({ cash: run.cash, paused });
+  const over = (): boolean => run.phase === 'defeat' || run.phase === 'result';
   const zoneNames: string[] = [];
   for (const [k, v] of Object.entries(ZONE)) zoneNames[v] = k;
 
@@ -102,7 +107,14 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   startBtn.hidden = true;
   const nav = el('nav', 'skills');
   nav.setAttribute('aria-label', t('skill.bar'));
-  wrap.append(canvas, startBtn);
+  const bubble = el('div', 'bubble');
+  bubble.hidden = true;
+  const bubbleText = el('p', 'bubble-text');
+  const skipBtn = el('button', 'bubble-skip', t('tutorial.skip'));
+  bubble.append(bubbleText, skipBtn);
+  const endBox = el('div', 'end-box');
+  endBox.hidden = true;
+  wrap.append(canvas, startBtn, bubble, endBox);
   root.append(hudEl, wrap, nav);
 
   const toast = createToaster(wrap);
@@ -110,20 +122,18 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const board = createBoard(canvas, state);
   const tg = createTargeting();
-  const valid = new Uint8Array(ZONE_COUNT);
+  const valid = new Uint8Array(state.zones.count);
 
   let paused = false;
   let speed: 1 | 2 = 1;
-  let phase: 'wave' | 'prep' | 'over' = 'prep';
-  let wave = 0;
   let acc = 0;
   let last = -1;
 
-  const view: HudView = { hp: state.hp, cash, wave: 0, waveMax: o.waveMax, level: o.level, flood: 0, paused, speed };
+  const view: HudView = { hp: state.hp, cash: run.cash, wave: run.wave, waveMax: run.waveMax, level: run.level, flood: 0, paused, speed };
   const hud = createHud(hudEl, t, {
     onPause: () => setPaused(!paused),
     onSpeed: () => {
-      speed = speed === 1 ? 2 : 1;
+      speed = speed === 1 && !lockedSpeed() ? 2 : 1;
     },
   });
   const bar = createSkillBar(nav, skills, t, {
@@ -141,9 +151,9 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
 
   /** Run a skill through the rules layer; on failure show its toast and clear targeting. */
   function runSkill(sk: TargetSkill, target: { zone?: number; cells?: number[] }): void {
-    const r = useSkill(rt, state, sk.id, useCtx(), target);
+    const r = machineRunSkill(run, sk.id, target, paused);
     if (!r.ok) return reject(r.toast ?? 'toast.badTarget');
-    cash -= r.spent;
+    if (bySkillId(sk).def.id === 'build-levee') tutor('levee');
     bar.setArmed(null);
     refreshDisabled();
     haptic(HAPTIC_USE);
@@ -165,11 +175,11 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   /** Turn a targeting event into effects. Commands are applied between ticks. */
   function handle(ev: TargetEvent): void {
     const acts = ev.t === 'arm' || ev.t === 'run' || ev.t === 'toggle';
-    if (acts && phase === 'over') return reject('toast.gameOver');
+    if (acts && over()) return reject('toast.gameOver');
     if (acts && paused) return reject('toast.paused');
     switch (ev.t) {
       case 'select':
-        toast(t('toast.zoneInfo', { type: t(`zone.type.${zoneNames[zoneType(state.grid, ev.zone)]}`) }));
+        toast(t('toast.zoneInfo', { type: t(`zone.type.${zoneNames[zoneType(state, ev.zone)]}`) }));
         break;
       case 'deselect':
         break;
@@ -188,10 +198,19 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
         runSkill(ev.skill, ev.zone >= 0 ? { zone: ev.zone } : {});
         break;
       case 'toggle': {
-        const r = togglePump(rt, state, ev.pump, useCtx());
+        if (over()) return reject('toast.gameOver');
+        const r = runTogglePump(run, ev.pump, paused);
         if (!r.ok) return reject(r.toast ?? PUMP_LIMIT_TOAST);
         haptic(HAPTIC_USE);
         toast(t(state.pumps[ev.pump].on ? 'toast.pumpOn' : 'toast.pumpOff'));
+        if (state.pumps[ev.pump].on) tutor('pumpOn');
+        break;
+      }
+      case 'gate': {
+        const r = runToggleGate(run, ev.gate, paused);
+        if (!r.ok) return reject(r.toast ?? 'toast.badTarget');
+        haptic(HAPTIC_USE);
+        toast(t(state.gates[ev.gate].open ? 'toast.gateOpen' : 'toast.gateClosed'));
         break;
       }
       case 'needLongPress':
@@ -200,25 +219,68 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     }
   }
 
+  const lockedSpeed = (): boolean => tut !== null && tut.step === 3 && tutorialShown(tut, run);
+
+  /** Feed the tutorial; finishing it reports once. */
+  function tutor(ev: TutorialEvent): void {
+    if (!tut || !tutorialEvent(tut, run, ev)) return;
+    if (tut.step > 6) o.onTutorialDone();
+    refreshTutorial();
+  }
+
+  function refreshTutorial(): void {
+    const shown = tut !== null && tutorialShown(tut, run);
+    bubble.hidden = !shown;
+    if (shown && tut) bubbleText.textContent = t(`tutorial.step${tut.step}`);
+    hudEl.classList.toggle('tut-gauge', shown && tut?.step === 6);
+    if (lockedSpeed()) speed = 1;
+  }
+
+  function showPrep(): void {
+    startBtn.textContent = t('play.startWave', { n: run.wave + 1 });
+    startBtn.hidden = false;
+    refreshTutorial();
+  }
+
   function beginWave(): void {
-    wave++;
-    startWave(state, planWave(o.i1, wave, { inletCount: state.inlets.length }));
-    phase = 'wave';
+    if (!machineBeginWave(run)) return;
     startBtn.hidden = true;
-    toast(t('toast.waveStart', { n: wave }));
+    toast(t('toast.waveStart', { n: run.wave }));
+    refreshTutorial();
   }
 
   function endWave(): void {
-    phase = 'prep';
-    onWaveEnd(rt, state);
     if (tg.skill) handle(cancelTargeting(tg));
-    toast(t('toast.waveEnd', { n: wave }));
-    if (wave < o.waveMax) {
-      startBtn.textContent = t('play.startWave', { n: wave + 1 });
-      startBtn.hidden = false;
-    }
+    toast(t('toast.waveEnd', { n: run.wave }));
+    showPrep();
   }
 
+  /** Defeat / result panel: retry from the wave-start checkpoint, or back to the map list. */
+  function showEnd(kind: 'defeat' | 'result'): void {
+    if (tg.skill) handle(cancelTargeting(tg));
+    endBox.textContent = '';
+    endBox.appendChild(el('p', '', t(kind === 'defeat' ? 'toast.defeat' : 'play.cleared', { hp: state.hp })));
+    if (kind === 'defeat') {
+      const retry = el('button', 'end-btn', t('play.retry', { n: run.wave }));
+      retry.addEventListener('click', () => {
+        if (!retryWave(run)) return;
+        endBox.hidden = true;
+        fit();
+        showPrep();
+      });
+      endBox.appendChild(retry);
+    }
+    const back = el('button', 'end-btn', t('play.toMaps'));
+    back.addEventListener('click', o.onExit);
+    endBox.appendChild(back);
+    endBox.hidden = false;
+    refreshTutorial();
+  }
+
+  bubble.addEventListener('click', (e) => {
+    if (e.target !== skipBtn) tutor('tap');
+  });
+  skipBtn.addEventListener('click', () => tutor('skip'));
   startBtn.addEventListener('click', beginWave);
   attachGestures(canvas, {
     onTap: (x, y) => {
@@ -277,48 +339,55 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   function frame(now: number): void {
     const dt = last < 0 ? 0 : Math.min(now - last, MAX_FRAME_MS);
     last = now;
-    if (!paused && phase !== 'over') {
+    if (!paused && run.phase === 'wave') {
       acc += dt * speed;
       const maxSteps = MAX_STEPS_PER_SPEED * speed;
       let n = 0;
-      while (acc >= TICK_MS && n < maxSteps) {
-        step(state);
-        cash = pumpUpkeep(rt, state, cash);
-        advanceSkills(rt, state, phase);
+      while (acc >= TICK_MS && n < maxSteps && run.phase === 'wave') {
+        const ev = tickRun(run);
         acc -= TICK_MS;
         n++;
-        if (state.hp <= 0) {
-          phase = 'over';
-          if (tg.skill) handle(cancelTargeting(tg));
-          toast(t('toast.defeat'));
-          break;
+        if (state.fx.iceWarning) {
+          toast(t('toast.iceWarning'));
+          haptic(HAPTIC_FAIL);
         }
-        if (phase === 'wave' && state.inflow && state.waveTick >= state.inflow.len) endWave();
+        if (state.fx.iceCollapsed.some((c) => (state.grid.flags[c] & FLAG_LAKE_DAM) !== 0)) toast(t('toast.iceCollapse'));
+        if (ev === 'none') tutor('waveTick');
+        else if (ev === 'waveEnd') endWave();
+        else showEnd(ev);
       }
       if (acc > TICK_MS) acc = TICK_MS;
+    } else {
+      acc = 0;
     }
 
     const t0 = performance.now();
     let flood = 0;
     for (const c of state.base) flood += state.grid.w[c];
     view.hp = state.hp;
-    view.cash = Math.floor(cash);
-    view.wave = wave;
+    view.cash = Math.floor(run.cash);
+    view.wave = run.wave;
+    view.level = run.level;
     view.flood = flood / BASE_FLOOD_THRESHOLD;
     view.paused = paused;
     view.speed = speed;
     hud.update(view);
-    if (tg.skill) {
-      const swipe = bySkillId(tg.skill).def.target === 'swipe';
-      for (let z = 0; z < ZONE_COUNT; z++) valid[z] = swipe || canTarget(tg.skill, z) ? 1 : 0;
+    // Tutorial step 2 lights the zones the levee skill can take (plain zones blink).
+    const levee = skills.find((sk) => sk.id === 'build-levee');
+    const blink = !tg.skill && levee !== undefined && tut !== null && tut.step === 2 && tutorialShown(tut, run) && Math.floor(now / 500) % 2 === 0;
+    const maskSkill = tg.skill ?? (blink ? levee : null);
+    if (maskSkill) {
+      const swipe = bySkillId(maskSkill).def.target === 'swipe';
+      for (let z = 0; z < state.zones.count; z++) valid[z] = swipe || canTarget(maskSkill, z) ? 1 : 0;
     }
-    board.render(state, tg.zone, tg.skill ? valid : null, reducedMotion.matches ? 0 : now);
+    board.render(state, tg.zone, maskSkill ? valid : null, reducedMotion.matches ? 0 : now);
     samples[sampleCount++ % FRAME_SAMPLES] = performance.now() - t0;
     requestAnimationFrame(frame);
   }
 
   refreshDisabled();
-  beginWave();
+  // Runs start in prep (sim frozen) so the player builds before wave 1; see Story 004 item 8.
+  showPrep();
   requestAnimationFrame(frame);
 
   return {
@@ -339,7 +408,11 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
       return speed;
     },
     get phase() {
-      return phase;
+      return run.phase;
+    },
+    run,
+    get tutorialStep() {
+      return tut ? tut.step : 0;
     },
     get selectedZone() {
       return tg.zone;
@@ -348,7 +421,7 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
       return tg.skill ? tg.skill.id : null;
     },
     get cash() {
-      return cash;
+      return run.cash;
     },
     rt,
   };

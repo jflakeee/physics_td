@@ -1,45 +1,42 @@
-import { createSim } from './sim/step.ts';
-import { zoneCenterCell } from './input/hit.ts';
-import { acquireSkill, createSkillRuntime, loadSkillData } from './rules/skills.ts';
+import { createRun } from './game/machine.ts';
+import { loadMaps } from './game/maps.ts';
+import type { MapData } from './game/maps.ts';
+import { createTutorial } from './game/tutorial.ts';
+import { loadSkillData } from './rules/skills.ts';
+import { getFlag, setFlag } from './ui/flags.ts';
 import { createTranslate, loadDictionary } from './ui/i18n.ts';
+import { mountMapSelect } from './ui/screens/mapSelect.ts';
 import { mountPlay } from './ui/screens/play.ts';
 import type { PlayDebug } from './ui/screens/play.ts';
+import { injectStyles } from './ui/styles.ts';
 
 /**
- * v2 entry (Story 002/003 demo). Until Story 004 ships map data, the board is the
- * "둑마을" tile draft (spec 11.3) with a fixed noise salt, one demo pump (off) and
- * placeholder run values.
+ * v2 entry (Story 004): map list -> play. Cash, level, waves and layout come from
+ * data/maps/*.json; the character defaults to 둑지기 (`?char=` overrides until Story 007's briefing).
+ * Debug: `?seed=` run seed (default 1).
  */
-const DEMO_TILES = [
-  'PPPIPPPO', 'PPFPPPPP', 'PPPPPPFP', 'PDPPPPPP', 'PPPPPPPP', 'IPPBBPPP',
-  'PPPBBPPI', 'PPPPPPPP', 'PPFPPPDP', 'PPPPPPPP', 'PPPPFPPP', 'OPPPIPPP',
-];
-const DEMO_I1 = 120;
-const DEMO_SALT = 11;
-const DEMO_WAVES = 5;
-const DEMO_CASH = 200;
-const DEMO_LEVEL = 1;
-/** Zone (tile) holding the demo pump: tx 5, ty 4, next to the base. */
-const DEMO_PUMP_ZONE = 4 * 8 + 5;
-/** Second demo pump (tx 2, ty 7) to exercise the 2-pump cap. */
-const DEMO_PUMP_ZONE_2 = 7 * 8 + 2;
+const FIRST_RUN_FLAG = 'firstRunDone';
+const TUTORIAL_FLAG = 'tutorialDone';
+const DEFAULT_CHARACTER = 'dike-keeper';
 
 async function boot(): Promise<void> {
+  injectStyles();
+  const read = async (p: string): Promise<unknown> => (await fetch(p)).json();
   const t = createTranslate(await loadDictionary('i18n/ko.json'));
   document.title = t('app.title');
-  const state = createSim(DEMO_TILES, DEMO_I1, DEMO_SALT);
-  state.pumps.push({ id: 1, cell: zoneCenterCell(DEMO_PUMP_ZONE), on: false });
-  state.pumps.push({ id: 2, cell: zoneCenterCell(DEMO_PUMP_ZONE_2), on: false });
-  // Demo selectors until Story 004/005: ?char=wetland-researcher, ?variant=glacier.
+  const [data, maps] = await Promise.all([loadSkillData(read), loadMaps(read)]);
   const q = new URLSearchParams(location.search);
-  const data = await loadSkillData(async (p) => (await fetch(p)).json());
-  const rt = createSkillRuntime(data, q.get('char') ?? 'dike-keeper', state, q.get('variant'));
-  // Until Story 005 (level-up cards) grants skills, the demo owns the whole kit so the bar shows every active.
-  for (const id of rt.character.skills) acquireSkill(rt, state, id);
   const root = document.getElementById('app') as HTMLElement;
-  (window as unknown as { __v2: PlayDebug }).__v2 = mountPlay(root, {
-    state, t, i1: DEMO_I1, waveMax: DEMO_WAVES, rt, cash: DEMO_CASH, level: DEMO_LEVEL,
-  });
+  const showList = (): void => mountMapSelect(root, maps, t, !getFlag(FIRST_RUN_FLAG), play);
+  function play(map: MapData): void {
+    setFlag(FIRST_RUN_FLAG);
+    const run = createRun(map, data, q.get('char') ?? DEFAULT_CHARACTER, Number(q.get('seed') ?? 1));
+    const tutorial = map.tutorial && !getFlag(TUTORIAL_FLAG) ? createTutorial() : null;
+    (window as unknown as { __v2: PlayDebug }).__v2 = mountPlay(root, {
+      run, t, tutorial, onTutorialDone: () => setFlag(TUTORIAL_FLAG), onExit: () => location.reload(),
+    });
+  }
+  showList();
 }
 
 boot().catch((err: unknown) => {

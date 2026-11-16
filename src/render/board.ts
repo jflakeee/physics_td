@@ -1,7 +1,7 @@
 import type { SimState } from '../core/types.ts';
 import { GRID_W } from '../sim/constants.ts';
 import type { BoardSize } from './canvas.ts';
-import { drawPumps, drawStructures, drawZoneOverlay } from './overlayLayer.ts';
+import { drawGates, drawPumps, drawStructures, drawZoneOverlay } from './overlayLayer.ts';
 import { buildTerrainLayer } from './terrainLayer.ts';
 import { createWaterLayer } from './waterLayer.ts';
 
@@ -43,8 +43,9 @@ export function createBoard(canvas: HTMLCanvasElement, state: SimState): Board {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(water.canvas, 0, 0, w, h);
       drawStructures(ctx, st.grid, s);
-      drawPumps(ctx, st.pumps, s, timeMs);
-      drawZoneOverlay(ctx, s, selected, valid);
+      drawGates(ctx, st.gates, s);
+      drawPumps(ctx, st.pumps, st.maxPumpsOn, s, timeMs);
+      drawZoneOverlay(ctx, s, st.zones.tileZone, selected, valid);
     },
   };
 }

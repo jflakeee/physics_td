@@ -1,4 +1,4 @@
-import type { Pump, SimGrid } from '../core/types.ts';
+import type { Gate, Pump, SimGrid } from '../core/types.ts';
 import { CELLS, GRID_W, LEVEE_HEIGHTS, TILE_SIZE, TILES_X } from '../sim/constants.ts';
 
 /** Durability below which a levee shows the red crack pattern (spec 13). */
@@ -107,29 +107,62 @@ export function drawPumps(ctx: CanvasRenderingContext2D, pumps: readonly Pump[],
 }
 
 /**
- * Zone overlay: while targeting (`valid` non-null) invalid zones are dimmed and valid
- * zones outlined; the selected zone gets a thick yellow frame.
- * @example drawZoneOverlay(ctx, s, tg.zone, armed ? mask : null);
+ * Gates: closed = solid dark-blue bar, open = dashed light outline (shape, not only colour).
+ * @example drawGates(ctx, state.gates, s);
  */
-export function drawZoneOverlay(ctx: CanvasRenderingContext2D, s: number, selected: number, valid: Uint8Array | null): void {
+export function drawGates(ctx: CanvasRenderingContext2D, gates: readonly Gate[], s: number): void {
+  for (const g of gates) {
+    ctx.beginPath();
+    for (const c of g.cells) ctx.rect((c % GRID_W) * s, ((c / GRID_W) | 0) * s, s, s);
+    if (g.open) {
+      ctx.setLineDash([s * 0.5, s * 0.4]);
+      ctx.strokeStyle = '#b3e5fc';
+      ctx.lineWidth = Math.max(1, s * 0.2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = '#0d47a1';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(1, s * 0.2);
+      ctx.stroke();
+    }
+  }
+}
+
+/**
+ * Zone overlay on the authoring tiles of each zone (`tileZone`): while targeting (`valid`
+ * non-null, per zone) invalid zones are dimmed and valid ones lit; the selected zone's tiles get a yellow frame.
+ * @example drawZoneOverlay(ctx, s, state.zones.tileZone, tg.zone, armed ? mask : null);
+ */
+export function drawZoneOverlay(ctx: CanvasRenderingContext2D, s: number, tileZone: Int16Array, selected: number, valid: Uint8Array | null): void {
   const z = TILE_SIZE * s;
+  const tx = (k: number): number => (k % TILES_X) * z;
+  const ty = (k: number): number => Math.floor(k / TILES_X) * z;
   if (valid) {
     ctx.beginPath();
-    for (let k = 0; k < valid.length; k++) if (!valid[k]) ctx.rect((k % TILES_X) * z, Math.floor(k / TILES_X) * z, z, z);
+    for (let k = 0; k < tileZone.length; k++) if (tileZone[k] < 0 || !valid[tileZone[k]]) ctx.rect(tx(k), ty(k), z, z);
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fill();
     ctx.beginPath();
-    for (let k = 0; k < valid.length; k++) if (valid[k]) ctx.rect((k % TILES_X) * z + 1.5, Math.floor(k / TILES_X) * z + 1.5, z - 3, z - 3);
+    for (let k = 0; k < tileZone.length; k++) if (tileZone[k] >= 0 && valid[tileZone[k]]) ctx.rect(tx(k), ty(k), z, z);
     ctx.fillStyle = 'rgba(255,255,255,0.14)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = Math.max(1.5, s * 0.25);
-    ctx.stroke();
   }
   if (selected >= 0) {
-    const lw = Math.max(3, s * 0.5);
+    ctx.beginPath();
+    for (let k = 0; k < tileZone.length; k++) {
+      if (tileZone[k] !== selected) continue;
+      const x = k % TILES_X;
+      const y = Math.floor(k / TILES_X);
+      const other = (nx: number, ny: number): boolean => nx < 0 || ny < 0 || nx >= TILES_X || ny * TILES_X + nx >= tileZone.length || tileZone[ny * TILES_X + nx] !== selected;
+      if (other(x, y - 1)) (ctx.moveTo(tx(k), ty(k)), ctx.lineTo(tx(k) + z, ty(k)));
+      if (other(x, y + 1)) (ctx.moveTo(tx(k), ty(k) + z), ctx.lineTo(tx(k) + z, ty(k) + z));
+      if (other(x - 1, y)) (ctx.moveTo(tx(k), ty(k)), ctx.lineTo(tx(k), ty(k) + z));
+      if (other(x + 1, y)) (ctx.moveTo(tx(k) + z, ty(k)), ctx.lineTo(tx(k) + z, ty(k) + z));
+    }
     ctx.strokeStyle = '#ffd54f';
-    ctx.lineWidth = lw;
-    ctx.strokeRect((selected % TILES_X) * z + lw / 2, Math.floor(selected / TILES_X) * z + lw / 2, z - lw, z - lw);
+    ctx.lineWidth = Math.max(3, s * 0.5);
+    ctx.stroke();
   }
 }
