@@ -1,51 +1,51 @@
-import type { SimGrid, SimState } from '../core/types.ts';
-import { GRID_H, GRID_W, TILE_SIZE, TILES_X, TILES_Y, ZONE } from '../sim/constants.ts';
+import type { SimState } from '../core/types.ts';
+import { GRID_H, GRID_W, NO_ZONE, TILE_SIZE, ZONE } from '../sim/constants.ts';
 
-/**
- * Zones are the 8x8-cell authoring tiles until Story 004 adds a map `zones` layer.
- * Zone id = ty * TILES_X + tx; the zone type is the tile's `SimGrid.zone` code.
- */
-export const ZONE_COUNT = TILES_X * TILES_Y;
 /** Pump hit radius in cells (spec 14.2). */
 export const PUMP_HIT_RADIUS = 2;
+/** Gate hit radius in cells (Chebyshev): a gate line is 1 cell wide, too thin to tap exactly. */
+export const GATE_HIT_RADIUS = 1;
 /** A tap on a cell without a zone (edge, inlet, outlet) snaps to the nearest zone within this radius. */
 export const ZONE_SNAP_RADIUS = 2;
 
-/** Result of a board hit test: pump index (-1 none) and zone id (-1 none). */
+/** Result of a board hit test: pump index, gate index, zone id (-1 = none). */
 export interface Hit {
   pump: number;
+  gate: number;
   zone: number;
 }
 
 /** A hit on nothing. */
-export const NO_HIT: Readonly<Hit> = { pump: -1, zone: -1 };
+export const NO_HIT: Readonly<Hit> = { pump: -1, gate: -1, zone: -1 };
 
 /**
- * Zone id of a cell.
- * @example zoneOfCell(0) === 0
+ * Zone id of a cell from the map zone layer, -1 outside every zone.
+ * @example zoneOfCell(state, cell) >= 0
  */
-export function zoneOfCell(cell: number): number {
-  const x = cell % GRID_W;
-  const y = Math.floor(cell / GRID_W);
-  return Math.floor(y / TILE_SIZE) * TILES_X + Math.floor(x / TILE_SIZE);
+export function zoneOfCell(state: SimState, cell: number): number {
+  const z = state.grid.zoneId[cell];
+  return z === NO_ZONE ? -1 : z;
 }
 
 /**
- * Centre cell of a zone (used for pump placement and the zone type lookup).
- * @example const c = zoneCenterCell(27);
+ * Centre cell of an authoring tile (pump placement).
+ * @example const c = tileCenterCell(5, 4);
  */
-export function zoneCenterCell(zone: number): number {
-  const tx = zone % TILES_X;
-  const ty = Math.floor(zone / TILES_X);
+export function tileCenterCell(tx: number, ty: number): number {
   return (ty * TILE_SIZE + TILE_SIZE / 2) * GRID_W + tx * TILE_SIZE + TILE_SIZE / 2;
 }
 
 /**
- * Zone type code (`ZONE.*`) of a zone.
- * @example zoneType(state.grid, 27) === ZONE.plain
+ * Terrain type code (`ZONE.*`) of a zone: the most common type among its cells
+ * (spec 26.1; ties go to the lower code), so zone conversions change it.
+ * @example zoneType(state, 3) === ZONE.plain
  */
-export function zoneType(g: SimGrid, zone: number): number {
-  return g.zone[zoneCenterCell(zone)];
+export function zoneType(state: SimState, zone: number): number {
+  const counts = new Array<number>(Object.keys(ZONE).length).fill(0);
+  for (const c of state.zones.cells[zone] ?? []) counts[state.grid.zone[c]]++;
+  let best = 0;
+  for (let k = 1; k < counts.length; k++) if (counts[k] > counts[best]) best = k;
+  return best;
 }
 
 /**
@@ -57,34 +57,11 @@ export function isSelectableType(type: number): boolean {
 }
 
 /**
- * All cells of a zone, row by row.
- * @example freezeCells(grid, zoneCells(z), 0.3);
+ * All cells of a zone.
+ * @example freezeCells(grid, zoneCells(state, z), 0.3);
  */
-export function zoneCells(zone: number): number[] {
-  const x0 = (zone % TILES_X) * TILE_SIZE;
-  const y0 = Math.floor(zone / TILES_X) * TILE_SIZE;
-  const out: number[] = [];
-  for (let y = y0; y < y0 + TILE_SIZE; y++) {
-    for (let x = x0; x < x0 + TILE_SIZE; x++) out.push(y * GRID_W + x);
-  }
-  return out;
-}
-
-/**
- * Border ring cells of a zone (placeholder levee line until Story 003 picks levee lines).
- * @example buildLevee(grid, zonePerimeter(z), LEVEE_HEIGHTS[0]);
- */
-export function zonePerimeter(zone: number): number[] {
-  const x0 = (zone % TILES_X) * TILE_SIZE;
-  const y0 = Math.floor(zone / TILES_X) * TILE_SIZE;
-  const last = TILE_SIZE - 1;
-  const out: number[] = [];
-  for (let y = 0; y < TILE_SIZE; y++) {
-    for (let x = 0; x < TILE_SIZE; x++) {
-      if (x === 0 || y === 0 || x === last || y === last) out.push((y0 + y) * GRID_W + x0 + x);
-    }
-  }
-  return out;
+export function zoneCells(state: SimState, zone: number): readonly number[] {
+  return state.zones.cells[zone];
 }
 
 /**
@@ -99,8 +76,8 @@ export function cellAt(rect: DOMRectReadOnly, clientX: number, clientY: number):
 }
 
 /**
- * Hit test with spec 14.2 priority: nearest pump within 2 cells, then the cell's zone,
- * else the nearest selectable zone within 2 cells. Gates have no sim structure yet.
+ * Hit test with spec 14.2 priority: nearest pump within 2 cells, then a gate cell
+ * (1 cell tolerance), then the cell's zone, else the nearest selectable zone within 2 cells.
  * @example const hit = hitTest(state, cell); if (hit.pump >= 0) togglePump(hit.pump);
  */
 export function hitTest(state: SimState, cell: number): Hit {
@@ -118,9 +95,26 @@ export function hitTest(state: SimState, cell: number): Hit {
       pump = k;
     }
   }
+  let gate = -1;
+  let gateBest = Infinity;
+  for (let k = 0; k < state.gates.length; k++) {
+    for (const gc of state.gates[k].cells) {
+      const dx = (gc % GRID_W) - x;
+      const dy = Math.floor(gc / GRID_W) - y;
+      const d = dx * dx + dy * dy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) <= GATE_HIT_RADIUS && d < gateBest) {
+        gateBest = d;
+        gate = k;
+      }
+    }
+  }
+  const selectable = (c: number): boolean => {
+    const z = zoneOfCell(state, c);
+    return z >= 0 && isSelectableType(zoneType(state, z));
+  };
   let zone = -1;
-  if (isSelectableType(state.grid.zone[cell])) {
-    zone = zoneOfCell(cell);
+  if (selectable(cell)) {
+    zone = zoneOfCell(state, cell);
   } else {
     let bestD = Infinity;
     for (let dy = -ZONE_SNAP_RADIUS; dy <= ZONE_SNAP_RADIUS; dy++) {
@@ -130,12 +124,12 @@ export function hitTest(state: SimState, cell: number): Hit {
         const d = dx * dx + dy * dy;
         if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H || d > ZONE_SNAP_RADIUS * ZONE_SNAP_RADIUS) continue;
         const c = ny * GRID_W + nx;
-        if (d < bestD && isSelectableType(state.grid.zone[c])) {
+        if (d < bestD && selectable(c)) {
           bestD = d;
-          zone = zoneOfCell(c);
+          zone = zoneOfCell(state, c);
         }
       }
     }
   }
-  return { pump, zone };
+  return { pump, gate, zone };
 }

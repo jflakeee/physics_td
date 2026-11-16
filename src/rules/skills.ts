@@ -7,7 +7,7 @@
  */
 import type { SimState } from '../core/types.ts';
 import { TICKS_PER_SEC, ZONE } from '../sim/constants.ts';
-import { ZONE_COUNT, zoneType } from '../input/hit.ts';
+import { zoneType } from '../input/hit.ts';
 import { advanceEffects, createEffectEnv, endWaveEffects, isRedundant, parseOps, runOps, swipeCells } from './effects.ts';
 import type { EffectEnv, Op } from './effects.ts';
 import { arr, fail, num, obj, oneOf, str } from './validate.ts';
@@ -218,7 +218,7 @@ export function createSkillRuntime(data: SkillData, characterId: string, state: 
   const character = data.characters.get(characterId);
   if (!character) throw new Error(`unknown character ${characterId}`);
   const rt: SkillRuntime = {
-    data, character, owned: new Map(), cooldown: new Map(), gauge: 0, axis: {}, variant, env: createEffectEnv(),
+    data, character, owned: new Map(), cooldown: new Map(), gauge: 0, axis: {}, variant, env: createEffectEnv((z) => state.zones.lines[z] ?? []),
     lastBlocked: state.metrics.blocked, maxEcology: state.metrics.ecology,
   };
   for (const s of data.skills.values()) if (s.slot === 'common') rt.owned.set(s.id, 1);
@@ -279,7 +279,7 @@ export function barSkills(rt: SkillRuntime): SkillDef[] {
 }
 
 function zoneAllowed(def: SkillDef, state: SimState, zone: number): boolean {
-  const code = zoneType(state.grid, zone);
+  const code = zoneType(state, zone);
   if (def.zoneTypes.includes('all')) return code !== ZONE.none && code !== ZONE.inlet && code !== ZONE.outlet && code !== ZONE.base;
   return def.zoneTypes.some((n) => ZONE[n as keyof typeof ZONE] === code);
 }
@@ -301,10 +301,10 @@ export function canUse(rt: SkillRuntime, state: SimState, id: string, ctx: UseCo
   if (ctx.cash < def.cost) return bad('NO_CASH');
   if (def.target === 'zone') {
     let any = false;
-    for (let z = 0; z < ZONE_COUNT && !any; z++) any = zoneAllowed(def, state, z);
+    for (let z = 0; z < state.zones.count && !any; z++) any = zoneAllowed(def, state, z);
     if (!any) return bad('NO_TARGET_IN_MAP');
     if (target?.zone !== undefined) {
-      if (target.zone < 0 || target.zone >= ZONE_COUNT || !zoneAllowed(def, state, target.zone)) return bad('BAD_TARGET');
+      if (target.zone < 0 || target.zone >= state.zones.count || !zoneAllowed(def, state, target.zone)) return bad('BAD_TARGET');
       if (isRedundant(state, rt.env, rankOps(rt, def), target.zone)) return bad('ALREADY_DONE');
     }
   } else if (def.target === 'pump' && state.pumps.length === 0) return bad('NO_TARGET_IN_MAP');

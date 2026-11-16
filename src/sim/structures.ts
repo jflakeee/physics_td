@@ -1,4 +1,4 @@
-import type { SimGrid, SimState } from '../core/types.ts';
+import type { Gate, SimGrid, SimState } from '../core/types.ts';
 import { CELLS, GRID_H, GRID_W, LEVEE_START_DURABILITY, LEVEE_WEAR_PER_SEC, TICKS_PER_SEC } from './constants.ts';
 
 /**
@@ -21,6 +21,15 @@ export function placeTempWall(g: SimGrid, cells: ArrayLike<number>, height: numb
     g.tmp[cells[k]] = height;
     g.tmpTtl[cells[k]] = ttl;
   }
+}
+
+/**
+ * Open or close a gate: closed raises `grid.gate` on its cells to the gate height.
+ * @example setGate(state.grid, state.gates[0], false);
+ */
+export function setGate(g: SimGrid, gate: Gate, open: boolean): void {
+  gate.open = open;
+  for (const c of gate.cells) g.gate[c] = open ? 0 : gate.height;
 }
 
 /**

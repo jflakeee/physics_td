@@ -3,8 +3,8 @@
  * lists of these ops; every number comes from the op arguments in data/skills/*.json.
  * Ops change the sim only through existing sim functions (structures, ice) or grid arrays.
  */
-import type { SimMods, SimState } from '../core/types.ts';
-import { FLAG_BASE_CORE, FLAG_INLET, GRID_H, GRID_W, LEVEE_START_DURABILITY, TICKS_PER_SEC, TILE_SIZE, TILES_X, ZONE } from '../sim/constants.ts';
+import type { LeveeLine, SimMods, SimState } from '../core/types.ts';
+import { FLAG_BASE_CORE, FLAG_INLET, GRID_H, GRID_W, LEVEE_START_DURABILITY, TICKS_PER_SEC, ZONE } from '../sim/constants.ts';
 import { freezeCells } from '../sim/ice.ts';
 import { buildLevee, placeTempWall } from '../sim/structures.ts';
 import { zoneCells, zoneType } from '../input/hit.ts';
@@ -27,8 +27,7 @@ export interface ModifierOp { op: 'modifier'; key: (typeof MOD_KEYS)[number]; va
 export interface FreezeZoneOp { op: 'freezeZone'; ratio: number }
 export type Op = BuildLeveeOp | TempWallPathOp | RepairAllOp | LowerZoneOp | ConvertZoneOp | ModifierOp | FreezeZoneOp;
 
-/** One levee line of a zone: the cells and the direction (unit-ish vector, +y down) it faces. */
-export interface LeveeLine { facing: readonly [number, number]; cells: readonly number[] }
+export type { LeveeLine };
 
 /** A delayed effect (ttl) waiting for `state.tick >= at`. */
 export type Scheduled =
@@ -42,7 +41,7 @@ export interface EffectEnv {
   opened: Set<number>;
   /** cell -> height added by `repairAll`, reverted at wave end. */
   repaired: Map<number, number>;
-  /** Levee lines of a zone. Story 004 swaps this for map data; default = the 4 tile edges. */
+  /** Levee lines of a zone (the map's, derived at load from the zone layer). */
   leveeLines(zone: number): readonly LeveeLine[];
   /** Weights of the next wave's inlets (spec 6.4); falls back to the current wave plan. */
   nextWeights?: readonly number[];
@@ -52,28 +51,11 @@ export interface EffectEnv {
 export interface OpTarget { zone: number; cells: readonly number[] }
 
 /**
- * Default levee lines: the four edges of the 8x8 tile, each facing outward.
- * @example const lines = edgeLines(27);
- */
-export function edgeLines(zone: number): LeveeLine[] {
-  const x0 = (zone % TILES_X) * TILE_SIZE;
-  const y0 = Math.floor(zone / TILES_X) * TILE_SIZE;
-  const last = TILE_SIZE - 1;
-  const row = (y: number): number[] => Array.from({ length: TILE_SIZE }, (_, k) => y * GRID_W + x0 + k);
-  const col = (x: number): number[] => Array.from({ length: TILE_SIZE }, (_, k) => (y0 + k) * GRID_W + x);
-  return [
-    { facing: [0, -1], cells: row(y0) },
-    { facing: [1, 0], cells: col(x0 + last) },
-    { facing: [0, 1], cells: row(y0 + last) },
-    { facing: [-1, 0], cells: col(x0) },
-  ];
-}
-
-/**
  * Fresh effect bookkeeping.
- * @example const env = createEffectEnv();
+ * @param leveeLines Levee lines of a zone: the map's real lines (`state.zones.lines`).
+ * @example const env = createEffectEnv((z) => state.zones.lines[z]);
  */
-export function createEffectEnv(leveeLines: (zone: number) => readonly LeveeLine[] = edgeLines): EffectEnv {
+export function createEffectEnv(leveeLines: (zone: number) => readonly LeveeLine[]): EffectEnv {
   return { timers: [], opened: new Set(), repaired: new Map(), leveeLines };
 }
 
@@ -271,7 +253,7 @@ export function swipeCells(state: SimState, sampled: readonly number[], op: Pick
 export function isRedundant(state: SimState, env: EffectEnv, ops: readonly Op[], zone: number): boolean {
   return ops.every((op) => {
     if (op.op === 'lowerZone') return env.opened.has(zone);
-    if (op.op === 'convertZone') return zoneType(state.grid, zone) === ZONE[op.to] || env.timers.some((t) => t.kind === 'convert' && t.zone === zone);
+    if (op.op === 'convertZone') return zoneType(state, zone) === ZONE[op.to] || env.timers.some((t) => t.kind === 'convert' && t.zone === zone);
     if (op.op === 'buildLevee') {
       const level = levelOf(state, op);
       const lines = env.leveeLines(zone);
@@ -304,13 +286,13 @@ export function runOps(state: SimState, env: EffectEnv, ops: readonly Op[], targ
         }
         break;
       case 'lowerZone':
-        for (const c of zoneCells(target.zone)) g.h[c] -= op.dh;
+        for (const c of zoneCells(state, target.zone)) g.h[c] -= op.dh;
         env.opened.add(target.zone);
         break;
       case 'convertZone':
         env.timers.push({
           at: state.tick + Math.round(op.ttl * TICKS_PER_SEC), kind: 'convert', zone: target.zone,
-          from: zoneType(g, target.zone), to: ZONE[op.to],
+          from: zoneType(state, target.zone), to: ZONE[op.to],
         });
         break;
       case 'modifier': {
@@ -322,7 +304,7 @@ export function runOps(state: SimState, env: EffectEnv, ops: readonly Op[], targ
         break;
       }
       case 'freezeZone':
-        for (const c of zoneCells(target.zone)) {
+        for (const c of zoneCells(state, target.zone)) {
           const moved = g.w[c] * op.ratio;
           g.ice[c] += moved;
           g.w[c] -= moved;
@@ -340,7 +322,7 @@ export function advanceEffects(state: SimState, env: EffectEnv): void {
   env.timers = env.timers.filter((t) => {
     if (t.at > state.tick) return true;
     if (t.kind === 'convert') {
-      for (const c of zoneCells(t.zone)) if (state.grid.zone[c] === t.from) state.grid.zone[c] = t.to;
+      for (const c of zoneCells(state, t.zone)) if (state.grid.zone[c] === t.from) state.grid.zone[c] = t.to;
     } else if (t.mode === 'set') state.mods[t.key] = t.prior;
     else if (t.mode === 'mul') state.mods[t.key] /= t.value;
     else state.mods[t.key] -= t.value;

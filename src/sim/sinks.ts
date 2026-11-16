@@ -1,6 +1,6 @@
 import type { SimState } from '../core/types.ts';
 import {
-  CELLS, EVAPORATION, FLAG_OUTLET, FOREST_ABSORB_FACTOR, GRID_H, GRID_W, MAX_PUMPS_ON, OUTLET_RATE,
+  CELLS, EVAPORATION, FLAG_OUTLET, FOREST_ABSORB_FACTOR, GRID_H, GRID_W, OUTLET_RATE,
   PUMP_CELL_RATE, PUMP_RADIUS, WETLAND_ABSORB, ZONE,
 } from './constants.ts';
 
@@ -17,7 +17,7 @@ const PUMP_OFFSETS: Int8Array = (() => {
 
 /**
  * Tick 5: pumps (cap), outlets, wetland/forest absorb, proportional evaporation.
- * Only the first `MAX_PUMPS_ON` pumps that are `on` run. Each pump removes at most
+ * Only the first `state.maxPumpsOn` pumps that are `on` run. Each pump removes at most
  * `PUMP_CELL_RATE` per cell and `state.pumpBudget` in total per tick. Everything
  * except evaporation counts into `metrics.drained`.
  * @example state.pumps.push({ id: 1, cell: 47 * 64 + 31, on: true }); applySinks(state);
@@ -29,7 +29,7 @@ export function applySinks(state: SimState): void {
 
   let running = 0;
   for (const p of state.pumps) {
-    if (!p.on || running >= MAX_PUMPS_ON) continue;
+    if (!p.on || running >= state.maxPumpsOn) continue;
     running++;
     const px = p.cell % GRID_W;
     const py = (p.cell / GRID_W) | 0;

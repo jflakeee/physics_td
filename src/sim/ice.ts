@@ -1,5 +1,7 @@
 import type { SimGrid, SimState } from '../core/types.ts';
-import { CELLS, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK } from './constants.ts';
+import {
+  CELLS, FLAG_LAKE_DAM, GRID_H, GRID_W, ICE_COLLAPSE_RATIO, ICE_MELT_PER_TICK, ICE_WARN_SEC, TICKS_PER_SEC,
+} from './constants.ts';
 
 /**
  * Freeze cells to at least the given ice thickness. Ice adds to the head, so it
@@ -20,7 +22,9 @@ export function freezeCells(g: SimGrid, cells: ArrayLike<number>, thickness: num
  * unzips the dam: every ice cell next to a collapsed one that still holds back water
  * collapses too (flood fill within the same tick), so a melting glacier-lake dam
  * releases its whole reservoir in one burst instead of a trickle. Collapsed cells
- * are listed in `state.fx.iceCollapsed`.
+ * are listed in `state.fx.iceCollapsed`. When the lake dam (`state.lakeDam`) would
+ * fail within `ICE_WARN_SEC` at the current melt rate and water level,
+ * `state.fx.iceWarning` is raised once (re-armed after the dam collapses).
  * @example updateIce(state);
  */
 export function updateIce(state: SimState): void {
@@ -42,6 +46,25 @@ export function updateIce(state: SimState): void {
     if (x < GRID_W - 1) unzip(state, i + 1);
     if (y > 0) unzip(state, i - GRID_W);
     if (y < GRID_H - 1) unzip(state, i + GRID_W);
+  }
+  if (state.lakeDam.length > 0) warnLakeCollapse(state);
+}
+
+/** Raise `fx.iceWarning` once when the lake dam is within `ICE_WARN_SEC` of its first failure. */
+function warnLakeCollapse(state: SimState): void {
+  const { ice, h, w, flags } = state.grid;
+  if (state.iceWarned) {
+    for (const i of state.fx.iceCollapsed) if (flags[i] & FLAG_LAKE_DAM) state.iceWarned = false;
+    return;
+  }
+  let soonest = Infinity;
+  for (const i of state.lakeDam) {
+    const held = heldBack(h, w, i);
+    if (ice[i] > 0 && held > 0) soonest = Math.min(soonest, (ice[i] - ICE_COLLAPSE_RATIO * held) / ICE_MELT_PER_TICK);
+  }
+  if (soonest <= ICE_WARN_SEC * TICKS_PER_SEC) {
+    state.fx.iceWarning = true;
+    state.iceWarned = true;
   }
 }
 

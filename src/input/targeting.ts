@@ -23,6 +23,7 @@ export type TargetEvent =
   | { t: 'cancel' }
   | { t: 'run'; skill: TargetSkill; zone: number }
   | { t: 'toggle'; pump: number }
+  | { t: 'gate'; gate: number }
   | { t: 'needLongPress'; skill: TargetSkill };
 
 /**
@@ -61,7 +62,7 @@ export function skillLongPress(s: TargetingState, skill: TargetSkill): TargetEve
 
 /**
  * Board tap. Selecting: a valid zone runs the skill, anything else cancels.
- * Idle: pump toggles, a zone is highlighted, empty space clears the highlight.
+ * Idle: pump toggles, then a gate toggles, then a zone is highlighted, empty space clears the highlight.
  * @param canTarget Whether the armed skill may target the zone.
  * @example handle(boardTap(tg, hitTest(state, cell), (sk, z) => valid(sk, z)));
  */
@@ -80,6 +81,7 @@ export function boardTap(
     return cancelTargeting(s);
   }
   if (hit.pump >= 0) return { t: 'toggle', pump: hit.pump };
+  if (hit.gate >= 0) return { t: 'gate', gate: hit.gate };
   s.zone = hit.zone;
   return hit.zone >= 0 ? { t: 'select', zone: hit.zone } : { t: 'deselect' };
 }

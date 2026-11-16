@@ -7,15 +7,23 @@ import { accumulateBlocked, applyBaseDamage, updateEcology } from './metrics.ts'
 import { applySinks } from './sinks.ts';
 import { updateStructures } from './structures.ts';
 import { buildTerrain } from './terrain.ts';
+import type { TerrainOptions } from './terrain.ts';
+
+/** Map layers plus the pump cap for `createSim`. */
+export interface SimOptions extends TerrainOptions {
+  /** Max pumps running at once; omitted = no cap (the run layer passes `data/skills/pump.json`). */
+  maxPumpsOn?: number;
+}
 
 /**
  * Create a fresh simulation state from 12 tile strings.
  * @param i1 Map base inflow volume (wave 1), also scales the pump budget.
  * @param noiseSalt Height noise salt.
+ * @param opts Zone layer, gates, glacier lake, pump cap.
  * @example const state = createSim(tiles, 120);
  */
-export function createSim(tiles: readonly string[], i1: number, noiseSalt = 0): SimState {
-  const t = buildTerrain(tiles, noiseSalt);
+export function createSim(tiles: readonly string[], i1: number, noiseSalt = 0, opts: SimOptions = {}): SimState {
+  const t = buildTerrain(tiles, noiseSalt, opts);
   let ecologyCells = 0;
   for (let i = 0; i < CELLS; i++) {
     if (t.grid.zone[i] === ZONE.forest || t.grid.zone[i] === ZONE.wetland) ecologyCells++;
@@ -24,7 +32,12 @@ export function createSim(tiles: readonly string[], i1: number, noiseSalt = 0): 
     grid: t.grid,
     inlets: t.inlets,
     base: t.base,
+    zones: t.zones,
+    gates: t.gates,
+    lakeDam: t.lakeDam,
+    iceWarned: false,
     pumps: [],
+    maxPumpsOn: opts.maxPumpsOn ?? Infinity,
     pumpBudget: pumpBudgetPerTick(i1),
     mods: { wallDurabilityMul: 1, absorbMul: 0 },
     hp: START_HP,
@@ -33,7 +46,7 @@ export function createSim(tiles: readonly string[], i1: number, noiseSalt = 0): 
     waveTick: 0,
     inflow: null,
     metrics: { drained: 0, blocked: 0, damageThisWave: 0, ecology: 100 },
-    fx: { leveeCollapsed: [], iceCollapsed: [] },
+    fx: { leveeCollapsed: [], iceCollapsed: [], iceWarning: false },
     ecologyCells,
   };
 }
@@ -47,6 +60,7 @@ export function createSim(tiles: readonly string[], i1: number, noiseSalt = 0): 
 export function step(state: SimState): void {
   state.fx.leveeCollapsed.length = 0;
   state.fx.iceCollapsed.length = 0;
+  state.fx.iceWarning = false;
   applyInflow(state);
   fluidStep(state.grid);
   updateIce(state);

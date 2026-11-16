@@ -58,6 +58,10 @@ export const TILE_TYPES: Readonly<Record<string, { zone: number; offset: number 
 export const FLAG_OUTLET = 1;
 export const FLAG_INLET = 2;
 export const FLAG_BASE_CORE = 4;
+/** Glacier-lake dam ice cell (warned before it collapses). */
+export const FLAG_LAKE_DAM = 8;
+/** `SimGrid.zoneId` value for cells outside every authored zone. */
+export const NO_ZONE = 255;
 
 // --- structures ------------------------------------------------------------
 /** Levee heights for Rank 1/2/3. */
@@ -76,13 +80,14 @@ export const ICE_MELT_PER_TICK = 0.0008;
  * is overtopped, which turns a slow leak into a burst.
  */
 export const ICE_COLLAPSE_RATIO = 1.25;
+/** A glacier-lake collapse is announced this many seconds before it happens. */
+export const ICE_WARN_SEC = 3;
 
 // --- sinks -----------------------------------------------------------------
 export const PUMP_RADIUS = 3;
 export const PUMP_CELL_RATE = 0.015;
 /** Per-pump tick budget = this * (W3 mean inflow per tick). */
 export const PUMP_BUDGET_FRACTION = 0.25;
-export const MAX_PUMPS_ON = 2;
 export const OUTLET_RATE = 0.05;
 export const WETLAND_ABSORB = 0.004;
 export const FOREST_ABSORB_FACTOR = 0.5;

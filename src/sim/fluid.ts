@@ -3,7 +3,7 @@ import { CELLS, FLOW_K, GRID_H, GRID_W } from './constants.ts';
 
 /**
  * One flow tick: 2-pass virtual pipe. Pass 1 computes every cell's outflow from
- * the head field (ground + levee + temp wall + ice + water); pass 2 gathers.
+ * the head field (ground + levee + temp wall + gate + ice + water); pass 2 gathers.
  * Nothing is written to `w` during pass 1, so the result does not depend on the
  * iteration order, and what leaves one cell arrives in another (mass conserving).
  * Out-of-map is a wall. The last outflows stay readable in `g.flowOut` / `g.flowScale`
@@ -11,8 +11,8 @@ import { CELLS, FLOW_K, GRID_H, GRID_W } from './constants.ts';
  * @example fluidStep(grid); // advance water by one tick
  */
 export function fluidStep(g: SimGrid): void {
-  const { w, h, wall, tmp, ice, head, flowOut: out, flowScale: scale } = g;
-  for (let i = 0; i < CELLS; i++) head[i] = h[i] + wall[i] + tmp[i] + ice[i] + w[i];
+  const { w, h, wall, tmp, gate, ice, head, flowOut: out, flowScale: scale } = g;
+  for (let i = 0; i < CELLS; i++) head[i] = h[i] + wall[i] + tmp[i] + gate[i] + ice[i] + w[i];
 
   let i = 0;
   for (let y = 0; y < GRID_H; y++) {

@@ -19,11 +19,15 @@ export interface SimGrid {
   tmpTtl: Uint16Array;
   /** Levee durability, 0 = collapsed. */
   dur: Float32Array;
-  /** Zone code per cell (see `ZONE` in constants). */
+  /** Terrain type code per cell (see `ZONE` in constants). */
   zone: Uint8Array;
+  /** Authored zone id per cell from the map `zones` layer (`NO_ZONE` = none). */
+  zoneId: Uint8Array;
+  /** Closed-gate wall height (0 = open or no gate); adds to the water head. */
+  gate: Float32Array;
   /** Forest / wetland health 0..1. */
   health: Float32Array;
-  /** Bit flags: 1 outlet, 2 inlet, 4 base core. */
+  /** Bit flags: 1 outlet, 2 inlet, 4 base core, 8 glacier-lake dam. */
   flags: Uint8Array;
   /** Consecutive ticks with depth >= forest flood depth. */
   floodTicks: Uint16Array;
@@ -33,6 +37,30 @@ export interface SimGrid {
   flowOut: Float64Array;
   /** Last tick's send scale per cell (<= 1 when a cell cannot afford its outflow). */
   flowScale: Float64Array;
+}
+
+/** One levee line of a zone: the cells and the direction (unit-ish vector, +y down) it faces. */
+export interface LeveeLine { facing: readonly [number, number]; cells: readonly number[] }
+
+/** Zone layer of a map (docs/GAME_DESIGN_V2.md 26.1); static for the whole run. */
+export interface ZoneLayer {
+  count: number;
+  /** Zone id per authoring tile (index `ty * 8 + tx`), -1 = none. */
+  tileZone: Int16Array;
+  /** Cell indices of each zone. */
+  cells: number[][];
+  /** Levee lines of each zone (docs/DETAILED_DESIGN_V2.md 11.2), longest first, at most 3. */
+  lines: LeveeLine[][];
+}
+
+/** A gate (수문): a wall line that is up while closed, down while open. */
+export interface Gate {
+  id: number;
+  /** Cells of the wall line. */
+  cells: number[];
+  /** Wall height while closed. */
+  height: number;
+  open: boolean;
 }
 
 export interface Pump {
@@ -79,6 +107,8 @@ export interface SimMetrics {
 export interface SimFx {
   leveeCollapsed: number[];
   iceCollapsed: number[];
+  /** True on the one tick when a glacier-lake dam is predicted to collapse within `ICE_WARN_SEC`. */
+  iceWarning: boolean;
 }
 
 export interface SimState {
@@ -87,7 +117,15 @@ export interface SimState {
   inlets: number[][];
   /** 3x3 base core cell indices. */
   base: number[];
+  zones: ZoneLayer;
+  gates: Gate[];
+  /** Cells of the glacier-lake dam (empty on maps without a lake). */
+  lakeDam: number[];
+  /** True between an ice-collapse warning and the collapse itself. */
+  iceWarned: boolean;
   pumps: Pump[];
+  /** Max pumps running at once (from `data/skills/pump.json`); `Infinity` when not supplied. */
+  maxPumpsOn: number;
   /** Per-pump water budget per tick. */
   pumpBudget: number;
   mods: SimMods;

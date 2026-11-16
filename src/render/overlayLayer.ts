@@ -1,5 +1,5 @@
 import type { Pump, SimGrid } from '../core/types.ts';
-import { CELLS, GRID_W, LEVEE_HEIGHTS, MAX_PUMPS_ON, TILE_SIZE, TILES_X } from '../sim/constants.ts';
+import { CELLS, GRID_W, LEVEE_HEIGHTS, TILE_SIZE, TILES_X } from '../sim/constants.ts';
 
 /** Durability below which a levee shows the red crack pattern (spec 13). */
 const CRACK_DURABILITY = 0.3;
@@ -65,18 +65,18 @@ export function drawStructures(ctx: CanvasRenderingContext2D, g: SimGrid, s: num
 }
 
 /**
- * Pumps: running ones (first MAX_PUMPS_ON that are on) spin and have a green ring;
+ * Pumps: running ones (first `maxOn` that are on) spin and have a green ring;
  * off pumps are grey with a cross, so state is not shown by colour alone.
  * @param timeMs Animation time; pass 0 for reduced motion.
- * @example drawPumps(ctx, state.pumps, s, now);
+ * @example drawPumps(ctx, state.pumps, state.maxPumpsOn, s, now);
  */
-export function drawPumps(ctx: CanvasRenderingContext2D, pumps: readonly Pump[], s: number, timeMs: number): void {
+export function drawPumps(ctx: CanvasRenderingContext2D, pumps: readonly Pump[], maxOn: number, s: number, timeMs: number): void {
   let running = 0;
   for (const p of pumps) {
     const cx = ((p.cell % GRID_W) + 0.5) * s;
     const cy = (((p.cell / GRID_W) | 0) + 0.5) * s;
     const r = s * 1.6;
-    const on = p.on && running < MAX_PUMPS_ON;
+    const on = p.on && running < maxOn;
     if (on) running++;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
