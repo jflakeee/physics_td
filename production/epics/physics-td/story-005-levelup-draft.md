@@ -1,12 +1,12 @@
 # Story 005: 판 안 레벨업 드래프트
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-16
 
 ## Context
 
