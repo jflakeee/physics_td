@@ -61,11 +61,11 @@
 
 ## Files
 
-- `src/core/rng.ts`, `src/core/types.ts`
-- `src/sim/*.ts` (grid, terrain, fluid, structures, sinks, ice, inflow, metrics, step)
-- `tests/unit/sim/sim-core_test.ts`
-
----
+- `src/core/rng.ts` — created (sfc32, 3 independent streams)
+- `src/core/types.ts` — created
+- `src/sim/constants.ts` — created (all tunables)
+- `src/sim/grid.ts`, `terrain.ts`, `fluid.ts`, `structures.ts`, `sinks.ts`, `ice.ts`, `inflow.ts`, `metrics.ts`, `step.ts` — created
+- Tests: none (waived at qa.level: minimal); verification scripts kept outside the repo
 
 ## QA Test Cases
 

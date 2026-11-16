@@ -85,7 +85,7 @@ export type Rarity = 'common'|'rare'|'legendary';
 export type Affinity = 'home'|'neutral'|'challenge';
 
 export interface SimGrid {
-  w: Float32Array;      // 물
+  w: Float64Array;      // 물 (64비트: 32비트는 질량 보존 1e-4 미달, v2.3)
   ice: Float32Array;    // 얼음
   h: Float32Array;      // 지면고
   wall: Float32Array;   // 제방 높이 (영구)
@@ -170,7 +170,7 @@ pass 2: w'_i = w_i − Σ_j out_ij·s_i + Σ_j out_ji·s_j
 ```
 제방 셀 c (wall_c > 0):
   pressure = max_j∈이웃 clamp(h_j + w_j − h_c, 0, wall_c)
-  dur_c −= 0.02 × pressure / 30 × (1 / mod.wallDurabilityMul)     // 초당 0.02×압력
+  dur_c −= 0.012 × pressure / 30 × (1 / mod.wallDurabilityMul)    // 초당 0.012×압력 (v2.3)
   dur_c ≤ 0 → wall_c = 0, dur_c = 0, fx('collapse', c), highlight 기록
 임시벽: tmpTtl_c−−, 0이면 tmp_c = 0
 습지 전환: zone.convertTtl−−, 0이면 type='wetland', 셀 h −= 0.3, health = 1
