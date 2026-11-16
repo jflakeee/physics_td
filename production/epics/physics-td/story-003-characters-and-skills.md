@@ -1,7 +1,7 @@
 # Story 003: 캐릭터 2명 + 공통·특수 스킬
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: L
@@ -89,3 +89,17 @@
 
 - Depends on: `production/epics/physics-td/story-001-water-ice-sim-core.md`, `production/epics/physics-td/story-002-mobile-ui-zone-control.md`
 - Unlocks: `production/epics/physics-td/story-004-regions-maps-waves-tutorial.md`, `production/epics/physics-td/story-005-levelup-draft.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-16
+**Criteria**: 8/8 passing (user-confirmed via /story-done; verification script outside the repo re-run: ALL OK)
+**Deviations** (advisory):
+- sim `MAX_PUMPS_ON = 2` 상수와 `data/skills/pump.json` `maxConcurrent`가 이중 정의 — 어긋날 수 있음
+- `convertZone`으로 습지를 만들어도 sim `ecologyCells`가 갱신되지 않음
+- 스킬 바에 쿨다운 링·궁극기 게이지 표시 없음 (설계 §15.3)
+- 제방선은 임시로 구역 타일 네 변(Story 004 `EffectEnv.leveeLines`로 교체), 자금은 `play.ts` 데모 값(Story 006)
+**Test Evidence**: waived at qa.level minimal; 스킬 바 스크린샷 `production/qa/evidence/story-003-characters-and-skills/` (+ stamp.txt)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
