@@ -61,9 +61,15 @@ function levees(run: Run, zones: readonly number[], pumpsKept = 0): void {
   }
 }
 
-/** Keep up to `n` pumps on (first n spots). */
+/** Water depth at a pump spot above which the bot runs it (below it the pump would mostly burn cash). */
+const PUMP_WET = 0.01;
+
+/** Run the first `n` pump spots while their cell is wet, stop them while dry. */
 function pumps(run: Run, n: number): void {
-  for (let k = 0; k < run.state.pumps.length; k++) if (k < n && !run.state.pumps[k].on) runTogglePump(run, k);
+  for (let k = 0; k < run.state.pumps.length && k < n; k++) {
+    const p = run.state.pumps[k];
+    if (p.on !== run.state.grid.w[p.cell] >= PUMP_WET) runTogglePump(run, k);
+  }
 }
 
 /** Close every gate once. */

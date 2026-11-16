@@ -10,5 +10,5 @@
   "gates": [{ "tile": [5, 8], "axis": "v", "height": 0.8, "open": true }],
   "lake": { "tiles": [[6, 2], [6, 3]], "depth": 0.3, "damIce": 0.9 },
   "waves": { "I1": 130, "rain": 0.2, "pulseEvery": 45 },
-  "start": { "cash": 150, "level": 1, "waveIncome": 60 }
+  "start": { "cash": 700, "level": 1, "waveIncome": 60 }
 }
