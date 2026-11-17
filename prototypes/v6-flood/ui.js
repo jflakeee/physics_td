@@ -1,4 +1,4 @@
-import { W, H, N, BASE, INLETS, TOOLS, LEVEE, POWER_CAP, BASE_HP, WAVES, WAVES_ONE, idx, isOutlet, createGame, powerUsed, totalWater, check, apply, lineCells, waveIntensity, nextWave, startWave, retryWave, baseFlood, step, stars } from './engine.js';
+import { W, H, N, BASE, INLETS, TOOLS, LEVEE, POWER_CAP, BASE_HP, WAVES, WAVES_ONE, idx, isOutlet, createGame, powerUsed, totalWater, check, apply, lineCells, waveIntensity, nextWave, startWave, retryWave, baseFlood, step, stars, GATE, repairQuote, repairAll, peakAt } from './engine.js';
 // ---------- UI ----------
 const MAPS = [
   { id: 'one-w', seed: 1, name: '입문 · 서쪽 강', note: '서쪽 한 방향에서만 물이 들어옵니다. 처음이라면 여기부터.', inlets: ['W'], waves: WAVES_ONE, hint: true, level: '쉬움' },
@@ -170,9 +170,12 @@ function render(now) {
   // levees
   for (let i = 0; i < N; i++) if (game.levee[i]) {
     const x = i % W, y = (i / W) | 0, lv = game.levee[i], hpk = game.leveeHp[i] / LEVEE[lv].hp, p = cs * .1;
-    ctx.fillStyle = lv === 2 ? css('--concrete') : css('--earth');
-    roundRect(x * cs + p, y * cs + p, cs - 2 * p, cs - 2 * p, cs * (lv === 2 ? .08 : .25)); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = PX; ctx.stroke();
+    if (lv === GATE) { drawGate(x, y, cs, game.gateOpen[i]); }
+    else {
+      ctx.fillStyle = lv === 2 ? css('--concrete') : css('--earth');
+      roundRect(x * cs + p, y * cs + p, cs - 2 * p, cs - 2 * p, cs * (lv === 2 ? .08 : .25)); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = PX; ctx.stroke();
+    }
     if (hpk < .999) { ctx.fillStyle = hpk < .35 ? '#d23a2a' : hpk < .7 ? '#e7a321' : '#5fae5a'; ctx.fillRect(x * cs + p, y * cs + cs - p - cs * .12, (cs - 2 * p) * hpk, cs * .12); }
   }
   // base
@@ -207,6 +210,16 @@ function render(now) {
     ctx.setLineDash([]);
   }
   drawPreview(cs, now);
+}
+// Gate: two concrete piers; a steel leaf between them when closed, an open channel when open.
+function drawGate(x, y, cs, open) {
+  const p = cs * .1, X = x * cs, Y = y * cs, pier = cs * .2;
+  ctx.fillStyle = css('--concrete');
+  ctx.fillRect(X + p, Y + p, pier, cs - 2 * p); ctx.fillRect(X + cs - p - pier, Y + p, pier, cs - 2 * p);
+  if (!open) { ctx.fillStyle = css('--gate'); ctx.fillRect(X + p + pier, Y + cs * .2, cs - 2 * (p + pier), cs * .6); }
+  else { ctx.strokeStyle = css('--gate'); ctx.lineWidth = Math.max(PX, cs * .06); ctx.setLineDash([cs * .12, cs * .1]);
+    ctx.strokeRect(X + p + pier, Y + cs * .2, cs - 2 * (p + pier), cs * .6); ctx.setLineDash([]); }
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = PX; ctx.strokeRect(X + p, Y + p, cs - 2 * p, cs - 2 * p);
 }
 function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 function drawStruct(x, y, kind, alpha, now, load) {
@@ -293,7 +306,8 @@ function commit(p) {
     if (p.tool === 'trench') terrainDirty = true;
   }
   const name = TOOLS[p.tool].name;
-  if (ok) toast(p.tool === 'remove' ? `${ok}칸 철거 · $${refund} 환급` : `${name} ${ok}칸 · $${cost}` + (err ? ` · 일부 불가: ${err}` : ''));
+  if (ok && p.tool === 'gate' && !cost) { const i = idx(p.x0, p.y0); toast(game.gateOpen[i] ? '수문을 열었습니다.' : '수문을 닫았습니다.'); }
+  else if (ok) toast(p.tool === 'remove' ? `${ok}칸 철거 · $${refund} 환급` : `${name} ${ok}칸 · $${cost}` + (err ? ` · 일부 불가: ${err}` : ''));
   else if (err) toast(err, true);
   renderAll();
 }
@@ -301,6 +315,7 @@ function showConfirm() {
   const cells = previewCells(), ok = cells.filter(c => c.ok), cost = ok.reduce((a, c) => a + (c.c.cost || 0), 0), refund = ok.reduce((a, c) => a + (c.c.refund || 0), 0);
   const p = pending, name = TOOLS[p.tool].name;
   $('#confirm-text').textContent = !ok.length ? (cells[0]?.c.err || '시공할 수 없습니다.') : p.tool === 'remove' ? `${ok.length}칸 철거 · $${refund} 환급` : `${name} ${ok.length}칸 · $${cost}` + (ok.length < cells.length ? ` (${cells.length - ok.length}칸 불가)` : '');
+  if (p.tool === 'gate' && ok[0]?.c.note) $('#confirm-text').textContent = `수문 ${ok[0].c.note} · 무료`;
   if (TOOLS[p.tool].line && p.x0 === p.x1 && p.y0 === p.y1 && ok.length) $('#confirm-text').textContent += ' · 다른 칸을 탭하면 직선 연결';
   $('#confirm-ok').disabled = !ok.length; $('#confirm').hidden = false;
 }
@@ -317,6 +332,7 @@ function setTool(t) {
 const TOOL_HINT = {
   levee: '드래그로 일렬 시공. 기존 제방에 다시 시공하면 콘크리트로 보강(높이 0.95m)합니다.',
   trench: '지반을 0.35m 낮춥니다. 계곡 옆 낮은 안부를 파 모서리 배수구로 물길을 돌리세요.',
+  gate: '닫으면 콘크리트 제방(0.95m), 열면 물이 지나갑니다. 설치한 수문을 다시 누르면 무료로 여닫습니다.',
   pump: '주변 3×3의 물을 맵 밖으로 배출합니다. 전력 2.',
   cooler: '반경 2칸의 물을 얼려 임시 댐을 만듭니다. 철거하면 녹습니다. 전력 3.',
   remove: '드래그로 철거. 비용의 50%를 돌려받습니다. 굴착은 되돌릴 수 없습니다.',
@@ -331,6 +347,7 @@ addEventListener('keydown', e => {
   if (k === ' ') { e.preventDefault(); primary(); return; }
   if (k === 'p' || k === 'P') { togglePause(); return; }
   if (k === 'f' || k === 'F') { cycleSpeed(); return; }
+  if (k === 'r' || k === 'R') { $('#repair').click(); return; }
   if (k === 'v' || k === 'V') { toggleFlow(); return; }
   if (k === 'c' || k === 'C') { toggleContour(); return; }
   if (k.startsWith('Arrow')) {
@@ -359,6 +376,7 @@ $('#menu').onclick = openMaps;
 $('#zoom').onclick = () => { zoom = zoom === 1 ? 2 : 1; resize(); renderAll(); if (zoom > 1) { const wrap = $('#board-wrap'); wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2; } };
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal);
 $('#end-retry').onclick = () => $('#retry').onclick();
+$('#repair').onclick = () => { const r = repairAll(game); if (!r.n) toast('수리할 자금이 부족합니다.', true); else toast(`제방 ${r.n}곳 수리 · $${r.cost}` + (r.left ? ` · 자금 부족으로 ${r.left}곳 남음` : '')); renderAll(); };
 $('#end-maps').onclick = openMaps;
 $('#end-again').onclick = () => newGame(mapInfo);
 
@@ -375,6 +393,9 @@ function renderAll() {
   setText('#speed', SPEEDS[speedIx] + '배속'); $('#zoom').setAttribute('aria-pressed', zoom > 1);
   $('#flow').setAttribute('aria-pressed', showFlow); $('#contour').setAttribute('aria-pressed', showContour);
   $('#retry').disabled = !g.checkpoint;
+  { const q = repairQuote(g); const b = $('#repair'); b.disabled = !q.list.length || g.over;
+    setText('#repair', q.list.length ? `제방 수리 ${q.list.length}곳 · $${q.total}` : '제방 수리'); }
+  { const cur = g.active ? WV[g.wave] : nextWave(g), m = $('#peak'); m.hidden = !cur; if (cur) m.style.insetInlineStart = (peakAt(cur) * 100) + '%'; }
   // forecast
   if (w) {
     setText('#fc-title', (g.active ? '진행 중 · ' : '다음 · ') + w.name);
@@ -397,9 +418,10 @@ function updateCellInfo(c) {
   const i = idx(c.x, c.y), parts = [`(${c.x}, ${c.y})`, `지반 ${game.terrain[i].toFixed(2)}m`];
   if (game.water[i] > .005) parts.push(`수심 ${game.water[i].toFixed(2)}m`);
   if (game.ice[i] > .01) parts.push(`얼음 ${game.ice[i].toFixed(2)}m`);
-  if (game.levee[i]) parts.push(`${game.levee[i] === 2 ? '콘크리트' : '흙'} 제방 ${Math.ceil(game.leveeHp[i])}/${LEVEE[game.levee[i]].hp}`);
+  if (game.levee[i] === GATE) parts.push(`수문(${game.gateOpen[i] ? '열림' : '닫힘'}) ${Math.ceil(game.leveeHp[i])}/${LEVEE[GATE].hp}`);
+  else if (game.levee[i]) parts.push(`${game.levee[i] === 2 ? '콘크리트' : '흙'} 제방 ${Math.ceil(game.leveeHp[i])}/${LEVEE[game.levee[i]].hp}`);
   if (isOutlet(c.x, c.y)) parts.push('배수구');
-  const ch = check(game, c.x, c.y, tool); parts.push(ch.err ? '— ' + ch.err : `— ${TOOLS[tool].name} $${ch.cost ?? 0}${ch.note ? ' (' + ch.note + ')' : ''}`);
+  const ch = check(game, c.x, c.y, tool); parts.push(ch.err ? '— ' + ch.err : tool === 'gate' && ch.note ? `— 수문 ${ch.note} · 무료` : `— ${TOOLS[tool].name} $${ch.cost ?? 0}${ch.note ? ' (' + ch.note + ')' : ''}`);
   setText('#cell-info', parts.join(' · '));
 }
 function toast(msg, bad) {
