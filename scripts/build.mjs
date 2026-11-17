@@ -27,6 +27,13 @@ await mkdir('dist/v4', { recursive: true });
 await build({ entryPoints: ['prototypes/v4-hydro/main.ts'], bundle: true, format: 'iife', target: 'es2020', minify: true, outfile: 'dist/v4/app.js', legalComments: 'none' });
 for (const f of ['index.html', 'app.css']) await copyFile(join('prototypes/v4-hydro', f), join('dist/v4', f));
 console.log('v4 prototype: dist/v4/');
+// V6 flood-defense prototype (docs/REDESIGN_V6_FLOOD.md): plain ES modules, served as-is under dist/v6/
+await mkdir('dist/v6', { recursive: true });
+for (const f of ['index.html', 'ui.js', 'engine.js']) await copyFile(join('prototypes/v6-flood', f), join('dist/v6', f));
+{ const ui = await readFile('dist/v6/ui.js', 'utf8'); const names = ui.match(/import \{([^}]+)\} from '\.\/engine\.js'/)[1].split(',').map(x => x.trim());
+  const eng = await import(new URL('../dist/v6/engine.js', import.meta.url)); const miss = names.filter(n => !(n in eng));
+  if (miss.length) throw Error('v6 engine.js missing exports: ' + miss.join(', ')); }
+console.log('v6 prototype: dist/v6/');
 await writeFile('dist/.nojekyll', '');
 const bytes = Object.values(r.metafile.outputs).reduce((a, o) => a + o.bytes, 0);
 console.log(`v2 build: dist/app.js ${(bytes / 1024).toFixed(1)} KB`);
