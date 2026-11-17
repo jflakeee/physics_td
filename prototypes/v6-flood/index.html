@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Physics TD — 범람 방어</title>
+<meta name="description" content="지형 고도와 얕은물 물리 기반의 홍수 방어 타워디펜스. PC·모바일 브라우저.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8C%8A%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --bg: #e6ecee; --panel: #f6f8f8; --ink: #1d2b33; --muted: #5a6b73; --line: #bfccd1;
+  --accent: #e2a90f; --accent-ink: #2a1f00; --danger: #c23b28; --ok: #3f8f4d; --water: #2a64c8;
+  --earth: #8a6a44; --concrete: #a3aaae; --base: #f3efe6; --pump: #2a64c8; --cooler: #6fb7d6; --forecast: rgba(226,169,15,.85);
+  color-scheme: light;
+  box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111a1e; --panel: #18232a; --ink: #e2ebee; --muted: #93a5ad; --line: #2f414a;
+  --accent: #f2c230; --water: #5b93ef; --earth: #9c7a50; --concrete: #8d969b; --base: #d9d3c6; --pump: #3d7ae0; --cooler: #7cc3e0; --forecast: rgba(242,194,48,.8);
+  color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #111a1e; --panel: #18232a; --ink: #e2ebee; --muted: #93a5ad; --line: #2f414a; --accent: #f2c230; --water: #5b93ef; color-scheme: dark; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); -webkit-tap-highlight-color: transparent; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, .map-pick:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.app { display: grid; gap: 12px; max-width: 1280px; margin: 0 auto; padding: 12px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: "head head" "stage forecast" "stage controls" "stage tools" "stage stats"; grid-template-rows: auto auto auto auto 1fr; }
+header { grid-area: head; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+h1 small { font-weight: 400; color: var(--muted); font-size: .85rem; margin-left: 6px; }
+.hud { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-left: auto; font-variant-numeric: tabular-nums; }
+.hud span { color: var(--muted); font-size: .8rem; margin-right: 4px; }
+.hud b { font-size: 1.05rem; }
+.hp { display: flex; align-items: center; gap: 6px; }
+.hp .track { inline-size: 90px; block-size: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+#hp-bar { display: block; block-size: 100%; background: var(--ok); transition: inline-size .2s; }
+#hp-bar[data-level=warn] { background: #e7a321; } #hp-bar[data-level=bad] { background: var(--danger); }
+.stage { grid-area: stage; min-width: 0; }
+#board-wrap { position: relative; overflow: auto; overscroll-behavior: contain; border-radius: 6px; }
+#confirm-dock { position: relative; }
+#board { display: block; border-radius: 6px; touch-action: none; box-shadow: 0 0 0 1px var(--line); background: var(--panel); }
+.wave-track { block-size: 4px; background: var(--line); margin-top: 6px; border-radius: 2px; overflow: hidden; }
+#progress { display: block; block-size: 100%; background: var(--water); }
+
+.legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: .75rem; color: var(--muted); }
+.legend > div { flex: 1; max-inline-size: 320px; position: relative; padding-block-end: 14px; }
+#legend-bar { display: block; block-size: 8px; border-radius: 4px; }
+#legend-ticks span { position: absolute; inset-block-start: 10px; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+#cell-info { min-block-size: 1.5em; margin: 6px 0 0; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+#confirm { position: absolute; inset-inline: 8px; inset-block-end: 4px; display: flex; gap: 8px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.18); }
+#confirm p { margin: 0 auto 0 4px; font-weight: 500; }
+#confirm button { min-block-size: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; }
+#confirm #confirm-ok { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
+#confirm #confirm-ok:disabled { opacity: .4; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.panel h2 { font-size: .95rem; margin: 0 0 6px; }
+.forecast { grid-area: forecast; }
+#fc-tip { margin: 0 0 8px; color: var(--muted); font-size: .85rem; }
+.inlets { display: grid; grid-template-columns: 2.6em 1fr 2.6em; gap: 4px 8px; align-items: center; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.inlets div { display: contents; }
+.inlets span { block-size: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.inlets i { display: block; block-size: 100%; background: var(--water); }
+.inlets b { text-align: end; font-weight: 500; }
+
+.fc-unit { margin: 0 0 4px; font-size: .75rem; color: var(--muted); }
+#fc-rain { margin: 6px 0 0; font-size: .82rem; color: var(--muted); }
+.controls { grid-area: controls; display: flex; flex-wrap: wrap; gap: 8px; }
+.controls button { min-block-size: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); }
+.controls #start { flex: 1 1 100%; background: var(--ink); color: var(--bg); border: 0; font-weight: 700; font-size: 1rem; }
+.controls [aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.controls button:disabled { opacity: .4; }
+.tools { grid-area: tools; }
+.tool-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.tool-row button { min-block-size: 56px; border-radius: 8px; border: 1px solid var(--line); background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; line-height: 1.2; }
+.tool-row button small { color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.tool-row button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; }
+.tool-row button[aria-pressed=true] small { color: var(--accent-ink); }
+.sw { inline-size: 14px; block-size: 14px; border-radius: 3px; display: inline-block; }
+#tool-hint { margin: 8px 0 0; font-size: .82rem; color: var(--muted); }
+.stats { grid-area: stats; align-self: start; }
+.flows { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; gap: 4px; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+.flows span { display: block; font-size: .72rem; color: var(--muted); }
+table { inline-size: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: start; padding: 3px 4px; border-block-end: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; }
+.keys { margin: 8px 0 0; font-size: .75rem; color: var(--muted); }
+#toast { position: fixed; inset-inline: 0; margin: 0 auto; inset-block-start: calc(env(safe-area-inset-top, 0px) + 12px); inline-size: max-content; max-inline-size: calc(100% - 24px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; z-index: 30; font-size: .9rem; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+#toast[data-bad=true] { background: var(--danger); color: #fff; }
+#scrim { position: fixed; inset: 0; background: rgba(10,18,22,.55); z-index: 20; display: grid; place-items: center; padding: 16px; }
+.modal { background: var(--panel); border-radius: 14px; padding: 20px; inline-size: min(460px, 100%); max-block-size: 90vh; overflow: auto; }
+.modal h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.modal p { color: var(--muted); margin: 0 0 14px; }
+#map-list { display: grid; gap: 8px; }
+.map-pick { display: grid; grid-template-columns: 1fr auto; text-align: start; gap: 2px 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: transparent; }
+.map-pick span { grid-column: 1; color: var(--muted); font-size: .85rem; }
+.map-pick strong small { font-weight: 500; color: var(--muted); font-size: .78rem; margin-left: 6px; }
+.map-pick em { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-style: normal; color: var(--accent); letter-spacing: 2px; }
+.map-pick:hover { border-color: var(--ink); }
+#end-stars { font-size: 2rem; color: var(--accent); letter-spacing: 4px; margin: 4px 0; }
+.end-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.end-actions button, .modal .plain { min-block-size: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; }
+.end-actions .main { background: var(--ink); color: var(--bg); border: 0; font-weight: 700; }
+@media (min-width: 900px) { #zoom { display: none; } }
+@media (max-width: 899px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "stage" "controls" "forecast" "stats" "tools"; grid-template-rows: none; padding: 8px; gap: 8px; }
+  .hud { margin-left: 0; gap: 10px; inline-size: 100%; justify-content: space-between; }
+  .hp .track { inline-size: 56px; }
+  .controls #start { flex: 2 1 auto; }
+  .tools { position: sticky; inset-block-end: 0; z-index: 10; padding: 8px; border-radius: 12px 12px 0 0; margin: 0 -8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -4px 16px rgba(0,0,0,.12); }
+  #tool-hint { display: none; }
+  .keys { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>범람 방어 <small id="map-name"></small></h1>
+    <div class="hud" role="status" aria-label="상태">
+      <div class="hp"><span>기지</span><div class="track"><i id="hp-bar"></i></div><b id="hp">100</b></div>
+      <div><span>자금</span><b id="cash">$0</b></div>
+      <div><span>전력</span><b id="power">0/8</b></div>
+      <div><span>재해</span><b id="wave">0/6</b></div>
+    </div>
+  </header>
+
+  <section class="stage" aria-label="지도">
+    <div id="board-wrap">
+      <canvas id="board" aria-label="탑뷰 지형도. 드래그해 시설을 시공합니다. 방향키로 칸을 고르고 Enter로 시공할 수 있습니다." tabindex="0"></canvas>
+    </div>
+    <div id="confirm-dock"><div id="confirm" hidden><p id="confirm-text"></p><button id="confirm-cancel">취소</button><button id="confirm-ok">시공</button></div></div>
+    <div class="wave-track" aria-hidden="true"><i id="progress"></i></div>
+    <div class="legend" aria-label="지반 높이 범례: 초록이 낮고 갈색·흰색이 높습니다. 등고선의 짧은 눈금은 낮은 쪽을 가리킵니다.">
+      <span>낮음</span><div><i id="legend-bar"></i><div id="legend-ticks"></div></div><span>높음 (m)</span>
+    </div>
+    <p id="cell-info">칸을 가리키거나 탭하면 지반 높이와 수심이 표시됩니다.</p>
+  </section>
+
+  <section class="panel forecast" aria-labelledby="fc-title">
+    <h2 id="fc-title">다음 재해</h2>
+    <p id="fc-tip"></p>
+    <p class="fc-unit">유입구별 예상 수량 (칸·m)</p>
+    <div class="inlets">
+      <div id="fc-N"><em>북</em><span><i></i></span><b>0</b></div>
+      <div id="fc-S"><em>남</em><span><i></i></span><b>0</b></div>
+      <div id="fc-W"><em>서</em><span><i></i></span><b>0</b></div>
+      <div id="fc-E"><em>동</em><span><i></i></span><b>0</b></div>
+    </div>
+    <p id="fc-rain"></p>
+  </section>
+
+  <section class="controls" aria-label="진행">
+    <button id="start">첫 재해 시작</button>
+    <button id="pause" hidden>일시정지</button>
+    <button id="speed">1배속</button>
+    <button id="retry" disabled>웨이브 재시도</button>
+    <button id="flow" aria-pressed="true">흐름</button>
+    <button id="contour" aria-pressed="true">등고선</button>
+    <button id="zoom" aria-pressed="false">확대</button>
+    <button id="menu">지도</button>
+  </section>
+
+  <section class="panel tools" aria-label="시설">
+    <div class="tool-row" role="toolbar">
+      <button data-tool="levee" aria-pressed="true"><span class="sw" style="background:var(--earth)"></span>제방<small>$8</small></button>
+      <button data-tool="trench"><span class="sw" style="background:#7aa076"></span>수로<small>$5</small></button>
+      <button data-tool="pump"><span class="sw" style="background:var(--pump);border-radius:50%"></span>펌프<small>$60</small></button>
+      <button data-tool="cooler"><span class="sw" style="background:var(--cooler)"></span>냉각탑<small>$55</small></button>
+      <button data-tool="remove"><span class="sw" style="background:var(--danger)"></span>철거<small>50%</small></button>
+    </div>
+    <p id="tool-hint"></p>
+  </section>
+
+  <section class="panel stats" aria-label="수량과 기록">
+    <h2>물 수지</h2>
+    <div class="flows">
+      <div><span>유입</span><b id="st-in">0</b></div>
+      <div><span>배수구</span><b id="st-out">0</b></div>
+      <div><span>펌프</span><b id="st-pump">0</b></div>
+      <div><span>지표</span><b id="st-now">0</b></div>
+    </div>
+    <table><thead><tr><th>#</th><th>재해</th><th>피해</th><th>붕괴</th><th>보상</th></tr></thead><tbody id="history"></tbody></table>
+    <p class="keys">등고선 0.25m 간격 · 굵은 선의 눈금은 낮은 쪽 방향<br>1–5 도구 · Space 시작/정지 · F 배속 · V 흐름 · C 등고선 · 방향키+Enter 시공 · Esc/우클릭 취소</p>
+  </section>
+</div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<div id="scrim" hidden>
+  <div class="modal" id="maps" role="dialog" aria-labelledby="maps-title" hidden>
+    <h2 id="maps-title">지도 선택</h2>
+    <p>중앙 기지를 여섯 번의 홍수에서 지키세요. 물은 사방의 계곡을 따라 기지로 모입니다. 모서리의 배수구로 물길을 돌리는 것이 핵심입니다.</p>
+    <div id="map-list"></div>
+  </div>
+  <div class="modal" id="end" role="dialog" aria-labelledby="end-title" hidden>
+    <h2 id="end-title"></h2>
+    <div id="end-stars"></div>
+    <p id="end-body"></p>
+    <div class="end-actions"><button class="main" id="end-retry">웨이브 재시도</button><button id="end-again">같은 지도 새로</button><button id="end-maps">지도 선택</button></div>
+  </div>
+</div>
+<noscript>이 게임은 JavaScript가 필요합니다.</noscript>
+<script type="module" src="./ui.js"></script>
+</body>
+</html>
