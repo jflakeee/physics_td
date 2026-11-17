@@ -11,11 +11,14 @@ export const INLETS = [
 export const TOOLS = {
   levee: { name: '제방', cost: 8, upgrade: 12, line: true, key: '1' },
   trench: { name: '수로 굴착', cost: 5, line: true, key: '2' },
-  pump: { name: '배수펌프', cost: 60, power: 2, key: '3' },
-  cooler: { name: '냉각탑', cost: 55, power: 3, key: '4' },
-  remove: { name: '철거', cost: 0, line: true, key: '5' },
+  gate: { name: '수문', cost: 30, key: '3' },
+  pump: { name: '배수펌프', cost: 60, power: 2, key: '4' },
+  cooler: { name: '냉각탑', cost: 55, power: 3, key: '5' },
+  remove: { name: '철거', cost: 0, line: true, key: '6' },
 };
-export const LEVEE = [null, { h: 0.55, hp: 100 }, { h: 0.95, hp: 240 }];
+export const LEVEE = [null, { h: 0.55, hp: 100, repair: 8 }, { h: 0.95, hp: 240, repair: 20 }, { h: 0.95, hp: 240, repair: 20 }];
+/** levee level 3 is a gate: same height as concrete when closed, flush with the ground when open */
+export const GATE = 3;
 export const POWER_CAP = 8, START_CASH = 300, BASE_HP = 100, DT = 1;
 const C = 0.12, DAMP = 0.985, SEA_DROP = 0.5;
 const PUMP_RATE = 0.035, COOL_RATE = 0.006, ICE_MAX = 1.2, MELT = 0.0012, EVAP = 0.00015;
@@ -99,7 +102,7 @@ export function createGame(seed = 1, opts = {}) {
   return {
     seed, inlets, waves: opts.waves ?? WAVES, terrain, terrain0: Float32Array.from(terrain), saddles: terrain.saddles,
     water: new Float32Array(N), ice: new Float32Array(N),
-    levee: new Uint8Array(N), leveeHp: new Float32Array(N),
+    levee: new Uint8Array(N), leveeHp: new Float32Array(N), gateOpen: new Uint8Array(N),
     flux: [new Float32Array(N), new Float32Array(N), new Float32Array(N), new Float32Array(N)],
     structs: [], hp: BASE_HP, cash: START_CASH, wave: 0, t: 0, active: false, over: false, victory: false, tick: 0,
     stats: { inflow: 0, rain: 0, outlet: 0, pumped: 0, evap: 0, damage: 0, breaches: 0, spent: 0 },
@@ -107,7 +110,7 @@ export function createGame(seed = 1, opts = {}) {
   };
 }
 
-export const ground = (s, i) => s.terrain[i] + (s.levee[i] ? LEVEE[s.levee[i]].h : 0) + s.ice[i];
+export const ground = (s, i) => s.terrain[i] + (s.levee[i] && !(s.levee[i] === GATE && s.gateOpen[i]) ? LEVEE[s.levee[i]].h : 0) + s.ice[i];
 export const surface = (s, i) => ground(s, i) + s.water[i];
 export const powerUsed = s => s.structs.reduce((a, t) => a + TOOLS[t.kind].power, 0);
 export const structAt = (s, x, y) => s.structs.find(t => t.x === x && t.y === y);
@@ -122,13 +125,21 @@ export function check(s, x, y, kind) {
   const i = idx(x, y), st = structAt(s, x, y);
   if (kind === 'remove') {
     if (st) return { cost: 0, refund: Math.floor(TOOLS[st.kind].cost / 2) };
+    if (s.levee[i] === GATE) return { cost: 0, refund: Math.floor(TOOLS.gate.cost / 2) };
     if (s.levee[i]) return { cost: 0, refund: Math.floor(TOOLS.levee.cost / 2) * s.levee[i] };
     return { err: '철거할 시설이 없습니다.' };
   }
   if (isBase(x, y)) return { err: '기지 부지입니다.' };
   if (inletAt(x, y, s.inlets)) return { err: '유입구에는 시공할 수 없습니다.' };
   if (st) return { err: '이미 시설이 있습니다.' };
+  if (kind === 'gate') {
+    if (s.levee[i] === GATE) return { cost: 0, note: s.gateOpen[i] ? '닫기' : '열기' };
+    if (s.levee[i]) return { err: '제방을 철거한 뒤 수문을 설치하세요.' };
+    if (s.water[i] > 0.4) return { err: '수심이 깊어 시공할 수 없습니다.' };
+    return { cost: tool.cost };
+  }
   if (kind === 'levee') {
+    if (s.levee[i] === GATE) return { err: '수문입니다. 수문 도구로 여닫으세요.' };
     if (s.levee[i] === 2 && s.leveeHp[i] >= LEVEE[2].hp) return { err: '최대 보강 상태입니다.' };
     if (s.levee[i]) { const lv = s.levee[i]; if (s.leveeHp[i] < LEVEE[lv].hp * .99 && lv === 2) return { cost: Math.ceil((1 - s.leveeHp[i] / LEVEE[2].hp) * tool.cost), note: '수리' }; return { cost: tool.upgrade, note: '콘크리트 보강' }; }
     if (s.water[i] > 0.4) return { err: '수심이 깊어 시공할 수 없습니다.' };
@@ -151,7 +162,7 @@ export function apply(s, x, y, kind) {
   const i = idx(x, y);
   if (kind === 'remove') {
     const k = s.structs.findIndex(t => t.x === x && t.y === y);
-    if (k >= 0) s.structs.splice(k, 1); else { s.levee[i] = 0; s.leveeHp[i] = 0; }
+    if (k >= 0) s.structs.splice(k, 1); else { s.levee[i] = 0; s.leveeHp[i] = 0; s.gateOpen[i] = 0; }
     s.cash += c.refund; return c;
   }
   s.cash -= c.cost; s.stats.spent += c.cost;
@@ -159,10 +170,30 @@ export function apply(s, x, y, kind) {
     if (!s.levee[i]) { s.levee[i] = 1; s.leveeHp[i] = LEVEE[1].hp; }
     else if (c.note === '수리') s.leveeHp[i] = LEVEE[2].hp;
     else { s.levee[i] = 2; s.leveeHp[i] = LEVEE[2].hp; }
+  } else if (kind === 'gate') {
+    if (s.levee[i] === GATE) s.gateOpen[i] ^= 1; else { s.levee[i] = GATE; s.leveeHp[i] = LEVEE[GATE].hp; s.gateOpen[i] = 0; }
   } else if (kind === 'trench') s.terrain[i] -= TRENCH_DEPTH;
   else s.structs.push({ x, y, kind });
   return c;
 }
+
+/** Repair cost of every damaged levee or gate, most damaged first. */
+export function repairQuote(s) {
+  const list = [];
+  for (let i = 0; i < N; i++) { const lv = s.levee[i]; if (!lv) continue; const max = LEVEE[lv].hp; if (s.leveeHp[i] >= max - .5) continue;
+    list.push({ i, cost: Math.max(1, Math.ceil((1 - s.leveeHp[i] / max) * LEVEE[lv].repair)), k: s.leveeHp[i] / max }); }
+  list.sort((a, b) => a.k - b.k);
+  return { list, total: list.reduce((a, r) => a + r.cost, 0) };
+}
+/** Repair as many damaged levees as the budget allows, most damaged first. */
+export function repairAll(s) {
+  if (s.over) return { n: 0, cost: 0, left: 0 };
+  const q = repairQuote(s); let n = 0, cost = 0;
+  for (const r of q.list) { if (s.cash < r.cost) break; s.cash -= r.cost; s.stats.spent += r.cost; cost += r.cost; n++; s.leveeHp[r.i] = LEVEE[s.levee[r.i]].hp; }
+  return { n, cost, left: q.list.length - n };
+}
+/** Fraction of the wave duration at which inflow peaks. */
+export const peakAt = w => w.shape === 'surge' ? .08 : w.shape === 'flat' ? .1 : .5;
 
 /** Cells on a straight (Bresenham) line, for drag-to-build. */
 export function lineCells(x0, y0, x1, y1) {
@@ -184,7 +215,7 @@ export const nextWave = s => s.waves[s.wave] ?? null;
 
 const snap = s => structuredCloneLite(s);
 function structuredCloneLite(s) {
-  return { terrain: Float32Array.from(s.terrain), water: Float32Array.from(s.water), ice: Float32Array.from(s.ice), levee: Uint8Array.from(s.levee), leveeHp: Float32Array.from(s.leveeHp),
+  return { terrain: Float32Array.from(s.terrain), water: Float32Array.from(s.water), ice: Float32Array.from(s.ice), levee: Uint8Array.from(s.levee), leveeHp: Float32Array.from(s.leveeHp), gateOpen: Uint8Array.from(s.gateOpen),
     flux: s.flux.map(f => Float32Array.from(f)), structs: s.structs.map(t => ({ ...t })), hp: s.hp, cash: s.cash, wave: s.wave, stats: { ...s.stats }, history: s.history.map(h => ({ ...h })) };
 }
 export function startWave(s) {
@@ -259,7 +290,7 @@ function structures(s) {
 
 function levees(s) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = idx(x, y); if (!s.levee[i]) continue;
+    const i = idx(x, y); if (!s.levee[i] || (s.levee[i] === GATE && s.gateOpen[i])) continue;
     let hi = -Infinity, lo = Infinity;
     for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (!inside(nx, ny)) continue; const j = idx(nx, ny); if (s.levee[j]) continue; const sj = surface(s, j); if (sj > hi) hi = sj; if (sj < lo) lo = sj; }
     const top = ground(s, i), over = s.water[i] + (s.flux[0][i] + s.flux[1][i] + s.flux[2][i] + s.flux[3][i]) * DT;
@@ -267,7 +298,7 @@ function levees(s) {
     // overtopping scours fast; high head difference causes slow seepage damage
     const dmg = over * 45 + Math.max(0, head - 0.55) * 1.4 + (hi > top ? (hi - top) * 30 : 0);
     if (dmg > 0) s.leveeHp[i] -= dmg * DT;
-    if (s.leveeHp[i] <= 0) { s.levee[i] = 0; s.leveeHp[i] = 0; s.stats.breaches++; s.waveBreaches = (s.waveBreaches || 0) + 1; s.events.push({ tick: s.tick, type: 'breach', x, y }); }
+    if (s.leveeHp[i] <= 0) { s.levee[i] = 0; s.leveeHp[i] = 0; s.gateOpen[i] = 0; s.stats.breaches++; s.waveBreaches = (s.waveBreaches || 0) + 1; s.events.push({ tick: s.tick, type: 'breach', x, y }); }
   }
 }
 

@@ -72,3 +72,29 @@ test('beginner map is winnable by diverting through the saddle', () => {
   while (!s.over) { if (s.wave === 0) ring(); else spill(); ring(); E.startWave(s); while (E.step(s) === 'active'); for (let k = 0; k < 300 && !s.over; k++) E.step(s); }
   assert.ok(s.victory, 'should win'); assert.ok(s.hp > 90);
 });
+test('gate blocks when closed, passes water when open; toggling is free', () => {
+  const s = E.createGame(1), i = E.idx(10, 6), g0 = s.terrain[i];
+  assert.equal(E.apply(s, 10, 6, 'gate').cost, E.TOOLS.gate.cost);
+  assert.ok(Math.abs(E.ground(s, i) - g0 - E.LEVEE[E.GATE].h) < 1e-6);
+  const cash = s.cash; E.apply(s, 10, 6, 'gate'); assert.equal(s.cash, cash);
+  assert.equal(s.gateOpen[i], 1); assert.ok(Math.abs(E.ground(s, i) - g0) < 1e-6);
+  assert.ok(E.check(s, 10, 6, 'levee').err);
+  E.apply(s, 10, 6, 'remove'); assert.equal(s.levee[i], 0); assert.equal(s.gateOpen[i], 0);
+});
+test('open gate takes no scour damage', () => {
+  const s = E.createGame(1), i = E.idx(10, 6); E.apply(s, 10, 6, 'gate'); E.apply(s, 10, 6, 'gate');
+  for (let k = 0; k < 30; k++) { s.water[i] = 0.3; E.step(s); }
+  assert.equal(s.leveeHp[i], E.LEVEE[E.GATE].hp);
+});
+test('repairAll fixes the most damaged levee first, within budget', () => {
+  const s = E.createGame(1); s.cash = 1e4;
+  E.apply(s, 10, 6, 'levee'); E.apply(s, 12, 6, 'levee');
+  s.leveeHp[E.idx(10, 6)] = 20; s.leveeHp[E.idx(12, 6)] = 90;
+  const q = E.repairQuote(s); assert.equal(q.list[0].i, E.idx(10, 6));
+  s.cash = q.list[0].cost; const r = E.repairAll(s);
+  assert.equal(r.n, 1); assert.equal(r.left, 1); assert.equal(s.leveeHp[E.idx(10, 6)], 100); assert.equal(s.leveeHp[E.idx(12, 6)], 90);
+});
+test('retry restores gate state', () => {
+  const s = E.createGame(1); E.apply(s, 10, 6, 'gate'); E.startWave(s); E.apply(s, 10, 6, 'gate');
+  assert.equal(s.gateOpen[E.idx(10, 6)], 1); E.retryWave(s); assert.equal(s.gateOpen[E.idx(10, 6)], 0);
+});
