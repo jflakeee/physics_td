@@ -98,3 +98,69 @@ test('retry restores gate state', () => {
   const s = E.createGame(1); E.apply(s, 10, 6, 'gate'); E.startWave(s); E.apply(s, 10, 6, 'gate');
   assert.equal(s.gateOpen[E.idx(10, 6)], 1); E.retryWave(s); assert.equal(s.gateOpen[E.idx(10, 6)], 0);
 });
+
+// ---- polluted water and the intake (docs/REDESIGN_V6_FLOOD.md §5) ----
+const dirtTotal = s => s.dirt.reduce((a, b) => a + b, 0);
+const dirtBalance = s => { const t = s.stats; return t.dirtIn - t.dirtOut - t.dirtPumped - t.dirtSettled - dirtTotal(s); };
+const TWO = { inlets: ['W', 'N'], waves: E.WAVES_TWO, intake: 'N' };
+const TWO_SEED = 8;
+
+test('pollutant mass is conserved and never exceeds the water it is in', () => {
+  const s = E.createGame(TWO_SEED, TWO); s.cash = 1e4;
+  E.apply(s, 16, 12, 'pump'); E.apply(s, 24, 10, 'cooler');
+  for (let w = 0; w < 3; w++) { E.startWave(s); while (E.step(s) === 'active'); }
+  assert.ok(s.stats.dirtIn > 1);
+  assert.ok(Math.abs(dirtBalance(s)) < 1e-3, 'balance ' + dirtBalance(s));
+  for (let i = 0; i < E.N; i++) assert.ok(s.dirt[i] >= 0 && s.dirt[i] <= s.water[i] + 1e-6);
+});
+test('only the listed inlet is polluted; clean waves add no pollutant', () => {
+  const s = E.createGame(TWO_SEED, TWO); E.startWave(s); for (let i = 0; i < 60; i++) E.step(s);
+  assert.ok(E.pollution(s, E.idx(20, 0)) > 0.9, 'north inlet is dirty');
+  assert.equal(E.pollution(s, E.idx(0, 12)), 0, 'west inlet is clean');
+  const c = E.createGame(1); E.startWave(c); for (let i = 0; i < 60; i++) E.step(c);
+  assert.equal(c.stats.dirtIn, 0);
+});
+test('intake: polluted outflow costs base HP, clean outflow does not', () => {
+  const s = E.createGame(TWO_SEED, TWO), [cx, cy] = s.intake;
+  assert.ok(E.isIntake(s, cx, cy));
+  const i = E.idx(cx, cy);
+  s.water[i] = 0.5; s.dirt[i] = 0.5; for (let k = 0; k < 40; k++) E.step(s);
+  assert.ok(s.stats.intakeDirt > 0.1); assert.ok(s.hp < 100);
+  const t = E.createGame(TWO_SEED, TWO); t.water[i] = 0.5; for (let k = 0; k < 40; k++) E.step(t);
+  assert.ok(t.stats.outlet > 0.1); assert.equal(t.stats.intakeDirt, 0); assert.equal(t.hp, 100);
+});
+
+// The design claim: on "두 갈래 강" pollution decides the route. Same river, same natural spillway:
+// clean -> win, polluted -> lose; digging to the far outlet instead -> win while polluted.
+function playTwoRivers(dirty, route) {
+  const s = E.createGame(TWO_SEED, { ...TWO, waves: E.WAVES_TWO.map(w => ({ ...w, dirty: dirty ? ['N'] : [] })) }), { idx } = E;
+  const sN = s.saddles.find(q => q.id === 'N'), sW = s.saddles.find(q => q.id === 'W');
+  const vN = s.terrain[idx(sN.sx, sN.sy)], vW = s.terrain[idx(sW.sx, sW.sy)];
+  const ring = () => { for (let y = 10; y <= 14; y++) for (let x = 18; x <= 22; x++) if (Math.max(Math.abs(x - 20), Math.abs(y - 12)) === 2) E.apply(s, x, y, 'levee'); };
+  const divert = (id, sx, sy, c, vh, lv2) => {
+    for (const [x, y] of E.lineCells(sx, sy, c[0], c[1])) { let g = 0; while (s.terrain[idx(x, y)] > vh - 0.1 && g++ < 6) if (E.apply(s, x, y, 'trench').err) break; }
+    const p = E.INLETS.find(q => q.id === id), dx = Math.sign(E.BASE.x - p.x), dy = Math.sign(E.BASE.y - p.y), cx = sx + dx * 2, cy = sy + dy * 2;
+    for (let k = -3; k <= 3; k++) { const x = cx + (dy ? k : 0), y = cy + (dx ? k : 0); E.apply(s, x, y, 'levee'); if (lv2) E.apply(s, x, y, 'levee'); }
+  };
+  while (!s.over) {
+    ring();
+    if (s.wave >= 1) {
+      if (route === 'natural') divert('N', sN.sx, sN.sy, sN.c, vN, s.wave >= 3);
+      else divert('N', E.W - 1 - sN.sx, sN.sy, [E.W - 1 - sN.c[0], sN.c[1]], vN, s.wave >= 3);
+      if (s.wave >= 2) divert('W', sW.sx, sW.sy, sW.c, vW, s.wave >= 4);
+    }
+    E.startWave(s); while (E.step(s) === 'active'); for (let k = 0; k < 300 && !s.over; k++) E.step(s);
+  }
+  return s;
+}
+test('두 갈래 강: clean north river is safe through its natural spillway', () => {
+  assert.ok(playTwoRivers(false, 'natural').victory);
+});
+test('두 갈래 강: the same spillway loses once the north river is polluted', () => {
+  const s = playTwoRivers(true, 'natural');
+  assert.ok(!s.victory); assert.ok(s.stats.intakeDirt > 1);
+});
+test('두 갈래 강: routing the polluted river to the far outlet wins', () => {
+  const s = playTwoRivers(true, 'far');
+  assert.ok(s.victory, 'hp ' + s.hp); assert.ok(s.stats.dirtOut > 100);
+});

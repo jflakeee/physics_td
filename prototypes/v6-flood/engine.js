@@ -43,6 +43,20 @@ export const WAVES_ONE = [
   { name: '대홍수', dur: 1000, shape: 'bell', rain: .00015, flow: { W: .32 }, tip: '마지막 재해입니다.' },
 ];
 
+/** Two rivers: the west is clean, the north carries polluted water. On the "두 갈래 강" map the north
+ *  river's natural spillway drains into the intake corner, so it has to be routed to the far outlet. */
+export const WAVES_TWO = [
+  { name: '흙탕물', dur: 600, shape: 'bell', rain: 0, flow: { W: 0.05, N: 0.05 }, dirty: ['N'], tip: '북쪽 물은 오염되어 있습니다. 기지나 취수장(빗금 친 모서리)에 닿으면 피해를 입습니다.' },
+  { name: '북쪽 폐수', dur: 700, shape: 'bell', rain: 0, flow: { W: 0.15, N: 0.12 }, dirty: ['N'], tip: '북쪽 계곡의 낮은 고개는 취수장 쪽으로 기울어 있습니다. 반대편 모서리 배수구로 수로를 새로 파세요.' },
+  { name: '두 강 불어남', dur: 700, shape: 'bell', rain: 0, flow: { W: 0.17, N: 0.14 }, dirty: ['N'], tip: '서쪽 깨끗한 물과 섞이면 오염이 옅어지지만 양이 늘어납니다.' },
+  { name: '산성비', dur: 700, shape: 'flat', rain: .00015, flow: { W: 0.14, N: 0.11 }, dirty: ['N'], tip: '비는 깨끗하지만 북쪽 폐수가 계속 들어옵니다.' },
+  { name: '폐수 방류', dur: 500, shape: 'surge', rain: 0, flow: { W: 0.55, N: 0.45 }, dirty: ['N'], tip: '짧고 강한 오염수. 북쪽 차수 제방을 콘크리트로 보강하세요.' },
+  { name: '대홍수', dur: 1000, shape: 'bell', rain: .00015, flow: { W: 0.3, N: 0.26 }, dirty: ['N'], tip: '마지막 재해입니다.' },
+];
+
+/** Base HP lost per unit of pollutant that leaves the map through the intake outlet. */
+export const INTAKE_DAMAGE = 2;
+
 export const idx = (x, y) => y * W + x;
 export const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -56,6 +70,8 @@ function valueNoise(seed, scale) {
 }
 export const isBase = (x, y) => Math.abs(x - BASE.x) <= 1 && Math.abs(y - BASE.y) <= 1;
 export const inletAt = (x, y, ids) => INLETS.filter(p => !ids || ids.includes(p.id)).find(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1 && (x === 0 || y === 0 || x === W - 1 || y === H - 1 || (p.x === x && p.y === y)));
+/** True for outlet cells of the intake corner (if the map has one). */
+export const isIntake = (s, x, y) => !!s.intake && isOutlet(x, y) && Math.abs(x - s.intake[0]) <= 2 && Math.abs(y - s.intake[1]) <= 2;
 export function isOutlet(x, y) {
   const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1; if (!edge) return false;
   const cx = x < W / 2 ? 0 : W - 1, cy = y < H / 2 ? 0 : H - 1;
@@ -99,13 +115,14 @@ export function makeTerrain(seed, ids = INLETS.map(p => p.id)) {
 
 export function createGame(seed = 1, opts = {}) {
   const inlets = opts.inlets ?? INLETS.map(p => p.id), terrain = makeTerrain(seed, inlets);
+  const intakeSaddle = opts.intake ? terrain.saddles.find(q => q.id === opts.intake) : null;
   return {
-    seed, inlets, waves: opts.waves ?? WAVES, terrain, terrain0: Float32Array.from(terrain), saddles: terrain.saddles,
-    water: new Float32Array(N), ice: new Float32Array(N),
+    seed, inlets, waves: opts.waves ?? WAVES, intake: intakeSaddle ? intakeSaddle.c : null, terrain, terrain0: Float32Array.from(terrain), saddles: terrain.saddles,
+    water: new Float32Array(N), dirt: new Float32Array(N), ice: new Float32Array(N),
     levee: new Uint8Array(N), leveeHp: new Float32Array(N), gateOpen: new Uint8Array(N),
     flux: [new Float32Array(N), new Float32Array(N), new Float32Array(N), new Float32Array(N)],
     structs: [], hp: BASE_HP, cash: START_CASH, wave: 0, t: 0, active: false, over: false, victory: false, tick: 0,
-    stats: { inflow: 0, rain: 0, outlet: 0, pumped: 0, evap: 0, damage: 0, breaches: 0, spent: 0 },
+    stats: { inflow: 0, rain: 0, outlet: 0, pumped: 0, evap: 0, damage: 0, breaches: 0, spent: 0, dirtIn: 0, dirtOut: 0, dirtPumped: 0, dirtSettled: 0, intakeDirt: 0 },
     history: [], events: [], checkpoint: null,
   };
 }
@@ -215,12 +232,12 @@ export const nextWave = s => s.waves[s.wave] ?? null;
 
 const snap = s => structuredCloneLite(s);
 function structuredCloneLite(s) {
-  return { terrain: Float32Array.from(s.terrain), water: Float32Array.from(s.water), ice: Float32Array.from(s.ice), levee: Uint8Array.from(s.levee), leveeHp: Float32Array.from(s.leveeHp), gateOpen: Uint8Array.from(s.gateOpen),
+  return { terrain: Float32Array.from(s.terrain), water: Float32Array.from(s.water), dirt: Float32Array.from(s.dirt), ice: Float32Array.from(s.ice), levee: Uint8Array.from(s.levee), leveeHp: Float32Array.from(s.leveeHp), gateOpen: Uint8Array.from(s.gateOpen),
     flux: s.flux.map(f => Float32Array.from(f)), structs: s.structs.map(t => ({ ...t })), hp: s.hp, cash: s.cash, wave: s.wave, stats: { ...s.stats }, history: s.history.map(h => ({ ...h })) };
 }
 export function startWave(s) {
   if (s.active || s.over || s.wave >= s.waves.length) return false;
-  s.checkpoint = snap(s); s.active = true; s.t = 0; s.waveDamage = 0; s.waveBreaches = 0; s.events = [];
+  s.checkpoint = snap(s); s.intakeWarned = false; s.active = true; s.t = 0; s.waveDamage = 0; s.waveBreaches = 0; s.events = [];
   return true;
 }
 export function retryWave(s) {
@@ -245,25 +262,39 @@ function flow(s) {
     }
     if (tot * DT > water[i]) { const k = tot > 0 ? water[i] / (tot * DT) : 0; for (let d = 0; d < 4; d++) flux[d][i] *= k; }
   }
-  const next = Float32Array.from(water);
+  // pollutant moves with the water at the source cell's concentration (upwind), so its mass is conserved
+  const next = Float32Array.from(water), dirt = s.dirt, nextD = Float32Array.from(dirt);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = idx(x, y);
+    const i = idx(x, y), c = water[i] > 0 ? dirt[i] / water[i] : 0;
     for (let d = 0; d < 4; d++) {
       const f = flux[d][i] * DT; if (f <= 0) continue;
-      next[i] -= f;
+      next[i] -= f; nextD[i] -= f * c;
       const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
-      if (inside(nx, ny)) next[idx(nx, ny)] += f; else s.stats.outlet += f;
+      if (inside(nx, ny)) { const j = idx(nx, ny); next[j] += f; nextD[j] += f * c; } else { s.stats.outlet += f; s.stats.dirtOut += f * c; if (c > 0 && isIntake(s, x, y)) { s.stats.intakeDirt += f * c; s.intakeTick = (s.intakeTick || 0) + f * c; } }
     }
   }
-  for (let i = 0; i < N; i++) water[i] = next[i] < 1e-7 ? 0 : next[i];
+  for (let i = 0; i < N; i++) {
+    if (next[i] < 1e-7) { water[i] = 0; if (nextD[i] > 0) s.stats.dirtSettled += nextD[i]; dirt[i] = 0; continue; }
+    water[i] = next[i];
+    const dd = Math.max(0, Math.min(nextD[i], next[i])); if (nextD[i] > dd) s.stats.dirtSettled += nextD[i] - dd; dirt[i] = dd;
+  }
 }
 
-function addInflow(s, id, v) {
+function addInflow(s, id, v, dirty) {
   const p = INLETS.find(q => q.id === id); const cells = [[p.x, p.y]];
   if (p.dx) cells.push([p.x, p.y - 1], [p.x, p.y + 1]); else cells.push([p.x - 1, p.y], [p.x + 1, p.y]);
-  for (const [x, y] of cells) s.water[idx(x, y)] += v / cells.length;
-  s.stats.inflow += v;
+  for (const [x, y] of cells) { const i = idx(x, y); s.water[i] += v / cells.length; if (dirty) s.dirt[i] += v / cells.length; }
+  s.stats.inflow += v; if (dirty) s.stats.dirtIn += v;
 }
+/** Removes `v` water from cell i, taking pollutant at the cell's concentration. Returns pollutant removed. */
+function drawOff(s, i, v) {
+  if (v <= 0 || s.water[i] <= 0) return 0;
+  const c = s.dirt[i] / s.water[i], dv = Math.min(s.dirt[i], v * c);
+  s.water[i] -= v; s.dirt[i] -= dv; if (s.dirt[i] > s.water[i]) s.dirt[i] = Math.max(0, s.water[i]);
+  return dv;
+}
+/** Pollutant concentration 0..1 of a cell. */
+export const pollution = (s, i) => s.water[i] > 1e-6 ? Math.min(1, s.dirt[i] / s.water[i]) : 0;
 
 function structures(s) {
   for (const t of s.structs) {
@@ -271,12 +302,12 @@ function structures(s) {
       let tot = 0; const cells = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = t.x + dx, y = t.y + dy; if (!inside(x, y)) continue; const i = idx(x, y); cells.push(i); tot += s.water[i]; }
       const take = Math.min(PUMP_RATE * DT, tot); t.load = take / (PUMP_RATE * DT);
-      if (take > 0) for (const i of cells) s.water[i] -= s.water[i] / tot * take;
+      if (take > 0) for (const i of cells) s.stats.dirtPumped += drawOff(s, i, s.water[i] / tot * take);
       s.stats.pumped += take;
     } else if (t.kind === 'cooler') {
       let made = 0;
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { if (dx * dx + dy * dy > 5) continue; const x = t.x + dx, y = t.y + dy; if (!inside(x, y)) continue; const i = idx(x, y);
-        const v = Math.min(s.water[i], COOL_RATE * DT, ICE_MAX - s.ice[i]); if (v > 0) { s.water[i] -= v; s.ice[i] += v; made += v; } }
+        const v = Math.min(s.water[i] - s.dirt[i], COOL_RATE * DT, ICE_MAX - s.ice[i]); if (v > 0) { s.water[i] -= v; s.ice[i] += v; made += v; } }
       t.load = Math.min(1, made / (COOL_RATE * 6));
     }
   }
@@ -284,7 +315,7 @@ function structures(s) {
   for (const t of s.structs) if (t.kind === 'cooler') for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = t.x + dx, y = t.y + dy; if (inside(x, y) && dx * dx + dy * dy <= 5) cooled[idx(x, y)] = 1; }
   for (let i = 0; i < N; i++) {
     if (s.ice[i] > 0 && !cooled[i]) { const v = Math.min(s.ice[i], MELT * DT); s.ice[i] -= v; s.water[i] += v; }
-    if (s.water[i] > 0 && s.water[i] < 0.02) { const v = Math.min(s.water[i], EVAP * DT); s.water[i] -= v; s.stats.evap += v; }
+    if (s.water[i] > 0 && s.water[i] < 0.02) { const v = Math.min(s.water[i], EVAP * DT); s.stats.dirtSettled += drawOff(s, i, v); s.stats.evap += v; }
   }
 }
 
@@ -306,9 +337,13 @@ const BASE_DRAIN = 0.008;
 function baseDrain(s) {
   let tot = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tot += s.water[idx(BASE.x + dx, BASE.y + dy)];
   const take = Math.min(tot, BASE_DRAIN * DT); if (take <= 0) return;
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = idx(BASE.x + dx, BASE.y + dy); s.water[i] -= s.water[i] / tot * take; }
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = idx(BASE.x + dx, BASE.y + dy); s.stats.dirtPumped += drawOff(s, i, s.water[i] / tot * take); }
   s.stats.pumped += take;
 }
+/** Mean pollutant concentration of the water standing on the base (0..1). */
+export function basePollution(s) { let w = 0, d = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = idx(BASE.x + dx, BASE.y + dy); w += s.water[i]; d += s.dirt[i]; } return w > 1e-6 ? Math.min(1, d / w) : 0; }
+/** Base damage multiplier: 1 for clean water, up to DIRTY_DAMAGE for fully polluted water. */
+export const DIRTY_DAMAGE = 2;
 export function baseFlood(s) { let f = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) f += Math.max(0, s.water[idx(BASE.x + dx, BASE.y + dy)] - 0.03); return f; }
 
 /** Advance one fixed tick. Returns 'idle' | 'active' | 'complete' | 'defeat' | 'victory'. */
@@ -318,12 +353,17 @@ export function step(s) {
   let w = null;
   if (s.active) {
     w = s.waves[s.wave]; const k = waveIntensity(w, s.t);
-    for (const id in w.flow) if (w.flow[id] > 0 && s.inlets.includes(id)) addInflow(s, id, w.flow[id] * k * DT);
+    for (const id in w.flow) if (w.flow[id] > 0 && s.inlets.includes(id)) addInflow(s, id, w.flow[id] * k * DT, w.dirty?.includes(id));
     if (w.rain) { const r = w.rain * Math.max(k, .3) * DT; let n = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!isBase(x, y)) { s.water[idx(x, y)] += r; n++; } s.stats.rain += r * n; }
   }
   flow(s); structures(s); levees(s); baseDrain(s);
+  if (s.intakeTick > 0) {
+    const d = s.intakeTick * INTAKE_DAMAGE; s.intakeTick = 0;
+    s.hp = Math.max(0, s.hp - d); s.stats.damage += d; s.waveDamage = (s.waveDamage || 0) + d;
+    if (!s.intakeWarned) { s.intakeWarned = true; s.events.push({ tick: s.tick, type: 'intake' }); }
+  }
   const f = baseFlood(s);
-  if (f > 0) { const d = Math.min(f, 4) * 0.1 * DT; s.hp = Math.max(0, s.hp - d); s.stats.damage += d; s.waveDamage = (s.waveDamage || 0) + d; }
+  if (f > 0) { const d = Math.min(f, 4) * 0.1 * (1 + (DIRTY_DAMAGE - 1) * basePollution(s)) * DT; s.hp = Math.max(0, s.hp - d); s.stats.damage += d; s.waveDamage = (s.waveDamage || 0) + d; }
   if (s.hp <= 0) { s.active = false; s.over = true; s.events.push({ tick: s.tick, type: 'defeat' }); return 'defeat'; }
   if (!s.active) return 'idle';
   s.t++;
