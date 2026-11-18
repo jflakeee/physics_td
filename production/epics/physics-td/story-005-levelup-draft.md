@@ -1,12 +1,12 @@
 # Story 005: 판 안 레벨업 드래프트
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Estimate**: M
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: 2026-11-16
+> **Last Updated**: 2026-11-18
 
 ## Context
 
@@ -84,3 +84,19 @@
 
 - Depends on: `production/epics/physics-td/story-003-characters-and-skills.md`
 - Unlocks: `production/epics/physics-td/story-006-result-ending-save.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-18
+**Criteria**: 8/8 passing (user-confirmed via /story-done; verification scripts outside the repo re-run: all PASS)
+**Deviations** (advisory):
+- AC1 균형: 판당 레벨업이 둑마을 6회, 나머지 3맵 3~4회 — 고정 배치 봇 기준이라 실제 플레이테스트로 곡선·점수 계수 보정 필요
+- 융합 "녹색 제방"·정비 카드 효과는 `draft.modifiers`에 기록만 되고 sim이 읽지 않음(실제 효과 없음)
+- 캐릭터 2명이라 "자기 1 + 교차 2"는 약 19%, 나머지는 자기 카드로 채움. 출시 데이터에서는 융합이 매번 나와 융합 보장 규칙 미발동
+- 레벨업 화면 뒤로 튜토리얼 말풍선·시작 버튼이 희미하게 비침, 웨이브 중 배지 탭으로 즉시 선택하는 옵션 미구현
+- 재도전 결정성 버그는 `checkpoint.ts` 우회로 해결 — 근본 수정(`src/core/rng.ts` 워밍업 건너뛰기 플래그)은 승인 대기
+- 범위: 맵 2장에 정석·도전 캐릭터 필드 추가(AC6용, sim 미사용)
+**Test Evidence**: waived at qa.level minimal; 스크린샷 `production/qa/evidence/story-005-levelup-draft/` (+ stamp.txt)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
