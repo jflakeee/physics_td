@@ -1,0 +1,22 @@
+{
+  "clear": 500,
+  "affinity": { "home": 0, "neutral": 100, "challenge": 200 },
+  "hpMul": 2,
+  "firstCombo": 50,
+  "fullRun": 100,
+  "build": {
+    "cap": 300,
+    "expectedLevelUps": 6,
+    "artisanPerRank": 30,
+    "fusionPerCharacter": 80,
+    "fusionPerFusion": 100,
+    "fusionMinCross": 2,
+    "restraintPerSkip": 90,
+    "restraintMinSkips": 2,
+    "nonePerCross": 60
+  },
+  "stars": {
+    "hp": 70,
+    "star3Score": { "dike-village": 3200, "willow-field": 3200, "glacier-mouth": 2000, "frost-lakeside": 2200 }
+  }
+}

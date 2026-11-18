@@ -21,6 +21,7 @@ import type { HudView } from '../widgets/hud.ts';
 import { createSkillBar } from '../widgets/skillBar.ts';
 import type { SkillButtonSpec } from '../widgets/skillBar.ts';
 import { createToaster } from '../widgets/toast.ts';
+import { mountDefeat } from './defeat.ts';
 import { mountLevelUp } from './levelUp.ts';
 
 const TICK_MS = 1000 / TICKS_PER_SEC;
@@ -49,6 +50,12 @@ export interface PlayOptions {
   onTutorialDone(): void;
   /** Back to the map list. */
   onExit(): void;
+  /** Save point (Story 006): entering prep and after each level-up pick. */
+  onCheckpoint(): void;
+  /** The last wave was cleared: show the result screen. */
+  onResult(): void;
+  /** Defeat [처음부터]: new run on the same map. */
+  onRestart(): void;
 }
 
 /** Render frame time summary in ms. */
@@ -155,6 +162,7 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     run, t,
     hint: () => (tut !== null && tut.step === 5 && tutorialShown(tut, run) ? t('tutorial.step5') : null),
     onPick: () => {
+      o.onCheckpoint();
       rebuildBar();
       tutor('cardPick');
     },
@@ -262,6 +270,7 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     startBtn.textContent = t('play.startWave', { n: run.wave + 1 });
     startBtn.hidden = false;
     refreshTutorial();
+    o.onCheckpoint();
     // Wave-end settlement: consecutive card picks before the next wave (spec 6.3).
     if (run.draft !== null && run.draft.pending > 0) levelUp.open();
   }
@@ -279,26 +288,23 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
     showPrep();
   }
 
-  /** Defeat / result panel: retry from the wave-start checkpoint, or back to the map list. */
+  /** Result -> result screen (owned by the caller); defeat -> panel with retry from the wave-start checkpoint. */
   function showEnd(kind: 'defeat' | 'result'): void {
     if (tg.skill) handle(cancelTargeting(tg));
-    endBox.textContent = '';
-    endBox.appendChild(el('p', '', t(kind === 'defeat' ? 'toast.defeat' : 'play.cleared', { hp: state.hp })));
-    if (kind === 'defeat') {
-      const retry = el('button', 'end-btn', t('play.retry', { n: run.wave }));
-      retry.addEventListener('click', () => {
+    refreshTutorial();
+    if (kind === 'result') return o.onResult();
+    mountDefeat(endBox, {
+      t, wave: run.wave,
+      onRetry: () => {
         if (!retryWave(run)) return;
         endBox.hidden = true;
         fit();
         showPrep();
-      });
-      endBox.appendChild(retry);
-    }
-    const back = el('button', 'end-btn', t('play.toMaps'));
-    back.addEventListener('click', o.onExit);
-    endBox.appendChild(back);
+      },
+      onRestart: o.onRestart,
+      onMaps: o.onExit,
+    });
     endBox.hidden = false;
-    refreshTutorial();
   }
 
   bubble.addEventListener('click', (e) => {

@@ -1,0 +1,9 @@
+{
+  "subThreshold": 0.3,
+  "endings": [
+    { "id": "dike-keeper", "character": "dike-keeper", "sub": null, "i18n": "ending.dikeSolo" },
+    { "id": "dike-keeper+harmony", "character": "dike-keeper", "sub": "coexistence", "i18n": "ending.dikeHarmony" },
+    { "id": "wetland-researcher", "character": "wetland-researcher", "sub": null, "i18n": "ending.wetSolo" },
+    { "id": "wetland-researcher+safety", "character": "wetland-researcher", "sub": "safety", "i18n": "ending.wetSafety" }
+  ]
+}

@@ -2,6 +2,8 @@
   "rules": "data/rules/skill-rules.json",
   "draft": "data/rules/draft-rules.json",
   "fusions": "data/fusions.json",
+  "scoring": "data/rules/scoring.json",
+  "endings": "data/rules/endings.json",
   "characters": [
     "data/characters/dike-keeper.json",
     "data/characters/wetland-researcher.json"

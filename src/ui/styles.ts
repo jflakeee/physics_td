@@ -40,6 +40,31 @@ const CSS = `
 .lvup-odds[hidden]{display:none}
 .lvup-sheet{display:flex;flex-direction:column;gap:8px}
 .lvup-sheet button{min-height:56px;text-align:left;padding:0 12px}
+.map-item.resume{min-height:56px;margin-bottom:10px;background:#2e7d32;border-color:#81c784;font-weight:700;justify-content:center}
+.defeat-title{margin:0;font-size:18px}
+.result{position:fixed;inset:0;z-index:30;background:#0f1d27;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px max(10px,env(safe-area-inset-bottom))}
+.result button{min-height:48px;padding:0 12px}
+.res-replay{flex:none;background:#2e7d32;border-color:#81c784;font-weight:700;font-size:16px}
+.res-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.res-head h1{margin:0;font-size:20px}
+.res-kicker{font-size:12px;color:#9fc4dc}
+.res-new{position:static}
+.res-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.epi{background:#162a38;border-radius:10px;padding:8px 10px;border-left:4px solid #8bc34a}
+.epi.lost{border-left-color:#ff8a65}
+.epi h2{margin:0 0 4px;font-size:12px;color:#9fc4dc}
+.epi p{margin:0;font-size:13px;line-height:1.35}
+.res-score{width:100%;border-collapse:collapse;font-size:13px}
+.res-score th{text-align:left;font-weight:400;padding:3px 0;color:#cfdde7}
+.res-score td{text-align:right;padding:3px 0;font-variant-numeric:tabular-nums}
+.res-score tr.total th,.res-score tr.total td{border-top:1px solid #3b5a70;font-weight:700;font-size:15px;color:#eaf2f8;padding-top:6px}
+.res-stars{margin:0;text-align:center;font-size:30px;letter-spacing:6px;color:#ffd54f}
+.res-goal{background:#1d3a52;border:2px solid #4fc3f7;border-radius:10px;padding:8px 10px}
+.res-goal h2{margin:0 0 4px;font-size:12px;color:#9fc4dc}
+.res-goal p{margin:0;font-size:14px}
+.res-goal .res-codex{margin-top:4px;font-size:12px;color:#cfdde7}
+.res-foot{display:flex;gap:8px;flex-wrap:wrap}
+.res-foot button{flex:1 1 0}
 `;
 
 /**
