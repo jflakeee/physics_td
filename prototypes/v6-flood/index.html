@@ -13,13 +13,13 @@
   --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --bg: #e6ecee; --panel: #f6f8f8; --ink: #1d2b33; --muted: #5a6b73; --line: #bfccd1;
   --accent: #e2a90f; --accent-ink: #2a1f00; --danger: #c23b28; --ok: #3f8f4d; --water: #2a64c8;
-  --earth: #8a6a44; --concrete: #a3aaae; --base: #f3efe6; --pump: #2a64c8; --cooler: #6fb7d6; --gate: #3a5a78; --forecast: rgba(226,169,15,.85);
+  --earth: #8a6a44; --concrete: #a3aaae; --base: #f3efe6; --pump: #2a64c8; --cooler: #6fb7d6; --gate: #3a5a78; --dirty: rgba(128,104,40,.85); --forecast: rgba(226,169,15,.85);
   color-scheme: light;
   box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #111a1e; --panel: #18232a; --ink: #e2ebee; --muted: #93a5ad; --line: #2f414a;
-  --accent: #f2c230; --water: #5b93ef; --earth: #9c7a50; --concrete: #8d969b; --base: #d9d3c6; --pump: #3d7ae0; --cooler: #7cc3e0; --gate: #8fb0d0; --forecast: rgba(242,194,48,.8);
+  --accent: #f2c230; --water: #5b93ef; --earth: #9c7a50; --concrete: #8d969b; --base: #d9d3c6; --pump: #3d7ae0; --cooler: #7cc3e0; --gate: #8fb0d0; --dirty: rgba(190,160,80,.85); --forecast: rgba(242,194,48,.8);
   color-scheme: dark; } }
 :root[data-theme="dark"] { --bg: #111a1e; --panel: #18232a; --ink: #e2ebee; --muted: #93a5ad; --line: #2f414a; --accent: #f2c230; --water: #5b93ef; color-scheme: dark; }
 html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -63,10 +63,14 @@ h1 small { font-weight: 400; color: var(--muted); font-size: .85rem; margin-left
 .panel h2 { font-size: .95rem; margin: 0 0 6px; }
 .forecast { grid-area: forecast; }
 #fc-tip { margin: 0 0 8px; color: var(--muted); font-size: .85rem; }
-.inlets { display: grid; grid-template-columns: 2.6em 1fr 2.6em; gap: 4px 8px; align-items: center; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.inlets { display: grid; grid-template-columns: 3.6em 1fr 2.6em; gap: 4px 8px; align-items: center; font-size: .82rem; font-variant-numeric: tabular-nums; }
 .inlets div { display: contents; }
 .inlets span { block-size: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .inlets i { display: block; block-size: 100%; background: var(--water); }
+.inlets div[data-dirty=true] i { background: #80682a; }
+.inlets div[data-dirty=true] em { color: #80682a; font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .inlets div[data-dirty=true] em, :root:not([data-theme="light"]) #st-intake-row { color: #c9a85a; } }
+#st-intake-row { margin: -2px 0 8px; font-size: .8rem; color: #80682a; font-variant-numeric: tabular-nums; }
 .inlets b { text-align: end; font-weight: 500; }
 
 .fc-unit { margin: 0 0 4px; font-size: .75rem; color: var(--muted); }
@@ -191,6 +195,7 @@ th { color: var(--muted); font-weight: 500; }
       <div><span>펌프</span><b id="st-pump">0</b></div>
       <div><span>지표</span><b id="st-now">0</b></div>
     </div>
+    <p id="st-intake-row" hidden><span>취수장</span> <b id="st-intake"></b></p>
     <table><thead><tr><th>#</th><th>재해</th><th>피해</th><th>붕괴</th><th>보상</th></tr></thead><tbody id="history"></tbody></table>
     <p class="keys">등고선 0.25m 간격 · 굵은 선의 눈금은 낮은 쪽 방향<br>파란 막대의 빨간 눈금은 유입이 가장 센 시점<br>1–6 도구 · R 제방 수리 · Space 시작/정지 · F 배속 · V 흐름 · C 등고선 · 방향키+Enter 시공 · Esc/우클릭 취소</p>
   </section>

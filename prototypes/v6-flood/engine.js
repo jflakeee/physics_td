@@ -43,15 +43,19 @@ export const WAVES_ONE = [
   { name: '대홍수', dur: 1000, shape: 'bell', rain: .00015, flow: { W: .32 }, tip: '마지막 재해입니다.' },
 ];
 
-/** Two rivers: the west is clean, the north carries polluted water (base damage up to ×DIRTY_DAMAGE). */
+/** Two rivers: the west is clean, the north carries polluted water. On the "두 갈래 강" map the north
+ *  river's natural spillway drains into the intake corner, so it has to be routed to the far outlet. */
 export const WAVES_TWO = [
-  { name: '흙탕물', dur: 600, shape: 'bell', rain: 0, flow: { W: 0.05, N: 0.05 }, dirty: ['N'], tip: '북쪽 물은 오염되어 있습니다. 기지에 닿으면 피해가 최대 2배입니다.' },
-  { name: '북쪽 폐수', dur: 700, shape: 'bell', rain: 0, flow: { W: 0.15, N: 0.12 }, dirty: ['N'], tip: '북쪽 계곡 옆 낮은 고개를 파서 오염수를 배수구로 돌리세요.' },
+  { name: '흙탕물', dur: 600, shape: 'bell', rain: 0, flow: { W: 0.05, N: 0.05 }, dirty: ['N'], tip: '북쪽 물은 오염되어 있습니다. 기지나 취수장(빗금 친 모서리)에 닿으면 피해를 입습니다.' },
+  { name: '북쪽 폐수', dur: 700, shape: 'bell', rain: 0, flow: { W: 0.15, N: 0.12 }, dirty: ['N'], tip: '북쪽 계곡의 낮은 고개는 취수장 쪽으로 기울어 있습니다. 반대편 모서리 배수구로 수로를 새로 파세요.' },
   { name: '두 강 불어남', dur: 700, shape: 'bell', rain: 0, flow: { W: 0.17, N: 0.14 }, dirty: ['N'], tip: '서쪽 깨끗한 물과 섞이면 오염이 옅어지지만 양이 늘어납니다.' },
   { name: '산성비', dur: 700, shape: 'flat', rain: .00015, flow: { W: 0.14, N: 0.11 }, dirty: ['N'], tip: '비는 깨끗하지만 북쪽 폐수가 계속 들어옵니다.' },
   { name: '폐수 방류', dur: 500, shape: 'surge', rain: 0, flow: { W: 0.55, N: 0.45 }, dirty: ['N'], tip: '짧고 강한 오염수. 북쪽 차수 제방을 콘크리트로 보강하세요.' },
   { name: '대홍수', dur: 1000, shape: 'bell', rain: .00015, flow: { W: 0.3, N: 0.26 }, dirty: ['N'], tip: '마지막 재해입니다.' },
 ];
+
+/** Base HP lost per unit of pollutant that leaves the map through the intake outlet. */
+export const INTAKE_DAMAGE = 2;
 
 export const idx = (x, y) => y * W + x;
 export const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
@@ -66,6 +70,8 @@ function valueNoise(seed, scale) {
 }
 export const isBase = (x, y) => Math.abs(x - BASE.x) <= 1 && Math.abs(y - BASE.y) <= 1;
 export const inletAt = (x, y, ids) => INLETS.filter(p => !ids || ids.includes(p.id)).find(p => Math.abs(p.x - x) + Math.abs(p.y - y) <= 1 && (x === 0 || y === 0 || x === W - 1 || y === H - 1 || (p.x === x && p.y === y)));
+/** True for outlet cells of the intake corner (if the map has one). */
+export const isIntake = (s, x, y) => !!s.intake && isOutlet(x, y) && Math.abs(x - s.intake[0]) <= 2 && Math.abs(y - s.intake[1]) <= 2;
 export function isOutlet(x, y) {
   const edge = x === 0 || y === 0 || x === W - 1 || y === H - 1; if (!edge) return false;
   const cx = x < W / 2 ? 0 : W - 1, cy = y < H / 2 ? 0 : H - 1;
@@ -109,13 +115,14 @@ export function makeTerrain(seed, ids = INLETS.map(p => p.id)) {
 
 export function createGame(seed = 1, opts = {}) {
   const inlets = opts.inlets ?? INLETS.map(p => p.id), terrain = makeTerrain(seed, inlets);
+  const intakeSaddle = opts.intake ? terrain.saddles.find(q => q.id === opts.intake) : null;
   return {
-    seed, inlets, waves: opts.waves ?? WAVES, terrain, terrain0: Float32Array.from(terrain), saddles: terrain.saddles,
+    seed, inlets, waves: opts.waves ?? WAVES, intake: intakeSaddle ? intakeSaddle.c : null, terrain, terrain0: Float32Array.from(terrain), saddles: terrain.saddles,
     water: new Float32Array(N), dirt: new Float32Array(N), ice: new Float32Array(N),
     levee: new Uint8Array(N), leveeHp: new Float32Array(N), gateOpen: new Uint8Array(N),
     flux: [new Float32Array(N), new Float32Array(N), new Float32Array(N), new Float32Array(N)],
     structs: [], hp: BASE_HP, cash: START_CASH, wave: 0, t: 0, active: false, over: false, victory: false, tick: 0,
-    stats: { inflow: 0, rain: 0, outlet: 0, pumped: 0, evap: 0, damage: 0, breaches: 0, spent: 0, dirtIn: 0, dirtOut: 0, dirtPumped: 0, dirtSettled: 0 },
+    stats: { inflow: 0, rain: 0, outlet: 0, pumped: 0, evap: 0, damage: 0, breaches: 0, spent: 0, dirtIn: 0, dirtOut: 0, dirtPumped: 0, dirtSettled: 0, intakeDirt: 0 },
     history: [], events: [], checkpoint: null,
   };
 }
@@ -230,7 +237,7 @@ function structuredCloneLite(s) {
 }
 export function startWave(s) {
   if (s.active || s.over || s.wave >= s.waves.length) return false;
-  s.checkpoint = snap(s); s.active = true; s.t = 0; s.waveDamage = 0; s.waveBreaches = 0; s.events = [];
+  s.checkpoint = snap(s); s.intakeWarned = false; s.active = true; s.t = 0; s.waveDamage = 0; s.waveBreaches = 0; s.events = [];
   return true;
 }
 export function retryWave(s) {
@@ -263,7 +270,7 @@ function flow(s) {
       const f = flux[d][i] * DT; if (f <= 0) continue;
       next[i] -= f; nextD[i] -= f * c;
       const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
-      if (inside(nx, ny)) { const j = idx(nx, ny); next[j] += f; nextD[j] += f * c; } else { s.stats.outlet += f; s.stats.dirtOut += f * c; }
+      if (inside(nx, ny)) { const j = idx(nx, ny); next[j] += f; nextD[j] += f * c; } else { s.stats.outlet += f; s.stats.dirtOut += f * c; if (c > 0 && isIntake(s, x, y)) { s.stats.intakeDirt += f * c; s.intakeTick = (s.intakeTick || 0) + f * c; } }
     }
   }
   for (let i = 0; i < N; i++) {
@@ -350,6 +357,11 @@ export function step(s) {
     if (w.rain) { const r = w.rain * Math.max(k, .3) * DT; let n = 0; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!isBase(x, y)) { s.water[idx(x, y)] += r; n++; } s.stats.rain += r * n; }
   }
   flow(s); structures(s); levees(s); baseDrain(s);
+  if (s.intakeTick > 0) {
+    const d = s.intakeTick * INTAKE_DAMAGE; s.intakeTick = 0;
+    s.hp = Math.max(0, s.hp - d); s.stats.damage += d; s.waveDamage = (s.waveDamage || 0) + d;
+    if (!s.intakeWarned) { s.intakeWarned = true; s.events.push({ tick: s.tick, type: 'intake' }); }
+  }
   const f = baseFlood(s);
   if (f > 0) { const d = Math.min(f, 4) * 0.1 * (1 + (DIRTY_DAMAGE - 1) * basePollution(s)) * DT; s.hp = Math.max(0, s.hp - d); s.stats.damage += d; s.waveDamage = (s.waveDamage || 0) + d; }
   if (s.hp <= 0) { s.active = false; s.over = true; s.events.push({ tick: s.tick, type: 'defeat' }); return 'defeat'; }

@@ -1,7 +1,8 @@
-import { W, H, N, BASE, INLETS, TOOLS, LEVEE, POWER_CAP, BASE_HP, WAVES, WAVES_ONE, idx, isOutlet, createGame, powerUsed, totalWater, check, apply, lineCells, waveIntensity, nextWave, startWave, retryWave, baseFlood, step, stars, GATE, repairQuote, repairAll, peakAt } from './engine.js';
+import { W, H, N, BASE, INLETS, TOOLS, LEVEE, POWER_CAP, BASE_HP, WAVES, WAVES_ONE, WAVES_TWO, idx, isOutlet, isIntake, pollution, INTAKE_DAMAGE, createGame, powerUsed, totalWater, check, apply, lineCells, waveIntensity, nextWave, startWave, retryWave, baseFlood, step, stars, GATE, repairQuote, repairAll, peakAt } from './engine.js';
 // ---------- UI ----------
 const MAPS = [
   { id: 'one-w', seed: 1, name: '입문 · 서쪽 강', note: '서쪽 한 방향에서만 물이 들어옵니다. 처음이라면 여기부터.', inlets: ['W'], waves: WAVES_ONE, hint: true, level: '쉬움' },
+  { id: 'two-rivers', seed: 8, name: '두 갈래 강', note: '북쪽 강이 오염되어 있습니다. 오염수를 취수장(북서쪽 모서리)으로 흘려보내면 안 됩니다.', inlets: ['W', 'N'], waves: WAVES_TWO, intake: 'N', level: '보통' },
   { id: 's1', seed: 1, name: '청류 분지', note: '사방 유입. 안부가 뚜렷합니다.', hint: true, level: '보통' },
   { id: 's4', seed: 4, name: '쌍계 평야', note: '두 유입이 같은 배수구를 공유합니다.', level: '보통' },
   { id: 's5', seed: 5, name: '남천 저지', note: '남쪽 해일이 거셉니다.', level: '어려움' },
@@ -22,7 +23,7 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 // ---------- new game / maps ----------
 function newGame(m) {
-  mapInfo = m; game = createGame(m.seed, { inlets: m.inlets, waves: m.waves }); paused = false; pending = null; drag = null; terrainDirty = true;
+  mapInfo = m; game = createGame(m.seed, { inlets: m.inlets, waves: m.waves, intake: m.intake }); paused = false; pending = null; drag = null; terrainDirty = true;
   $('#map-name').textContent = m.name; closeModal(); renderAll();
   toast(game.wave === 0 ? '물은 높은 곳에서 낮은 곳으로 흐릅니다. 유입 계곡과 모서리 배수구를 먼저 살펴보세요.' : '');
 }
@@ -87,8 +88,23 @@ function drawTerrain() {
   if (showContour) contours(cs, dark);
   // outlets
   tctx.fillStyle = dark ? 'rgba(120,190,255,.25)' : 'rgba(30,90,170,.18)';
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isOutlet(x, y)) tctx.fillRect(x * cs, y * cs, cs, cs);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isOutlet(x, y) && !isIntake(game, x, y)) tctx.fillRect(x * cs, y * cs, cs, cs);
+  if (game.intake) drawIntake(cs, dark);
   terrainDirty = false;
+}
+// Intake: a protected outlet. Hatched in a warning color, labelled, so it reads as "keep polluted water out".
+function drawIntake(cs, dark) {
+  const [cx, cy] = game.intake, x0 = Math.max(0, cx - 2), y0 = Math.max(0, cy - 2), x1 = Math.min(W - 1, cx + 2), y1 = Math.min(H - 1, cy + 2);
+  tctx.save(); tctx.beginPath();
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (isIntake(game, x, y)) tctx.rect(x * cs, y * cs, cs, cs);
+  tctx.clip(); tctx.fillStyle = dark ? 'rgba(242,194,48,.22)' : 'rgba(226,169,15,.25)'; tctx.fillRect(0, 0, terrainCanvas.width, terrainCanvas.height);
+  tctx.strokeStyle = dark ? 'rgba(242,194,48,.7)' : 'rgba(150,100,0,.55)'; tctx.lineWidth = Math.max(PX, cs * .08); tctx.beginPath();
+  for (let k = -H; k < W + H; k += .6) { tctx.moveTo(k * cs, 0); tctx.lineTo((k + H) * cs, H * cs); }
+  tctx.stroke(); tctx.restore();
+  const lx = (cx < W / 2 ? 3.2 : W - 3.2) * cs, ly = (cy < H / 2 ? 3.4 : H - 3.4) * cs;
+  tctx.font = `700 ${Math.round(Math.max(11 * PX, cs * .62))}px ${css('--font')}`; tctx.textAlign = cx < W / 2 ? 'left' : 'right'; tctx.textBaseline = 'middle';
+  tctx.lineWidth = 3 * PX; tctx.strokeStyle = dark ? 'rgba(20,28,32,.9)' : 'rgba(255,255,255,.9)'; tctx.strokeText('취수장', lx, ly);
+  tctx.fillStyle = dark ? '#f2c230' : '#7a5200'; tctx.fillText('취수장', lx, ly);
 }
 function contours(cs, dark) {
   const T = game.terrain, c = (x, y) => T[idx(x, y)], labels = [];
@@ -118,6 +134,7 @@ function contours(cs, dark) {
       const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
       if (mx < cs * 1.5 || my < cs * 1.5 || mx > terrainCanvas.width - cs * 1.5 || my > terrainCanvas.height - cs * 1.5) continue;
       if (labels.some(([lx, ly]) => Math.hypot(lx - mx, ly - my) < cs * 7)) continue;
+      if (game.intake && Math.hypot(mx / cs - game.intake[0], my / cs - game.intake[1]) < 6) continue; // keep the intake label readable
       labels.push([mx, my, L]);
     }
   }
@@ -144,8 +161,9 @@ function render(now) {
   for (let i = 0; i < N; i++) {
     const w = game.water[i], o = i * 4;
     if (w < 0.008) { d[o + 3] = 0; continue; }
-    const k = Math.min(1, w / 1.2);
-    d[o] = 70 - 45 * k; d[o + 1] = 140 - 75 * k; d[o + 2] = 225 - 40 * k; d[o + 3] = Math.min(235, 70 + 220 * Math.sqrt(k));
+    const k = Math.min(1, w / 1.2), p = game.dirt[i] > 0 ? pollution(game, i) : 0;
+    const r = 70 - 45 * k, g = 140 - 75 * k, b = 225 - 40 * k;
+    d[o] = r + (128 - r) * p; d[o + 1] = g + (112 - g) * p; d[o + 2] = b + (52 - b) * p; d[o + 3] = Math.min(235, 70 + 220 * Math.sqrt(k) + 30 * p);
   }
   wctx.putImageData(wdata, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(waterImg, 0, 0, canvas.width, canvas.height);
   // ice
@@ -196,7 +214,8 @@ function render(now) {
     const f = w ? (w.flow[p.id] || 0) : 0, x = (p.x + .5) * cs, y = (p.y + .5) * cs, ang = Math.atan2(p.dy, p.dx);
     const live = game.active ? f * k : f, len = cs * (0.8 + Math.min(3, live * 6));
     ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-    ctx.fillStyle = game.active ? `rgba(35,95,200,${.35 + Math.min(.6, live * 2)})` : css('--forecast');
+    const dirty = w?.dirty?.includes(p.id);
+    ctx.fillStyle = game.active ? (dirty ? `rgba(128,104,40,${.45 + Math.min(.5, live * 2)})` : `rgba(35,95,200,${.35 + Math.min(.6, live * 2)})`) : (dirty ? css('--dirty') : css('--forecast'));
     ctx.beginPath(); ctx.moveTo(-cs * .3, -cs * .55); ctx.lineTo(len, 0); ctx.lineTo(-cs * .3, cs * .55); ctx.closePath(); ctx.fill();
     ctx.restore();
   }
@@ -405,10 +424,12 @@ function renderAll() {
       const on = g.inlets.includes(p.id); $(`#fc-${p.id}`).hidden = !on; if (!on) continue;
       const f = w.flow[p.id] || 0, vol = f * w.dur * (w.shape === 'surge' ? .19 : w.shape === 'flat' ? .87 : .55);
       $(`#fc-${p.id} i`).style.inlineSize = (f / max * 100) + '%'; setText(`#fc-${p.id} b`, Math.round(vol));
+      const dirty = !!w.dirty?.includes(p.id); $(`#fc-${p.id}`).dataset.dirty = dirty; setText(`#fc-${p.id} em`, ({ N: '북', S: '남', W: '서', E: '동' })[p.id] + (dirty ? ' 오염' : ''));
     }
     setText('#fc-rain', w.rain ? `강우 ${Math.round(w.rain * w.dur * 1000)}mm` : '강우 없음');
   } else { setText('#fc-title', '모든 재해를 막았습니다'); setText('#fc-tip', ''); }
   setText('#st-in', (g.stats.inflow + g.stats.rain).toFixed(0)); setText('#st-out', g.stats.outlet.toFixed(0)); setText('#st-pump', g.stats.pumped.toFixed(0)); setText('#st-now', totalWater(g).toFixed(0));
+  $('#st-intake-row').hidden = !g.intake; if (g.intake) setText('#st-intake', `오염수 ${g.stats.intakeDirt.toFixed(1)} 유입 · 피해 ${(g.stats.intakeDirt * INTAKE_DAMAGE).toFixed(1)}`);
   const hist = $('#history'); if (hist.childElementCount !== g.history.length) {
     hist.replaceChildren(...g.history.map(h => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${h.wave}</td><td>${h.name}</td><td>${h.damage}</td><td>${h.breaches}</td><td>+$${h.reward}</td>`; return tr; }));
   }
@@ -420,7 +441,8 @@ function updateCellInfo(c) {
   if (game.ice[i] > .01) parts.push(`얼음 ${game.ice[i].toFixed(2)}m`);
   if (game.levee[i] === GATE) parts.push(`수문(${game.gateOpen[i] ? '열림' : '닫힘'}) ${Math.ceil(game.leveeHp[i])}/${LEVEE[GATE].hp}`);
   else if (game.levee[i]) parts.push(`${game.levee[i] === 2 ? '콘크리트' : '흙'} 제방 ${Math.ceil(game.leveeHp[i])}/${LEVEE[game.levee[i]].hp}`);
-  if (isOutlet(c.x, c.y)) parts.push('배수구');
+  if (game.water[i] > .005 && game.dirt[i] > 0) parts.push(`오염 ${Math.round(pollution(game, i) * 100)}%`);
+  if (isIntake(game, c.x, c.y)) parts.push('취수장(오염수 금지)'); else if (isOutlet(c.x, c.y)) parts.push('배수구');
   const ch = check(game, c.x, c.y, tool); parts.push(ch.err ? '— ' + ch.err : tool === 'gate' && ch.note ? `— 수문 ${ch.note} · 무료` : `— ${TOOLS[tool].name} $${ch.cost ?? 0}${ch.note ? ' (' + ch.note + ')' : ''}`);
   setText('#cell-info', parts.join(' · '));
 }
@@ -448,6 +470,7 @@ function frame(now) {
     while (acc >= 1 / TICK_HZ && n < 16) {
       acc -= 1 / TICK_HZ; n++;
       const evBefore = game.events.length, r = step(game);
+      for (const ev of game.events.slice(evBefore)) if (ev.type === 'intake') { toast('오염수가 취수장으로 흘러듭니다. 기지 체력이 깎입니다.', true); navigator.vibrate?.(120); }
       for (const ev of game.events.slice(evBefore)) if (ev.type === 'breach') { flash.push({ x: ev.x, y: ev.y, t: now }); toast(`제방 붕괴 (${ev.x}, ${ev.y})`, true); navigator.vibrate?.(60); }
       if (r === 'complete') { const h = game.history.at(-1); toast(`${h.name} 종료 · 피해 ${h.damage} · 보상 $${h.reward}`); renderAll(); }
       if (r === 'defeat' || r === 'victory') { navigator.vibrate?.(200); renderAll(); endScreen(); break; }
@@ -464,5 +487,5 @@ function frame(now) {
 new ResizeObserver(resize).observe($('#board-wrap'));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => terrainDirty = true);
 setTool('levee'); buildLegend();
-mapInfo = MAPS[0]; game = createGame(mapInfo.seed, { inlets: mapInfo.inlets, waves: mapInfo.waves }); resize(); renderAll(); openMaps();
+mapInfo = MAPS[0]; game = createGame(mapInfo.seed, { inlets: mapInfo.inlets, waves: mapInfo.waves, intake: mapInfo.intake }); resize(); renderAll(); openMaps();
 requestAnimationFrame(frame);
