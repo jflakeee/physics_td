@@ -8,6 +8,13 @@ export type Target = 'zone' | 'pump' | 'swipe' | 'global' | 'none';
 export type Op =
   | { op: 'buildLevee'; height: number; raise: number; cap: number }
   | { op: 'iceLevee'; height: number }
+  /**
+   * Glacier 얼음 둑 (v2.4): skill ice that melts slowly and never shatters. A cast re-freezes
+   * the thinnest built line that melted below `refreezeBelow` × its built height (costs
+   * `refreezeCost` instead of the skill cost), else builds the next line, else raises the
+   * lowest line by `raise` up to `cap`.
+   */
+  | { op: 'iceDam'; height: number; raise: number; cap: number; refreezeBelow: number; refreezeCost: number }
   | { op: 'tempWallPath'; height: number; ttlSec: number; maxCells: number; width: number; keepOut: number }
   | { op: 'repairAll'; addHeight: number }
   | { op: 'lowerZone'; dh: number }

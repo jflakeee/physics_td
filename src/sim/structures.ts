@@ -1,3 +1,4 @@
+import { FLAG } from '../core/types.ts';
 import type { SimWorld } from '../core/types.ts';
 
 /**
@@ -18,6 +19,21 @@ export function buildLevee(world: SimWorld, cells: ArrayLike<number>, height: nu
     const c = cells[k];
     if (height > g.wall[c]) g.wall[c] = height;
     g.dur[c] = world.cfg.leveeDur;
+  }
+}
+
+/**
+ * Glacier 얼음 둑: set `cells` to an ice-dam wall of `height` (build or re-freeze). Marked
+ * `FLAG.skillIce`: no wear or collapse, melts at `skillIceMelt` (see `updateStructures`).
+ * Built from glacier ice and stone, so it adds no water and its melt releases none.
+ */
+export function placeIceDam(world: SimWorld, cells: ArrayLike<number>, height: number): void {
+  const g = world.grid;
+  for (let k = 0; k < cells.length; k++) {
+    const c = cells[k];
+    if (height > g.wall[c]) g.wall[c] = height;
+    g.dur[c] = world.cfg.leveeDur;
+    g.flags[c] |= FLAG.skillIce;
   }
 }
 
@@ -51,9 +67,14 @@ export function setGate(world: SimWorld, id: number, open: boolean): boolean {
   return true;
 }
 
-/** Levee wear/collapse, `blocked` metric, temp wall expiry. */
+/**
+ * Levee wear/collapse, `blocked` metric, temp wall expiry. Glacier 얼음 둑 cells
+ * (`FLAG.skillIce` walls) do not wear or collapse: they lower by `skillIceMelt` per tick
+ * and lose the flag when they are gone (v2.4 decision).
+ */
 export function updateStructures(world: SimWorld): void {
-  const g = world.grid, { width: W, height: Hc, w, h, wall, dur, tmp, tmpTtl } = g;
+  const g = world.grid, { width: W, height: Hc, w, h, wall, dur, tmp, tmpTtl, flags } = g;
+  const damMelt = world.cfg.skillIceMelt;
   const wear = world.cfg.leveeWear / world.mods.wallDurabilityMul;
   let blocked = 0;
   for (let i = 0; i < wall.length; i++) {
@@ -75,7 +96,10 @@ export function updateStructures(world: SimWorld): void {
         if (dd > depth) depth = dd;
       }
       blocked += depth * 0.01;
-      if (p > 0) {
+      if (flags[i] & FLAG.skillIce) {
+        const nw = wc - damMelt;
+        if (nw <= 0) { wall[i] = 0; flags[i] &= ~FLAG.skillIce; } else wall[i] = nw;
+      } else if (p > 0) {
         const nd = dur[i] - wear * p;
         if (nd <= 0) {
           dur[i] = 0; wall[i] = 0;

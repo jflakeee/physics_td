@@ -22,7 +22,7 @@ export function drawCardPreview(c: HTMLCanvasElement, rs: RulesState, def: Skill
   // zone borders for shape
   ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1;
   for (const z of zones) for (const [tx, ty] of z.tiles) ctx.strokeRect(tx * PX + 0.5, ty * PX + 0.5, PX - 1, PX - 1);
-  if (def.ranks.some(r => r.ops.some(o => o.op === 'buildLevee' || o.op === 'iceLevee' || o.op === 'iceWall'))) {
+  if (def.ranks.some(r => r.ops.some(o => o.op === 'buildLevee' || o.op === 'iceLevee' || o.op === 'iceDam' || o.op === 'iceWall'))) {
     ctx.fillStyle = '#c98a3a';
     const W = rs.world.grid.width, s = PX / 8;
     rs.map.leveeLines.forEach((lines, k) => {

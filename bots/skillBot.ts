@@ -2,7 +2,7 @@ import type { LoadedMap, MapData } from '../src/game/map.ts';
 import { loadMap } from '../src/game/map.ts';
 import { advance, createPlay, send, TICK_MS } from '../src/game/play.ts';
 import type { Play } from '../src/game/play.ts';
-import { canUse, createRules } from '../src/rules/skills.ts';
+import { canUse, createRules, skillCost } from '../src/rules/skills.ts';
 import { CHARACTERS, ECONOMY, FUSIONS, SKILLS } from '../src/data/catalog.ts';
 import { baseFlood } from '../src/sim/metrics.ts';
 import { inletPaths } from '../src/game/validate.ts';
@@ -49,6 +49,7 @@ function prepare(p: Play, reserve: number, maxLineDist: number, raiseTo: number)
     const z = zones.filter(zz => canUse(rs, 'restore-wetland', false, zz.id) === null).sort((a, b) => d(a) - d(b))[0];
     if (z && (w.cash ?? 0) >= reserve + 30) send(p, { t: 'skill', id: 'restore-wetland', zone: z.id });
   }
+  refreeze(p);
   if (have('build-levee')) {
     // nearest unbuilt line first (a player closes the ring around the base before outer lines)
     const W = w.grid.width, bx = p.map.terrain.baseX, by = p.map.terrain.baseY;
@@ -72,13 +73,29 @@ function prepare(p: Play, reserve: number, maxLineDist: number, raiseTo: number)
   }
 }
 
+/** Glacier 얼음 둑: re-freeze every melted line that is affordable (refreeze cost only). */
+function refreeze(p: Play): void {
+  const rs = p.rules!, w = p.world;
+  if (rs.region !== 'glacier' || !rs.owned.some(o => o.id === 'build-levee')) return;
+  const def = rs.defs.get('build-levee')!;
+  for (const z of p.map.zones.zones) {
+    if (canUse(rs, 'build-levee', false, z.id) !== null || skillCost(rs, def, z.id) >= def.cost) continue;
+    send(p, { t: 'skill', id: 'build-levee', zone: z.id });
+  }
+}
+
+/** Cash a glacier player keeps back from the pumps for re-freezing (two re-freezes). */
+const REFREEZE_RESERVE = 4;
+
 function inWave(p: Play): void {
   const rs = p.rules!, w = p.world;
+  refreeze(p);
   if (rs.gauge >= rs.eco.gaugeMax) send(p, { t: 'skill', id: rs.char.skills.ultimate });
   const flood = baseFlood(w);
   // pumps: the two best sites while the base holds water, off when it is dry (saves cash)
-  const want = flood > w.cfg.floodThreshold * PUMP_ON_AT;
-  for (const id of pumpOrder(p.map).slice(0, w.cfg.pumpMaxOn)) if (w.pumps[id].on !== want && (!want || (w.cash ?? 1) > 0)) send(p, { t: 'toggle', kind: 'pump', id });
+  const keep = rs.region === 'glacier' && rs.owned.some(o => o.id === 'build-levee') ? REFREEZE_RESERVE : 0;
+  const want = flood > w.cfg.floodThreshold * PUMP_ON_AT && (w.cash === null || w.cash > keep);
+  for (const id of pumpOrder(p.map).slice(0, w.cfg.pumpMaxOn)) if (w.pumps[id].on !== want && (!want || (w.cash ?? 1) > keep)) send(p, { t: 'toggle', kind: 'pump', id });
   if (flood > w.cfg.floodThreshold * 0.6) {
     // freeze the zone just outside the base on the main inlet side
     const path = inletPaths(p.map)[0], W = w.grid.width;
@@ -123,7 +140,7 @@ export function runSkillBot(data: MapData, char: CharacterDef, seed: number, res
     if (p.phase === 'prepare') { prepare(p, reserve, maxLineDist, raiseTo); send(p, { t: 'startWave' }); continue; }
     if (k++ % 10 === 0) inWave(p);
     advance(p, TICK_MS);
-    if (TRACE && p.world.waveTick === p.world.waveLen - 1) console.log('W' + p.world.wave, 'hp', p.world.hp, 'cash', p.world.cash, 'zones', p.map.zones.zones.map(z => z.type[0]).join(''), 'owned', p.rules!.owned.map(o => o.id).join(','), 'lakes', p.map.lakes.map(l => l.broken ? 'B' : '-').join(''));
+    if (TRACE && p.world.waveTick === p.world.waveLen - 1) console.log('W' + p.world.wave, 'hp', p.world.hp, 'cash', p.world.cash, 'zones', p.map.zones.zones.map(z => z.type[0]).join(''), 'owned', p.rules!.owned.map(o => o.id).join(','), 'lakes', p.map.lakes.map(l => l.broken ? 'B' : '-').join(''), 'dams', Object.entries(p.rules!.iceBuilt).map(([id, h]) => { const l = p.map.leveeLines.flat().find(x => x.id === +id)!; return Math.min(...[...l.cells].map(c => p.world.grid.wall[c])).toFixed(2) + '/' + h; }).join(' '));
   }
   const levees = p.rules!.builtLines.size;
   return { map: data.id, char: char.id, seed, result: p.phase === 'result' ? 'clear' : 'defeat', wave: p.world.wave, hp: p.world.hp, score: Math.floor(p.score!.scoreF), level: p.score!.level, levees };
