@@ -1,12 +1,12 @@
 # Story 006: 결과 점수 + 엔딩 4종 + 도감 + 저장
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: L
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-18
 
 ## Context
 
