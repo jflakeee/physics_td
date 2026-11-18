@@ -1,0 +1,13 @@
+Reviewed-Content-Hash: src/rules/scoring.ts c92f6563f39e9a999b150495edb29941dabe24b3
+Reviewed-Content-Hash: src/rules/endings.ts 81b8f0768262353a4f46783d1b53538dacf5bb21
+Reviewed-Content-Hash: src/save/storage.ts 14defbfa6f26eaa439086662543a912a159c4fcb
+Reviewed-Content-Hash: src/ui/screens/result.ts 439053500f0b6fb4329db0dd3ce8f2389f6f4681
+Reviewed-Content-Hash: src/ui/screens/defeat.ts 3e8394ae82b264c62e47a2b9710419e45f63779c
+Reviewed-Content-Hash: src/main.ts 27c0fc148da249361acb44d08fa2cd8481e4301f
+Reviewed-Content-Hash: src/ui/screens/play.ts 995db987e3515b9aac812f1ba5966f855cf3d373
+Reviewed-Content-Hash: src/ui/screens/mapSelect.ts caa42221578669e5ca936324aae101843dd35805
+Reviewed-Content-Hash: src/ui/styles.ts 2fb13bd6886c54ff7cbd4ca0818a9a665d4c0729
+Reviewed-Content-Hash: data/rules/scoring.json 25b72cdaa6edbef8531bd9f858255745add5ff9e
+Reviewed-Content-Hash: data/rules/endings.json e71ddf3dc04bbd6ac2dfb9636826687628599b80
+Reviewed-Content-Hash: data/index.json 69339b988970db5535a6a41b153ce4948b8d374d
+Reviewed-Content-Hash: i18n/ko.json 7c77318442955d437ca3453677025d1efa5cec28

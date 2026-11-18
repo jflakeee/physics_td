@@ -55,11 +55,12 @@
 
 ## Files
 
-- `src/rules/scoring.ts`, `src/rules/endings.ts`, `src/save/storage.ts`
-- `src/ui/screens/result.ts`, `src/ui/screens/defeat.ts`
-- `tests/integration/result-save/result-save_test.ts`
-
----
+- `src/rules/scoring.ts`, `src/rules/endings.ts`, `src/save/storage.ts` — created
+- `src/ui/screens/result.ts`, `src/ui/screens/defeat.ts` — created
+- `data/rules/scoring.json`, `data/rules/endings.json` — created; `data/index.json` — modified
+- `src/main.ts` (store, dataVersion, resume, visibility save), `src/ui/screens/{play,mapSelect}.ts`, `src/ui/styles.ts`, `i18n/ko.json` — modified
+- Tests: none (waived at qa.level: minimal); verification scripts outside the repo
+- Evidence: `production/qa/evidence/story-006-result-ending-save/` (result-clear.png, defeat.png, memory-mode.png, stamp.txt)
 
 ## QA Test Cases
 
