@@ -24,6 +24,12 @@ jobs:
           node --check src.js
           npm test
           npm run build
+          npm run build:v2
+          node bots/run.ts
+          for f in $(find dist-v2 -name '*.js'); do node --check "$f"; done
+          mkdir -p dist/v2
+          cp -r dist-v2/. dist/v2/
+          cp dist/v2/v2.html dist/v2/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
