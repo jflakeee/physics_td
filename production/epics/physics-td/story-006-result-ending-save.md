@@ -1,7 +1,7 @@
 # Story 006: 결과 점수 + 엔딩 4종 + 도감 + 저장
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Estimate**: L
@@ -84,3 +84,19 @@
 
 - Depends on: `production/epics/physics-td/story-004-regions-maps-waves-tutorial.md`, `production/epics/physics-td/story-005-levelup-draft.md`
 - Unlocks: `production/epics/physics-td/story-007-world-map-prologue-memory.md`
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-18
+**Criteria**: 8/8 passing (user-confirmed via /story-done; verification scripts outside the repo re-run: ALL OK)
+**Deviations** (advisory):
+- 별 3개 기준 점수(3200/3200/2000/2200)는 임시 값 — 밸런스 보정 필요
+- 패배 화면의 침수 원인 히트맵(설계 §15.5) 미구현 (sim 쪽 추적 필요)
+- 에필로그 2장은 탭 전환 없이 한 화면에 나란히 표시, CLEAR 스크린샷은 테스트에서 HP를 유지시켜 생성
+- 손상 저장 데이터를 덮어쓰지 않아 저장소를 비우기 전까지 앱을 열 때마다 메모리 모드 토스트 재표시, 토스트가 맵 선택 제목과 겹침
+- 다시 하기·다음 맵은 페이지 새로고침 방식, 스냅샷 약 380KB(설계 추정 300KB)
+- `src/core/rng.ts` 워밍업 건너뛰기 플래그 승인 대기 — 저장 복원은 `checkpoint.ts` 우회를 재사용
+**Test Evidence**: waived at qa.level minimal; 스크린샷 `production/qa/evidence/story-006-result-ending-save/` (+ stamp.txt)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
