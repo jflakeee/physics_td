@@ -1,12 +1,12 @@
 # Story 007: 세계 지도 + 서막 텍스트 + 기억 조각 8개
 
 > **Epic**: physics-td
-> **Status**: Ready
+> **Status**: In Progress
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: M
 > **Manifest Version**: N/A (minimal — no control manifest)
-> **Last Updated**: — (set by /dev-story when implementation begins)
+> **Last Updated**: 2026-11-18
 
 ## Context
 
