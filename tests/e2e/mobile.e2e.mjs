@@ -65,13 +65,14 @@ try {
     const tile = (z) => z.tiles[0];
     const tileCentre = (z) => at(tile(z)[0] * 8 + 4, tile(z)[1] * 8 + 4);
 
-    // zone tap → highlight; on a plain zone with levee lines it also builds a levee ($20)
+    // zone tap → highlight; on a plain zone with levee lines it also builds a levee (skill cost)
+    const cash0 = await S(() => __ptd.play.world.cash);
     const leveeZone = await S(() => { const r = __ptd.play.rules; return __ptd.zones.find(z => z.type === 'plain' && r.map.leveeLines[z.id - 1].length > 0).id; });
     const lz = zones.find(z => z.id === leveeZone);
     await page.touchscreen.tap(...tileCentre(lz));
     const hl = await S(() => __ptd.target());
     check('zone tap highlights the zone', hl.mode === 'idle' && hl.highlight === lz.id, JSON.stringify(hl));
-    check('zone tap builds a levee (basic skill)', await S(() => __ptd.play.world.cash === 130 && __ptd.play.world.grid.wall.some(v => v > 0)));
+    check('zone tap builds a levee (basic skill)', await page.evaluate(c0 => __ptd.play.world.cash === c0 - __ptd.play.rules.defs.get('build-levee').cost && __ptd.play.world.grid.wall.some(v => v > 0), cash0));
     await shot('2-zone-highlight');
 
     // skill button → targeting with dimmed zones; tap base (invalid) cancels
@@ -391,6 +392,15 @@ try {
     await page.waitForFunction(() => globalThis.__ptd?.play);
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${OUT}/story-004-glacier-lake-valley-${DATE}.png` });
+    // glacier 얼음 둑: a plain-zone tap builds a pale-blue ice-dam wall (FLAG.skillIce)
+    const box = await page.locator('canvas.board').boundingBox();
+    const cellPx = box.width / 64;
+    const dz = await page.evaluate(() => { const r = __ptd.play.rules; return __ptd.zones.find(z => z.type === 'plain' && r.map.leveeLines[z.id - 1].length > 0); });
+    const [tx, ty] = dz.tiles[0];
+    await page.touchscreen.tap(box.x + (tx * 8 + 4.5) * cellPx, box.y + (ty * 8 + 4.5) * cellPx);
+    await page.waitForTimeout(300);
+    check('glacier: zone tap builds an ice dam', await page.evaluate(() => { const g = __ptd.play.world.grid; return g.wall.some((v, i) => v > 0 && (g.flags[i] & 32)); }));
+    await page.screenshot({ path: `${OUT}/glacier-ice-dam-${DATE}.png` });
     await page.close();
   }
   // story 003: regional skill presentation and the second character

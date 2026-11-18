@@ -2,7 +2,7 @@ import { FLAG, ZT } from '../core/types.ts';
 import type { SimWorld } from '../core/types.ts';
 import type { LeveeLine } from '../sim/leveeLines.ts';
 import type { Zone } from '../sim/zones.ts';
-import { buildLevee, placeTempWall } from '../sim/structures.ts';
+import { buildLevee, placeIceDam, placeTempWall } from '../sim/structures.ts';
 import { freezeCells, freezeToWall } from '../sim/ice.ts';
 import type { Op } from './types.ts';
 import type { RulesState } from './skills.ts';
@@ -48,6 +48,34 @@ function lineHeight(world: SimWorld, l: LeveeLine): number {
   let m = Infinity;
   for (const c of l.cells) m = Math.min(m, world.grid.wall[c]);
   return m;
+}
+
+export type IceDamOp = Extract<Op, { op: 'iceDam' }>;
+export type IceDamPlan = { kind: 'refreeze' | 'build' | 'raise'; line: LeveeLine; height: number };
+
+/**
+ * What a 얼음 둑 cast on `zone` would do (pure; used by `applyOp`, cost and UI):
+ * re-freeze the thinnest built line below `refreezeBelow` × built → build the next line
+ * (facing the threat) → raise the lowest built line by `raise` (cap). null = nothing to do.
+ */
+export function iceDamPlan(rs: RulesState, world: SimWorld, zone: Zone, op: IceDamOp): IceDamPlan | null {
+  const lines = rs.map.leveeLines[zone.id - 1];
+  if (!lines?.length) return null;
+  let melt: LeveeLine | null = null, mr = Infinity;
+  for (const l of lines) {
+    const b = rs.iceBuilt[l.id];
+    if (!b) continue;
+    const r = lineHeight(world, l) / b;
+    if (r < op.refreezeBelow && r < mr) { mr = r; melt = l; }
+  }
+  if (melt) return { kind: 'refreeze', line: melt, height: rs.iceBuilt[melt.id] };
+  const dir = threatDir(world, world.wave + (rs.phaseIsWave() ? 0 : 1), rs.map.terrain.baseX, rs.map.terrain.baseY);
+  const next = pickLine(lines, rs.builtLines, dir);
+  if (next) return { kind: 'build', line: next, height: op.height };
+  let low: LeveeLine | null = null;
+  for (const l of lines) if (rs.iceBuilt[l.id] !== undefined && (!low || rs.iceBuilt[l.id] < rs.iceBuilt[low.id])) low = l;
+  if (!low || rs.iceBuilt[low.id] >= op.cap - 1e-9) return null;
+  return { kind: 'raise', line: low, height: Math.min(op.cap, rs.iceBuilt[low.id] + op.raise) };
 }
 
 /** Bresenham cells from (x0, y0) to (x1, y1), inclusive. */
@@ -118,6 +146,15 @@ export function applyOp(op: Op, ctx: EffectCtx): boolean {
       let low = lines[0];
       for (const l of lines) if (lineHeight(world, l) < lineHeight(world, low)) low = l;
       for (const c of low.cells) { g.wall[c] = Math.min(op.cap, g.wall[c] + op.raise); g.dur[c] = world.cfg.leveeDur; }
+      return true;
+    }
+    case 'iceDam': {
+      if (!zone) return false;
+      const plan = iceDamPlan(rs, world, zone, op);
+      if (!plan) return false;
+      placeIceDam(world, plan.line.cells, plan.height);
+      rs.iceBuilt[plan.line.id] = plan.height;
+      rs.builtLines.add(plan.line.id);
       return true;
     }
     case 'tempWallPath': {

@@ -39,7 +39,7 @@ function snapRules(rs: RulesState): Partial<RulesState> {
   return structuredClone({
     owned: rs.owned, commonCd: rs.commonCd, gauge: rs.gauge, axes: rs.axes, zones: rs.zones,
     commonCdMul: rs.commonCdMul, maintenanceStacks: rs.maintenanceStacks, fusions: rs.fusions,
-    builtLines: rs.builtLines, baseMods: rs.baseMods, timedMods: rs.timedMods, waveRestore: rs.waveRestore,
+    builtLines: rs.builtLines, iceBuilt: rs.iceBuilt, baseMods: rs.baseMods, timedMods: rs.timedMods, waveRestore: rs.waveRestore,
     fieldDepth: rs.fieldDepth, waveTicks: rs.waveTicks, lastBlocked: rs.lastBlocked, lastEcoBest: rs.lastEcoBest,
   });
 }

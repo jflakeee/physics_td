@@ -1,9 +1,10 @@
+import { FLAG } from '../core/types.ts';
 import type { SimWorld } from '../core/types.ts';
 import type { ZoneMap } from '../sim/zones.ts';
 import { renderTerrain } from './terrainLayer.ts';
 import { createWaterLayer, updateWater } from './waterLayer.ts';
 import type { WaterLayer } from './waterLayer.ts';
-import { DIM, GATE_CLOSED, GATE_OPEN, HIGHLIGHT, INLET_ARROW, LEVEE, LEVEE_WEAK, PUMP_OFF, PUMP_ON, TEMP_WALL } from './palette.ts';
+import { DIM, GATE_CLOSED, GATE_OPEN, HIGHLIGHT, ICE_DAM, INLET_ARROW, LEVEE, LEVEE_WEAK, PUMP_OFF, PUMP_ON, TEMP_WALL } from './palette.ts';
 
 /**
  * Board renderer: terrain (cached) → water (ImageData, one drawImage) → structures →
@@ -91,7 +92,7 @@ export function drawBoard(b: Board, v: BoardView): void {
     if (wall <= 0 && tmp <= 0) continue;
     const x = i % W, y = (i / W) | 0;
     if (wall > 0) {
-      ctx.fillStyle = g.dur[i] < 0.3 ? LEVEE_WEAK : LEVEE;
+      ctx.fillStyle = g.flags[i] & FLAG.skillIce ? ICE_DAM : g.dur[i] < 0.3 ? LEVEE_WEAK : LEVEE;
       ctx.globalAlpha = Math.min(1, 0.55 + wall); // taller = more solid
       ctx.fillRect(x, y, 1, 1);
       ctx.globalAlpha = 1;

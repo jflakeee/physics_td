@@ -4,7 +4,7 @@
  */
 
 /** Cell flag bits (`SimGrid.flags`). */
-export const FLAG = { outlet: 1, inlet: 2, baseCore: 4, gateCell: 8, glacier: 16 } as const;
+export const FLAG = { outlet: 1, inlet: 2, baseCore: 4, gateCell: 8, glacier: 16, skillIce: 32 } as const;
 
 /** Cell terrain-type codes (`SimGrid.ztype`), mirrors zone types. */
 export const ZT = { none: 0, plain: 1, forest: 2, hill: 3, field: 4, wetland: 5, reservoir: 6, base: 7 } as const;
@@ -63,6 +63,8 @@ export interface SimConfig {
   iceMelt: number;
   /** Melt per tick of map glacier ice (`FLAG.glacier` cells). */
   glacierMelt: number;
+  /** Melt per tick of skill-built ice dams (`FLAG.skillIce` cells, glacier 얼음 둑). */
+  skillIceMelt: number;
   /** Ice at or below this thickness snaps to water (avoids float dust). */
   iceEpsilon: number;
   /** Head difference across an overtopped ice cell that shatters it (빙하호 붕괴). 0 = off. */

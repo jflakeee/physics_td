@@ -82,14 +82,15 @@ test('SIM-03: levee 1.0 — water 0.5 passes nothing, water 1.5 overtops', () =>
 });
 
 // ---------------------------------------------------------------- SIM-05 levee collapse
-test('SIM-05: constant pressure 1.0 → levee durability hits 0 at tick 1500 ± 1, then wall = 0', () => {
+test('SIM-05: constant pressure 1.0 → levee durability hits 0 at tick leveeDur / leveeWear ± 1 (2500 at 0.012/s), then wall = 0', () => {
   const g = flatGrid(3, 1);
   const t = { grid: g, baseCore: new Uint32Array(0), baseX: 0, baseY: 0, inlets: [], distToBase: new Uint16Array(3) };
   const w = createWorld(t, { I1: 0 }, { cash: null });
   buildLevee(w, [1], 1.2);
   let tick = 0;
-  while (g.wall[1] > 0 && tick < 3000) { g.w[0] = 1.0; updateStructures(w); tick++; }
-  assert.ok(Math.abs(tick - 1500) <= 1, `collapsed at ${tick}`);
+  while (g.wall[1] > 0 && tick < 5000) { g.w[0] = 1.0; updateStructures(w); tick++; }
+  const expect = Math.round(w.cfg.leveeDur / w.cfg.leveeWear);
+  assert.ok(Math.abs(tick - expect) <= 1, `collapsed at ${tick}, expected ${expect}`);
   assert.equal(g.wall[1], 0);
   assert.equal(w.metrics.collapses, 1);
 });

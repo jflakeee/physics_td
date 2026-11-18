@@ -11,6 +11,8 @@ export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   // story-001 decision: map glaciers melt at 1/4 rate so a dam can last into late waves
   // without its own ice being most of the flood (see story notes)
   glacierMelt: 0.0002,
+  // glacier 얼음 둑 (skill ice dam): 0.002/s, a dam built before W1 is still ~0.3 thick at W5
+  skillIceMelt: 0.002 / 30,
   iceEpsilon: 1e-6,
   // story-001 decision: ice-dam outburst rule, see ice.ts fractureIce
   iceFractureHead: 0.1,
@@ -24,7 +26,8 @@ export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   pumpDischargeCellCap: 2.0,
   pumpDischargeMaxDistance: 24,
   pumpCashPerTick: 1 / 30,
-  leveeWear: 0.02 / 30,
+  // v2.3 decision (this branch's story 001): 0.012/s so a re-cast ring holds a whole wave
+  leveeWear: 0.012 / 30,
   leveeDur: 1.0,
   gateClosedHeight: 0.8,
   floodThreshold: 1.2,

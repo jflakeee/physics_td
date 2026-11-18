@@ -1,7 +1,8 @@
 import type { SimWorld } from '../core/types.ts';
 import type { LoadedMap } from '../game/map.ts';
 import type { Zone, ZoneType } from '../sim/zones.ts';
-import { applyOp, tickConversions } from './effects.ts';
+import { applyOp, iceDamPlan, tickConversions } from './effects.ts';
+import type { IceDamOp } from './effects.ts';
 import type { Axis, CharacterDef, EconomyDef, ModKey, Op, Refusal, SkillDef } from './types.ts';
 
 /**
@@ -35,6 +36,8 @@ export interface RulesState {
   axes: Record<Axis, number>;
   zones: ZoneRuntime[];
   builtLines: Set<number>;
+  /** 얼음 둑 lines: line id → built ice height (re-freeze target). */
+  iceBuilt: Record<number, number>;
   baseMods: Record<ModKey, number>;
   timedMods: { key: ModKey; value: number; mode: 'set' | 'mul' | 'add'; ttl: number }[];
   /** Night-repair height to undo at wave end: [cell, added]. */
@@ -59,7 +62,7 @@ export function createRules(map: LoadedMap, defs: readonly SkillDef[], char: Cha
     map, world, defs: new Map(defs.map(d => [d.id, d])), char, eco, region: map.data.region ?? 'river',
     owned: [], commonCd: {}, commonCdMul: 1, maintenanceStacks: 0, fusions: [], gauge: 0, axes: { safety: 0, conquest: 0, harmony: 0, harvest: 0 },
     zones: map.zones.zones.map(() => ({ opened: false, convertTtl: 0, convertDh: 0 })),
-    builtLines: new Set(), baseMods: { ...MOD_DEFAULT }, timedMods: [], waveRestore: [],
+    builtLines: new Set(), iceBuilt: {}, baseMods: { ...MOD_DEFAULT }, timedMods: [], waveRestore: [],
     fieldDepth: map.zones.zones.map(() => 0), waveTicks: 0,
     lastBlocked: world.metrics.blocked, lastEcoBest: world.metrics.ecologyBest, zoneChanged: false,
     phaseIsWave: isWave,
@@ -137,6 +140,8 @@ function zoneOk(rs: RulesState, def: SkillDef, z: Zone): Refusal | null {
   if (def.zoneTypes.length && !def.zoneTypes.includes(z.type)) return 'BAD_TARGET';
   const st = rs.zones[z.id - 1];
   if (def.needs === 'leveeLine' && rs.map.leveeLines[z.id - 1].length === 0) return 'BAD_TARGET';
+  const dam = ops(rs, def, rankOf(rs, def.id)).find((o): o is IceDamOp => o.op === 'iceDam');
+  if (dam && !iceDamPlan(rs, rs.world, z, dam)) return 'ALREADY_DONE'; // every line at cap, none melting
   if (def.needs === 'notOpened' && st.opened) return 'ALREADY_DONE';
   if (def.needs === 'notConverting' && st.convertTtl > 0) return 'ALREADY_DONE';
   return null;
@@ -160,7 +165,7 @@ export function canUse(rs: RulesState, id: string, paused: boolean, zone?: numbe
   if (cdOf(rs, id) > 0) return 'COOLDOWN';
   if (def.slot === 'ultimate' && rs.gauge < rs.eco.gaugeMax) return 'NO_GAUGE';
   const cash = rs.world.cash;
-  if (def.cost > 0 && cash !== null && cash < def.cost) return 'NO_CASH';
+  if (def.cost > 0 && cash !== null && cash < skillCost(rs, def, zone)) return 'NO_CASH';
   if (def.target === 'zone') {
     if (!mapHasTarget(rs, def)) return 'NO_TARGET_IN_MAP';
     if (zone !== undefined) {
@@ -182,6 +187,20 @@ function setCd(rs: RulesState, id: string, v: number): void {
   if (own) own.cd = v; else rs.commonCd[id] = v;
 }
 
+/**
+ * Cash a use costs. A 얼음 둑 re-freeze costs its `refreezeCost`; the button-level check
+ * (no zone) uses the cheapest possible use so a re-freeze stays reachable.
+ */
+export function skillCost(rs: RulesState, def: SkillDef, zone?: number): number {
+  if (def.cost <= 0) return def.cost;
+  const dam = ops(rs, def, rankOf(rs, def.id)).find((o): o is IceDamOp => o.op === 'iceDam');
+  if (!dam) return def.cost;
+  if (zone === undefined) return Math.min(def.cost, dam.refreezeCost);
+  const z = rs.map.zones.zones[zone - 1];
+  const plan = z ? iceDamPlan(rs, rs.world, z, dam) : null;
+  return plan?.kind === 'refreeze' ? dam.refreezeCost : def.cost;
+}
+
 /** Remaining cooldown in ticks (UI). */
 export function cooldownTicks(rs: RulesState, id: string): number { return cdOf(rs, id); }
 
@@ -191,8 +210,9 @@ export function useSkill(rs: RulesState, id: string, paused: boolean, zone?: num
   if (r) return r;
   const def = rs.defs.get(id)!;
   const z = zone !== undefined ? rs.map.zones.zones[zone - 1] : undefined;
-  if (!runOps(rs, ops(rs, def, rankOf(rs, id)), { zone: z, path })) return 'BAD_TARGET';
-  if (def.cost > 0 && rs.world.cash !== null) rs.world.cash -= def.cost;
+  const cost = skillCost(rs, def, zone);
+  if (!runOps(rs, ops(rs, def, rankOf(rs, def.id)), { zone: z, path })) return 'BAD_TARGET';
+  if (def.cost > 0 && rs.world.cash !== null) rs.world.cash -= cost;
   if (def.cooldown > 0) setCd(rs, id, Math.round(def.cooldown * rs.world.cfg.tps * (def.slot === 'common' ? rs.commonCdMul : 1)));
   if (def.slot === 'ultimate') rs.gauge = 0;
   if (def.axis) rs.axes[def.axis] += def.cooldown > 0 ? def.cooldown / rs.eco.axisCooldownDiv : rs.eco.axisPerCostUse;

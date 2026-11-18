@@ -17,7 +17,7 @@ import { DIKE_AUTO as DIKE, WILLOW, dikeKeeper, setup, wetland, zonesOf } from '
 import { loadMap } from '../../../src/game/map.ts';
 import { advance, createPlay, send, TICK_MS } from '../../../src/game/play.ts';
 
-const KNOWN_OPS = new Set(['buildLevee', 'iceLevee', 'tempWallPath', 'repairAll', 'lowerZone', 'convertZone', 'modifier', 'freezeZone', 'iceWall']);
+const KNOWN_OPS = new Set(['buildLevee', 'iceLevee', 'iceDam', 'tempWallPath', 'repairAll', 'lowerZone', 'convertZone', 'modifier', 'freezeZone', 'iceWall']);
 const tps = 30;
 
 // ---------------------------------------------------------------- data
@@ -112,7 +112,7 @@ test('SKL-02: levee goes on the line facing the threat, then the next line, then
   assert.ok(Math.abs(heights.at(-1)! - 0.4) < 1e-6, 'lowest line raised by 0.1');
   for (let k = 0; k < 20; k++) useSkill(rs, 'build-levee', false, zone.id);
   for (const l of lines) for (const c of l.cells) assert.ok(world.grid.wall[c] <= 0.6 + 1e-6);
-  assert.equal(world.cash, 10_000 - 20 * (lines.length + 21));
+  assert.equal(world.cash, 10_000 - rs.defs.get('build-levee')!.cost * (lines.length + 21));
 });
 
 test('build-levee: zones without levee lines are not targets', () => {
