@@ -1,7 +1,7 @@
 # Story 007: 세계 지도 + 서막 텍스트 + 기억 조각 8개
 
 > **Epic**: physics-td
-> **Status**: In Progress
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI
 > **Estimate**: M
@@ -80,3 +80,18 @@
 
 - Depends on: `production/epics/physics-td/story-006-result-ending-save.md`
 - Unlocks: None
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-11-18
+**Criteria**: 6/6 passing (user-confirmed via /story-done; screenshots opened and checked)
+**Deviations** (advisory):
+- 회상 해금 조건 4 → 2 (출시 범위는 캐릭터당 조각 2개) — `data/story/shards.json` `recallNeeds`, 지역 3곳 이상에서 4로
+- "맵 비밀" 조건은 첫 융합·재도전으로 대체, 범람원 개방은 공존 성향 ≥ 1로 근사, 미출시 캐릭터의 철학 조각은 누구나 획득 가능
+- 복선 대사는 확률 출현이라 화면 증거 없음(로직 스크립트로만 확인)
+- 세계 지도는 육각 칸 한 줄 형태, 칸 탭 시 맵 이름·별만(엔딩 아트 없음), 도감·맵 목록은 내부 스크롤
+- 저장 형식 v2 전환으로 진행 중 저장 판은 1회 폐기 + 안내
+**Test Evidence**: UI 스크린샷 `production/qa/evidence/story-007-world-map-prologue-memory/` (34장, 320×568 / 390×664 / 750×342, + stamp.txt)
+**Reviewed by**: self, no independent review (QL-TEST-COVERAGE / LP-CODE-REVIEW skipped — Solo mode)
