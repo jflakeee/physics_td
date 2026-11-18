@@ -18,6 +18,8 @@ export interface ResultOptions {
   star3: number;
   /** Name of a character that has not cleared this map yet, else null. */
   otherCharName: string | null;
+  /** Memory shards / recall cards gained by this clear (Story 007); empty = no card. */
+  memory?: { title: string; text: string }[];
   onReplay(): void;
   /** Absent when there is no other character. */
   onOtherChar?: () => void;
@@ -87,6 +89,14 @@ export function mountResult(root: HTMLElement, o: ResultOptions): HTMLElement {
           : t('goal.nextMap');
   goal.append(el('h2', '', t('goal.title')), el('p', '', goalText), el('p', 'res-codex', t('result.codex', o.codex)));
   box.appendChild(goal);
+
+  if (o.memory && o.memory.length > 0) {
+    const mem = el('section', 'res-memory');
+    mem.setAttribute('role', 'status');
+    mem.appendChild(el('h2', '', t('result.memory.title')));
+    for (const m of o.memory) mem.append(el('b', '', m.title), el('p', '', m.text));
+    box.appendChild(mem);
+  }
 
   const foot = el('div', 'res-foot');
   if (o.onOtherChar) foot.appendChild(button('', t('result.otherChar'), o.onOtherChar));

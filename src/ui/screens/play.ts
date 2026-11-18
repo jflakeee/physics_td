@@ -54,6 +54,8 @@ export interface PlayOptions {
   onCheckpoint(): void;
   /** The last wave was cleared: show the result screen. */
   onResult(): void;
+  /** Story lines (already translated) shown with the wave-start toast, Story 007. */
+  waveLines?: (wave: number) => string[];
   /** Defeat [처음부터]: new run on the same map. */
   onRestart(): void;
 }
@@ -278,7 +280,8 @@ export function mountPlay(root: HTMLElement, o: PlayOptions): PlayDebug {
   function beginWave(): void {
     if (!machineBeginWave(run)) return;
     startBtn.hidden = true;
-    toast(t('toast.waveStart', { n: run.wave }));
+    const lines = o.waveLines?.(run.wave) ?? [];
+    toast([t('toast.waveStart', { n: run.wave }), ...lines].join(' · '));
     refreshTutorial();
   }
 

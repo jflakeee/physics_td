@@ -1,0 +1,11 @@
+{
+  "regions": [
+    { "id": "flood", "kind": "home", "icon": "🌊", "i18n": "world.region.flood" },
+    { "id": "glacier", "kind": "frontier", "icon": "❄", "i18n": "world.region.glacier", "opensAfter": "flood" },
+    { "id": "volcano", "kind": "far", "icon": "🌋", "i18n": "world.region.far" },
+    { "id": "deepsea", "kind": "far", "icon": "🌊", "i18n": "world.region.far" },
+    { "id": "landslide", "kind": "far", "icon": "⛰", "i18n": "world.region.far" },
+    { "id": "alien", "kind": "far", "icon": "🛸", "i18n": "world.region.far" },
+    { "id": "machine", "kind": "far", "icon": "🤖", "i18n": "world.region.far" }
+  ]
+}

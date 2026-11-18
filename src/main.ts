@@ -7,14 +7,16 @@ import { loadDraftData } from './rules/cards.ts';
 import { parseEndings, resolveEnding } from './rules/endings.ts';
 import { parseScoreRules, runScoreInput, scoreResult } from './rules/scoring.ts';
 import { loadSkillData } from './rules/skills.ts';
+import { evaluateShards, openRegions, parsePrologue, parseShards, parseWorld, unlockedRecalls, waveStoryKeys } from './rules/memory.ts';
 import { str } from './rules/validate.ts';
 import { addToCodex, hashData, openStore, recordClear, restoreRun, snapshotRun } from './save/storage.ts';
 import { getFlag, setFlag } from './ui/flags.ts';
 import { createTranslate, loadDictionary } from './ui/i18n.ts';
-import { mountMapSelect } from './ui/screens/mapSelect.ts';
+import { mountCodex } from './ui/screens/codex.ts';
 import type { ResumeCard } from './ui/screens/mapSelect.ts';
 import { mountPlay } from './ui/screens/play.ts';
 import type { PlayDebug } from './ui/screens/play.ts';
+import { mountWorldMap } from './ui/screens/worldMap.ts';
 import { mountResult } from './ui/screens/result.ts';
 import { injectStyles } from './ui/styles.ts';
 import { createToaster } from './ui/widgets/toast.ts';
@@ -27,6 +29,7 @@ import { createToaster } from './ui/widgets/toast.ts';
  */
 const FIRST_RUN_FLAG = 'firstRunDone';
 const TUTORIAL_FLAG = 'tutorialDone';
+const BRIEFING_FLAG = 'briefingDone';
 const DEFAULT_CHARACTER = 'dike-keeper';
 
 async function boot(): Promise<void> {
@@ -39,6 +42,9 @@ async function boot(): Promise<void> {
   const idx = index as Record<string, unknown>;
   const scoreRules = parseScoreRules(await read(str(idx, 'scoring', 'data/index.json')));
   const endingRules = parseEndings(await read(str(idx, 'endings', 'data/index.json')), [...data.characters.keys()]);
+  const regions = parseWorld(await read('data/story/world.json'));
+  const shardData = parseShards(await read('data/story/shards.json'));
+  const prologue = parsePrologue(await read('data/story/prologue.json'));
   const dataVersion = hashData(files);
 
   const toast = createToaster(document.body);
@@ -78,14 +84,26 @@ async function boot(): Promise<void> {
     const score = scoreResult(scoreRules, runScoreInput(run, scoreRules, firstCombo), star3);
     const ending = resolveEnding(endingRules, me.id, me.axis, run.rt.axis);
     const newEnding = recordClear(p, run.map.id, me.id, score, ending.id, run.codex);
+    const facts = { region: run.map.region, character: me.id, hp: run.state.hp, ecology: run.state.metrics.ecology, retries: run.retries, fusions: run.codex.length, axis: run.rt.axis };
+    const gained = evaluateShards(shardData, facts).filter((s) => !p.shards.includes(s.id));
+    addToCodex(p.shards, gained.map((s) => s.id));
+    const recalled = unlockedRecalls(shardData, p.shards).filter((id) => !p.recalls.includes(id));
+    addToCodex(p.recalls, recalled);
     delete store.data.run;
     store.flush();
+    const memory = [
+      ...gained.map((s) => ({ title: t(`${s.i18n}.title`), text: t(`${s.i18n}.text`) })),
+      ...recalled.map((id) => {
+        const ph = shardData.philosophies.find((x) => x.id === id);
+        return { title: t('result.memory.recall', { name: t(`${ph?.recall}.title`) }), text: t(`${ph?.recall}.text`) };
+      }),
+    ];
     const cleared = p.maps[run.map.id].clearedBy;
     const other = [...data.characters.values()].find((c) => c.id !== me.id && !cleared.includes(c.id))
       ?? [...data.characters.values()].find((c) => c.id !== me.id);
     const next = maps[maps.indexOf(run.map) + 1];
     mountResult(root, {
-      t, score, ending, newEnding, hp: run.state.hp, hpStar: scoreRules.stars.hp, star3,
+      t, score, ending, newEnding, memory, hp: run.state.hp, hpStar: scoreRules.stars.hp, star3,
       codex: { endings: p.endings.length, endingsMax: endingRules.endings.length, fusions: p.fusions.length, fusionsMax: draftData.fusions.length },
       otherCharName: other && !cleared.includes(other.id) ? t(other.i18n) : null,
       onReplay: () => goTo(run.map.id, me.id),
@@ -101,6 +119,7 @@ async function boot(): Promise<void> {
     const tutorial = run.map.tutorial && !getFlag(TUTORIAL_FLAG) ? createTutorial() : null;
     (window as unknown as { __v2: PlayDebug }).__v2 = mountPlay(root, {
       run, t, tutorial, onTutorialDone: () => setFlag(TUTORIAL_FLAG), onExit: toList,
+      waveLines: (w) => waveStoryKeys(prologue, run.seed, w).map((k) => t(k)),
       onCheckpoint: () => saveRun(run),
       onResult: () => showResult(run),
       onRestart: () => goTo(run.map.id, run.rt.character.id),
@@ -131,7 +150,20 @@ async function boot(): Promise<void> {
 
   const direct = maps.find((m) => m.id === q.get('map'));
   if (direct) play(direct, q.get('char') ?? DEFAULT_CHARACTER);
-  else mountMapSelect(root, maps, t, !getFlag(FIRST_RUN_FLAG), (m) => play(m, q.get('char') ?? DEFAULT_CHARACTER), resume);
+  else showWorld();
+
+  /** World map (boot entry and return target); the codex opens from it. */
+  function showWorld(briefing = !getFlag(BRIEFING_FLAG)): void {
+    mountWorldMap(root, {
+      t, regions, maps, progress: store.data.progress, open: openRegions(regions, maps, store.data.progress.maps), resume,
+      showBadge: !getFlag(FIRST_RUN_FLAG), briefing: briefing ? prologue.briefing : null, onBriefingDone: () => setFlag(BRIEFING_FLAG),
+      onPick: (m) => play(m, q.get('char') ?? DEFAULT_CHARACTER),
+      onCodex: () => mountCodex(root, {
+        t, progress: store.data.progress, shards: shardData, onBack: () => showWorld(false),
+        endings: endingRules.endings, fusions: draftData.fusions,
+      }),
+    });
+  }
 }
 
 boot().catch((err: unknown) => {

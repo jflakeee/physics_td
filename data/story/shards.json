@@ -1,0 +1,19 @@
+{
+  "recallNeeds": 2,
+  "philosophies": [
+    { "id": "love", "character": "dike-keeper", "i18n": "memory.phil.love", "recall": "memory.recall.love" },
+    { "id": "nature", "character": "wetland-researcher", "i18n": "memory.phil.nature", "recall": "memory.recall.nature" },
+    { "id": "exchange", "character": "engineer", "i18n": "memory.phil.exchange", "recall": "memory.recall.exchange" },
+    { "id": "lesson", "character": "technician", "i18n": "memory.phil.lesson", "recall": "memory.recall.lesson" }
+  ],
+  "shards": [
+    { "id": "love-flood", "philosophy": "love", "region": "flood", "i18n": "memory.shard.loveFlood", "when": { "region": "flood", "character": "dike-keeper", "minHp": 100 } },
+    { "id": "love-glacier", "philosophy": "love", "region": "glacier", "i18n": "memory.shard.loveGlacier", "when": { "region": "glacier", "character": "dike-keeper", "minHp": 85 } },
+    { "id": "nature-flood", "philosophy": "nature", "region": "flood", "i18n": "memory.shard.natureFlood", "when": { "region": "flood", "minEcology": 120 } },
+    { "id": "nature-glacier", "philosophy": "nature", "region": "glacier", "i18n": "memory.shard.natureGlacier", "when": { "region": "glacier", "minEcology": 100 } },
+    { "id": "exchange-flood", "philosophy": "exchange", "region": "flood", "i18n": "memory.shard.exchangeFlood", "when": { "region": "flood", "minAxis": { "coexistence": 1 } } },
+    { "id": "exchange-glacier", "philosophy": "exchange", "region": "glacier", "i18n": "memory.shard.exchangeGlacier", "when": { "region": "glacier", "minFusions": 1 } },
+    { "id": "lesson-flood", "philosophy": "lesson", "region": "flood", "i18n": "memory.shard.lessonFlood", "when": { "region": "flood", "minRetries": 1 } },
+    { "id": "lesson-glacier", "philosophy": "lesson", "region": "glacier", "i18n": "memory.shard.lessonGlacier", "when": { "region": "glacier", "minRetries": 2 } }
+  ]
+}

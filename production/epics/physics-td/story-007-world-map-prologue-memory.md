@@ -53,10 +53,11 @@
 
 ## Files
 
-- `src/ui/screens/worldMap.ts`, `src/ui/screens/codex.ts`
-- `data/story/*.json`, `i18n/ko.json`
-
----
+- `src/ui/screens/worldMap.ts`, `src/ui/screens/codex.ts`, `src/rules/memory.ts` — created
+- `data/story/world.json`, `data/story/shards.json`, `data/story/prologue.json` — created
+- `src/save/storage.ts` (SaveV2: tiles/shards/recalls, migrate v1→v2), `src/ui/screens/{mapSelect,result,play}.ts`, `src/ui/styles.ts`, `src/main.ts`, `i18n/ko.json` — modified
+- Tests: none (waived at qa.level: minimal); verification scripts outside the repo
+- Evidence: `production/qa/evidence/story-007-world-map-prologue-memory/` (33 screenshots at 320×568 / 390×664 / 750×342, stamp.txt)
 
 ## QA Test Cases
 

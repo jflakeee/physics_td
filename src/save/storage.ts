@@ -16,14 +16,18 @@ export const SAVE_KEY = 'physics-td:v2';
 /** Per-map progress. */
 export interface MapProgress { stars: number; best: number; clearedBy: string[] }
 
-/** Long-lived progress: best results and the codex (endings, fusions). */
-export interface Progress { maps: Record<string, MapProgress>; endings: string[]; fusions: string[] }
+/**
+ * Long-lived progress: best results, the codex (endings, fusions) and the story layer (Story 007):
+ * `tiles` = ids of cleared maps in clear order (one world-map home tile each), `shards` = memory
+ * shard ids, `recalls` = unlocked recall cards (philosophy ids).
+ */
+export interface Progress { maps: Record<string, MapProgress>; endings: string[]; fusions: string[]; tiles: string[]; shards: string[]; recalls: string[] }
 
 /** The in-progress run (spec 16 `run`). */
 export interface RunSave { dataVersion: string; mapId: string; charId: string; seed: number; snapshot: string }
 
-/** Save schema version 1. */
-export interface SaveV1 { v: 1; progress: Progress; run?: RunSave }
+/** Save schema version 2 (v1 + world tiles / memory shards; v1 saves are migrated on load). */
+export interface SaveV2 { v: 2; progress: Progress; run?: RunSave }
 
 /** The part of `Storage` the store uses (injectable for tests). */
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -31,7 +35,7 @@ export type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 /** A loaded save plus its write channel. */
 export interface Store {
   /** Current save data; mutate it, then `flush()`. */
-  readonly data: SaveV1;
+  readonly data: SaveV2;
   /** True after a storage failure: the game keeps running, nothing is persisted. */
   readonly memoryOnly: boolean;
   /** Write `data` to storage (no-op in memory mode; a failure switches to memory mode). */
@@ -42,8 +46,8 @@ export interface Store {
  * Fresh save data.
  * @example const s = defaultSave();
  */
-export function defaultSave(): SaveV1 {
-  return { v: 1, progress: { maps: {}, endings: [], fusions: [] } };
+export function defaultSave(): SaveV2 {
+  return { v: 2, progress: { maps: {}, endings: [], fusions: [], tiles: [], shards: [], recalls: [] } };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -51,14 +55,15 @@ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is
 const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
 
 /**
- * Bring any parsed save to the current schema (spec 16): no `v` / damaged -> defaults; v1
- * fields are checked one by one (bad fields fall back, a bad run is dropped). Later versions add
- * one step function per version here.
+ * Bring any parsed save to the current schema (spec 16): no `v` / damaged -> defaults; v1 and v2
+ * fields are checked one by one (bad fields fall back, a bad run is dropped). A v1 save gains
+ * `tiles` from its cleared maps (best score > 0) and empty shards / recalls. Later versions add
+ * one step per version here.
  * @example const save = migrate(JSON.parse(text));
  */
-export function migrate(raw: unknown): SaveV1 {
+export function migrate(raw: unknown): SaveV2 {
   const out = defaultSave();
-  if (!isObj(raw) || raw.v !== 1) return out;
+  if (!isObj(raw) || (raw.v !== 1 && raw.v !== 2)) return out;
   const p = isObj(raw.progress) ? raw.progress : {};
   if (isObj(p.maps)) {
     for (const [id, m] of Object.entries(p.maps)) {
@@ -67,6 +72,9 @@ export function migrate(raw: unknown): SaveV1 {
   }
   out.progress.endings = strings(p.endings);
   out.progress.fusions = strings(p.fusions);
+  out.progress.shards = strings(p.shards);
+  out.progress.recalls = strings(p.recalls);
+  out.progress.tiles = raw.v === 1 ? Object.entries(out.progress.maps).filter(([, m]) => m.best > 0).map(([id]) => id) : strings(p.tiles);
   const r = raw.run;
   if (isObj(r) && typeof r.dataVersion === 'string' && typeof r.mapId === 'string' && typeof r.charId === 'string' &&
       typeof r.seed === 'number' && typeof r.snapshot === 'string') {
@@ -219,5 +227,6 @@ export function recordClear(p: Progress, mapId: string, charId: string, score: {
   addToCodex(p.fusions, fusions);
   const isNew = !p.endings.includes(endingId);
   addToCodex(p.endings, [endingId]);
+  addToCodex(p.tiles, [mapId]);
   return isNew;
 }

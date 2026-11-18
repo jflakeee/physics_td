@@ -1,0 +1,14 @@
+{
+  "briefing": ["story.briefing.1", "story.briefing.2", "story.briefing.3"],
+  "waveLines": [
+    { "wave": 1, "key": "story.wave.1" },
+    { "wave": 2, "key": "story.wave.2" },
+    { "wave": 3, "key": "story.wave.3" },
+    { "wave": 4, "key": "story.wave.4" },
+    { "wave": 5, "key": "story.wave.5" }
+  ],
+  "foreshadow": [
+    { "id": "seen-before", "key": "story.fore.seenBefore", "wave": 3, "chance": 0.25 },
+    { "id": "gate-mark", "key": "story.fore.gateMark", "wave": 2, "chance": 0.35 }
+  ]
+}

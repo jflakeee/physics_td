@@ -1,0 +1,13 @@
+Reviewed-Content-Hash: data/story/prologue.json c713ab4227093c140aa6f92b8687cba41ea8b896
+Reviewed-Content-Hash: data/story/shards.json e23675734facd1f78e946f5cbc2ec7687137f25c
+Reviewed-Content-Hash: data/story/world.json 9b685b5edd39b356e5379fd22475b815edbc468f
+Reviewed-Content-Hash: i18n/ko.json d5fa0633df7d25dcfe2bfe9210d5e49f73e32bcc
+Reviewed-Content-Hash: src/main.ts d48c51102a82f8cd4993d5284748b22ef4c56838
+Reviewed-Content-Hash: src/rules/memory.ts 7410d1f0983a663744056c882ccf831889c2016a
+Reviewed-Content-Hash: src/save/storage.ts fa8e98aa6d32077ed8507a8931c61136d2d7eef0
+Reviewed-Content-Hash: src/ui/screens/codex.ts 53a47e72836a16e107945c0e19da1c4f15ec00b8
+Reviewed-Content-Hash: src/ui/screens/mapSelect.ts eb60bb203bd22afb0d4cff833c9970bd3ed080b2
+Reviewed-Content-Hash: src/ui/screens/play.ts 66338ae83b5f2dc516e3504c28575b483e991a4a
+Reviewed-Content-Hash: src/ui/screens/result.ts 5445b843cd4e5164c0cef389c16d3e2525e675f9
+Reviewed-Content-Hash: src/ui/screens/worldMap.ts 27121a5d2358b214a01ab5cea404b13bbb2389f3
+Reviewed-Content-Hash: src/ui/styles.ts 72c2e81783e147e2ca5e9c6ca043bd25bfbf7915
