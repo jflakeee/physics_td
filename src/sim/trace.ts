@@ -11,7 +11,15 @@ import type { SimWorld } from '../core/types.ts';
  * Blocks keep the cost inside the 4× CPU budget (§18); per-cell tracing measured 2.2 ms there.
  */
 
+/** Block size in cells. traceFlow is specialised for 2 (see there); change both together. */
 export const BLOCK = 2;
+/**
+ * The tracer runs every MIX_EVERY ticks: it samples that tick's border flux, scales it by
+ * MIX_EVERY (flow changes slowly tick to tick) and mixes the blocks. The mix is a UI
+ * attribution (defeat screen), so a 2-tick step is enough; it halves the tracer's share of
+ * the 4×-throttled tick budget (§18).
+ */
+export const MIX_EVERY = 2;
 
 export interface Trace {
   /** Sources: inlets…, rain, ice. */
@@ -38,6 +46,8 @@ export interface Trace {
   before: Float64Array;
   added: Float64Array;
   iceBuf: Int32Array;
+  /** Ticks since the last block mix (the tracer works on every MIX_EVERY-th tick). */
+  fluxTicks: number;
 }
 
 export function createTrace(world: SimWorld): Trace {
@@ -55,7 +65,7 @@ export function createTrace(world: SimWorld): Trace {
   const t: Trace = {
     n, rain: ni, ice: ni + 1, bw, bh, blockOf, border, f: new Float64Array(blocks * n), next: new Float64Array(blocks * n),
     water: new Float64Array(blocks), flux: new Float64Array(blocks * 4), damage: new Float64Array(n), inletOf,
-    before: new Float64Array(cells), added: new Float64Array(blocks * n), iceBuf: new Int32Array(cells),
+    before: new Float64Array(cells), added: new Float64Array(blocks * n), iceBuf: new Int32Array(cells), fluxTicks: 0,
   };
   // water already on the map (glacier lakes) counts as ice
   for (let i = 0; i < cells; i++) if (g.w[i] > 0) t.f[blockOf[i] * n + t.ice] = 1;
@@ -113,19 +123,50 @@ function blockWater(t: Trace, w: Float64Array): void {
 
 /** Carry block mixes across block borders with the last fluid step's fluxes (scratch out/s). */
 export function traceFlow(t: Trace, world: SimWorld): void {
-  const { out, s } = world.scratch, { n, bw, blockOf, border, flux, water } = t, w = world.grid.w;
+  if (++t.fluxTicks < MIX_EVERY) return;
+  t.fluxTicks = 0;
+  const { s } = world.scratch, { bw, flux, water } = t, g = world.grid, w = g.w, W = g.width, H = g.height;
+  const out = world.scratch.out;
   flux.fill(0); water.fill(0);
-  for (let i = 0; i < w.length; i++) {
-    const b = blockOf[i];
-    water[b] += w[i];
-    const si = s[i], bd = border[i];
-    if (si === 0 || bd === 0) continue;
-    const o = i * 4, b4 = b * 4;
-    if (bd & 1) flux[b4] += out[o] * si;          // E border
-    if (bd & 2) flux[b4 + 1] += out[o + 1] * si;  // W border
-    if (bd & 4) flux[b4 + 2] += out[o + 2] * si;  // S border
-    if (bd & 8) flux[b4 + 3] += out[o + 3] * si;  // N border
+  // 2×2 blocks (BLOCK = 2): even x is a block's W border, odd x its E border; even y its N
+  // border, odd y its S border. Row-major like the generic version (same summation order, so
+  // bit-identical) but with no per-cell divisions — this loop was ~14% of a 4×-throttled tick.
+  // A cell that sent all its water this tick is dry now but still has s > 0 (s is from pass 1),
+  // so a cell is skipped only when both w and s are zero.
+  for (let y = 0; y < H; y++) {
+    const rowB = (y >> 1) * bw, sn = (y & 1) === 1 ? 2 : 3; // S border on odd rows, N on even
+    for (let x = 0, i = y * W, b = rowB; x < W; x += 2, i += 2, b++) {
+      const b4 = b * 4;
+      // even x: W border
+      let wi = w[i], si = s[i];
+      if (wi !== 0 || si !== 0) {
+        water[b] += wi;
+        if (si !== 0) { const o = i * 4; flux[b4 + 1] += out[o + 1] * si; flux[b4 + sn] += out[o + sn] * si; }
+      }
+      if (x + 1 >= W) break;
+      // odd x: E border
+      wi = w[i + 1]; si = s[i + 1];
+      if (wi !== 0 || si !== 0) {
+        water[b] += wi;
+        if (si !== 0) { const o = (i + 1) * 4; flux[b4] += out[o] * si; flux[b4 + sn] += out[o + sn] * si; }
+      }
+    }
   }
+  const scale: number = MIX_EVERY;
+  if (scale !== 1) for (let k = 0; k < flux.length; k++) flux[k] *= scale;
+  mixBlocks(t);
+}
+
+/** Restart the MIX_EVERY cadence (after a checkpoint restore). */
+export function resetTraceFlux(t: Trace): void { t.fluxTicks = 0; }
+
+/**
+ * Second half of traceFlow: each block's new mix from what stayed and what flowed in.
+ * Kept as its own function — inlined into the flux loop it ran about 2× slower in V8
+ * (profiled on the 둑마을 W5 benchmark).
+ */
+function mixBlocks(t: Trace): void {
+  const { n, bw, flux, water } = t;
   const { f, next } = t, blocks = water.length, bh = t.bh;
   for (let b = 0; b < blocks; b++) {
     const bx = b % bw, by = (b / bw) | 0, o = b * n, tot = water[b];
@@ -135,7 +176,8 @@ export function traceFlow(t: Trace, world: SimWorld): void {
     const inS = by + 1 < bh ? flux[(b + bw) * 4 + 3] : 0;
     const inflow = inW + inE + inN + inS;
     if (tot <= 1e-12 || inflow <= tot * 1e-9) { for (let k = 0; k < n; k++) next[o + k] = f[o + k]; continue; }
-    const inv = 1 / tot, kK = Math.max(0, tot - inflow) * inv;
+    // a scaled sample can exceed the block's water: normalise by the larger so the mix sums to 1
+    const inv = 1 / (inflow > tot ? inflow : tot), kK = Math.max(0, tot - inflow) * inv;
     const aW = inW * inv, aE = inE * inv, aN = inN * inv, aS = inS * inv;
     const oW = (b - 1) * n, oE = (b + 1) * n, oN = (b - bw) * n, oS = (b + bw) * n;
     for (let k = 0; k < n; k++) {
