@@ -53,6 +53,7 @@
   },
   "style": "floodplain",
   "pumpCostPerSecond": 2,
+  "skillCosts": { "build-levee": 16 },
   "star3Score": 2050,
   "leveeLines": [
     [

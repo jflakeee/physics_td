@@ -2,7 +2,7 @@ import type { LoadedMap, MapData } from '../src/game/map.ts';
 import { loadMap } from '../src/game/map.ts';
 import { advance, createPlay, send, TICK_MS } from '../src/game/play.ts';
 import type { Play } from '../src/game/play.ts';
-import { canUse, createRules, skillCost } from '../src/rules/skills.ts';
+import { baseCost, canUse, createRules, skillCost } from '../src/rules/skills.ts';
 import { CHARACTERS, ECONOMY, FUSIONS, SKILLS } from '../src/data/catalog.ts';
 import { baseFlood } from '../src/sim/metrics.ts';
 import { inletPaths } from '../src/game/validate.ts';
@@ -79,7 +79,7 @@ function refreeze(p: Play): void {
   if (rs.region !== 'glacier' || !rs.owned.some(o => o.id === 'build-levee')) return;
   const def = rs.defs.get('build-levee')!;
   for (const z of p.map.zones.zones) {
-    if (canUse(rs, 'build-levee', false, z.id) !== null || skillCost(rs, def, z.id) >= def.cost) continue;
+    if (canUse(rs, 'build-levee', false, z.id) !== null || skillCost(rs, def, z.id) >= baseCost(rs, def)) continue;
     send(p, { t: 'skill', id: 'build-levee', zone: z.id });
   }
 }
