@@ -52,6 +52,7 @@ export function startWave(world: SimWorld, wave: number, params: Partial<WavePar
   world.metrics.waveInflow = 0;
   world.metrics.waveDamage = 0;
   world.metrics.waveMaxFlood = 0;
+  world.metrics.waveAbsorbed = 0;
   world.trace?.damage.fill(0);
 }
 

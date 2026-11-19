@@ -6,7 +6,10 @@ import { waveLen } from './config.ts';
 /**
  * Sinks (docs/DETAILED_DESIGN_V2.md §4.4), applied in fixed order:
  * pumps (capped) → outlets → wetland/forest absorption (needs `mods.absorbMul` > 0) → evaporation.
- * Absorption rate: wetland `absorbRate × absorbMul`, forest × `forestAbsorbFrac`.
+ * Absorption rate: wetland `absorbRate × absorbMul`, forest × `forestAbsorbFrac`. The soil
+ * saturates: absorption this wave (`metrics.waveAbsorbed`) stays ≤ `min(1, absorbWaveFrac ×
+ * absorbMul) × metrics.waveInflow`, so more wetland reaches the cap sooner but never swallows
+ * a growing flood on its own — pumps and levees keep a job in late waves.
  */
 
 /** Cells of a pump disc (Euclidean radius `r`) around `cell`, row-major fixed order. */
@@ -113,14 +116,20 @@ export function applySinks(world: SimWorld): void {
   // outlets, absorption, evaporation (single pass, per-cell order fixed)
   const flags = g.flags, zt = g.ztype, evap = cfg.evap, out = cfg.outletRate;
   const absW = cfg.absorbRate * world.mods.absorbMul, absF = absW * cfg.forestAbsorbFrac;
-  let evaporated = 0;
+  let absLeft = Infinity;
+  if (absW > 0 && cfg.absorbWaveFrac > 0) {
+    const frac = Math.min(1, cfg.absorbWaveFrac * world.mods.absorbMul);
+    absLeft = Math.max(0, frac * m.waveInflow - m.waveAbsorbed);
+  }
+  let evaporated = 0, absorbed = 0;
   for (let i = 0; i < w.length; i++) {
     let v = w[i];
     if (v <= 0) continue;
     if (flags[i] & FLAG.outlet) { const d = v < out ? v : out; v -= d; drained += d; }
     if (absW > 0) { // wetland / forest absorption only with the passive (absorbMul > 0)
-      const a = zt[i] === ZT.wetland ? absW : zt[i] === ZT.forest ? absF : 0;
-      if (a > 0) { const d = v < a ? v : a; v -= d; drained += d; }
+      let a = zt[i] === ZT.wetland ? absW : zt[i] === ZT.forest ? absF : 0;
+      if (a > absLeft - absorbed) a = absLeft - absorbed;
+      if (a > 0) { const d = v < a ? v : a; v -= d; drained += d; absorbed += d; }
     }
     const e = v * evap; v -= e; evaporated += e;
     w[i] = v;
@@ -143,5 +152,6 @@ export function applySinks(world: SimWorld): void {
     }
   }
   m.drained += drained;
+  m.waveAbsorbed += absorbed;
   m.evaporated += evaporated;
 }

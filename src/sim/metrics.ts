@@ -9,7 +9,7 @@ import type { SimMetrics, SimWorld } from '../core/types.ts';
 
 /** Fresh zeroed metrics. */
 export function createMetrics(): SimMetrics {
-  return { drained: 0, blocked: 0, evaporated: 0, inflow: 0, waveInflow: 0, inflowClipped: 0, waveDamage: 0, waveMaxFlood: 0, collapses: 0, ecology: 0, ecologyBest: 0 };
+  return { drained: 0, blocked: 0, evaporated: 0, inflow: 0, waveInflow: 0, inflowClipped: 0, waveDamage: 0, waveMaxFlood: 0, waveAbsorbed: 0, collapses: 0, ecology: 0, ecologyBest: 0 };
 }
 
 /** Water sum on the base core. */

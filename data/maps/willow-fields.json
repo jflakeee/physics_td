@@ -52,6 +52,7 @@
     "hp": 100
   },
   "style": "floodplain",
+  "pumpCostPerSecond": 2,
   "star3Score": 2050,
   "leveeLines": [
     [

@@ -38,6 +38,7 @@ export const DEFAULT_SIM_CONFIG: Readonly<SimConfig> = Object.freeze({
   inletCellCap: 2.0,
   tps: 30,
   absorbRate: 0.004,
+  absorbWaveFrac: 0.4,
   forestAbsorbFrac: 0.5,
   forestFloodDepth: 0.1,
   forestFloodTicks: 300,

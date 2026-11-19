@@ -1,5 +1,6 @@
 {
   "waveClear": 60,
+  "waveClearStep": 20,
   "fieldIncome": 8,
   "fieldFloodDepth": 0.05,
   "axisOnGain": 3,

@@ -65,7 +65,10 @@ export interface CharacterDef {
 export interface FusionDef { id: string; requires: string[]; ops: Op[]; hidden: boolean; icon: string; i18n: string; }
 
 export interface EconomyDef {
-  waveClear: number; fieldIncome: number; fieldFloodDepth: number;
+  waveClear: number;
+  /** Extra wave-clear income per wave already played: income = waveClear + waveClearStep × (wave − 1). */
+  waveClearStep: number;
+  fieldIncome: number; fieldFloodDepth: number;
   axisOnGain: number; axisOnRankUp: number; axisPerPassiveWave: number; axisPerCostUse: number; axisCooldownDiv: number;
   gaugeMax: number;
   score: { drainedPer: number; noDamageWave: number; blockedPer: number; ecologyPer: number; waveClear: number };

@@ -84,7 +84,7 @@ function applyPumpParams(rs: RulesState): void {
   const p = rs.defs.get('pump')?.params;
   if (!p) return;
   const cfg = rs.world.cfg;
-  cfg.pumpCashPerTick = p.costPerSecond / cfg.tps;
+  cfg.pumpCashPerTick = (rs.map.data.pumpCostPerSecond ?? p.costPerSecond) / cfg.tps; // map override (balance)
   cfg.pumpRadius = p.radius; cfg.pumpRate = p.ratePerCell; cfg.pumpCapFrac = p.capFrac; cfg.pumpMaxOn = p.maxOn;
 }
 
@@ -243,17 +243,25 @@ export function rulesTick(rs: RulesState): void {
   rs.waveTicks++;
 }
 
+/**
+ * Wave-clear income after wave `wave` (1-based). It grows with the wave so the cash a player
+ * earns keeps pace with the inflow (×1.35 per wave) and late pumps stay affordable.
+ */
+export function waveClearIncome(eco: EconomyDef, wave: number): number {
+  return Math.round(eco.waveClear + (eco.waveClearStep ?? 0) * Math.max(0, wave - 1));
+}
+
 /** Wave start: reset per-wave tallies. */
 export function rulesWaveStart(rs: RulesState): void {
   rs.fieldDepth.fill(0); rs.waveTicks = 0;
 }
 
 /**
- * Wave end (§10 wave → prepare): income (clear + intact fields), passive axis +1,
+ * Wave end (§10 wave → prepare): income (clear, growing per wave, + intact fields), passive axis +1,
  * undo night-repair heights. Returns the cash earned.
  */
 export function rulesWaveEnd(rs: RulesState): number {
-  let income = rs.eco.waveClear;
+  let income = waveClearIncome(rs.eco, rs.world.wave);
   rs.map.zones.zones.forEach((z, k) => {
     if (z.type !== 'field' || rs.zones[k].opened) return;
     const avg = rs.waveTicks ? rs.fieldDepth[k] / rs.waveTicks : 0;

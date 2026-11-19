@@ -38,6 +38,8 @@ export interface MapData {
   gates: { tiles: [number, number][]; kind?: 'normal' | 'reservoir'; open: boolean }[];
   /** Map style (GD §4.2): picks the 정석 character for draft weighting. */
   style?: string;
+  /** Pump running cost per second on this map (overrides the pump skill's `costPerSecond`). */
+  pumpCostPerSecond?: number;
   /** Region id; selects regional skill variants (e.g. 'glacier'). Default 'river'. */
   region?: string;
   I1: number;
