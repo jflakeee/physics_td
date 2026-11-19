@@ -1,0 +1,9 @@
+{
+  "_note": "M0 prototype values (docs/MATERIAL_LAYERS_DESIGN.md §4). Bottom → top by density. Real data moves to data/materials in M1.",
+  "layers": [
+    { "id": "lava", "kind": "liquid", "density": 2.4, "flowK": 0.04, "updateEvery": 3,
+      "heat": { "initial": 1.0, "coolPerSec": 0.02, "solidifyBelow": 0.25, "solidifyScale": 0.8 } },
+    { "id": "sand", "kind": "granular", "density": 1.6, "repose": 0.08, "rate": 0.2, "updateEvery": 3 }
+  ],
+  "reactions": { "steam": 0.02, "steamCool": 2.0 }
+}
