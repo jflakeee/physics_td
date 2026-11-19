@@ -268,5 +268,14 @@
   "hud.floodShort": "침수",
   "hud.pumpsOffShort": "펌프 끔",
   "hud.routeShort": "배출",
-  "world.startHint": "빛나는 강 유역을 눌러 시작하세요"
+  "world.startHint": "빛나는 강 유역을 눌러 시작하세요",
+  "char.dikeKeeper.desc": "🛡 제방을 쌓아 물을 막는다 — 평야 맵에 강함",
+  "char.wetlandResearcher.desc": "🌿 땅을 낮추고 습지로 물을 흡수한다 — 범람원 맵에 강함",
+  "style.plain": "평야",
+  "style.floodplain": "범람원",
+  "style.glacier": "빙하",
+  "affinity.home": "정석",
+  "affinity.challenge": "도전",
+  "affinity.neutral": "중립",
+  "mapSelect.stars": "별 {n}개"
 }

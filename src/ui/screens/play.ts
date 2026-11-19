@@ -2,7 +2,8 @@ import type { LoadedMap } from '../../game/map.ts';
 import { advance, createPlay, send } from '../../game/play.ts';
 import type { Play, PlayEvent, PlayOptions, SkillHandler, Speed } from '../../game/play.ts';
 import { createBoard, drawBoard, refreshTerrain } from '../../render/board.ts';
-import { baseCost, cooldownTicks } from '../../rules/skills.ts';
+import { baseCost, canUse, cooldownTicks } from '../../rules/skills.ts';
+import { pickLine, threatDir } from '../../rules/effects.ts';
 import { REFUSAL_TOAST } from '../../rules/types.ts';
 import type { Refusal } from '../../rules/types.ts';
 import { skillViews } from '../skillViews.ts';
@@ -437,6 +438,18 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
 
   // --- loop
   const writeHud = createHud({ hp: hpV, cash: cashV, wave: waveV, level: lvV, gauge: gaugeFill, gaugeText });
+  /** Next levee line per plain zone the player could build now (prepare phase only). */
+  const leveePreview = (): ArrayLike<number>[] | undefined => {
+    const rs = play.rules;
+    if (!rs || play.phase !== 'prepare' || !rs.owned.some(s => s.id === 'build-levee')) return undefined;
+    const dir = threatDir(world, world.wave + 1, o.map.terrain.baseX, o.map.terrain.baseY), out: ArrayLike<number>[] = [];
+    for (const z of o.map.zones.zones) {
+      if (canUse(rs, 'build-levee', false, z.id) !== null) continue;
+      const line = pickLine(o.map.leveeLines[z.id - 1], rs.builtLines, dir);
+      if (line) out.push(line.cells);
+    }
+    return out;
+  };
   let raf = 0, last = performance.now(), lastPhase = '';
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
@@ -452,6 +465,7 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       arrows: play.phase === 'prepare', time: reduced ? 0 : now,
       flood: play.phase === 'wave' || play.phase === 'defeat' ? baseFlood(world) / world.cfg.floodThreshold : 0,
       calm: play.phase === 'prepare' && world.wave > 0,
+      preview: leveePreview(),
     });
     // Preview is a visual planning aid; no pipe is built or charged here.
     if (routing && routePump !== null && routePreview && routePreview.length > 1) {

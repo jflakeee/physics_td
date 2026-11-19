@@ -24,6 +24,8 @@ export interface BoardView {
   flood?: number;
   /** A wave was just held (villagers relax). */
   calm?: boolean;
+  /** Levee lines the basic skill would build next (prepare phase), drawn faint. */
+  preview?: ArrayLike<number>[];
 }
 
 export interface Board {
@@ -86,6 +88,12 @@ export function drawBoard(b: Board, v: BoardView): void {
   ctx.drawImage(b.water.canvas as CanvasImageSource, 0, 0, cw, ch);
 
   ctx.setTransform(s, 0, 0, s, 0, 0); // draw in cell units from here
+  // next-line preview (under the built levees)
+  if (v.preview?.length) {
+    ctx.fillStyle = LEVEE; ctx.globalAlpha = 0.35;
+    for (const line of v.preview) for (let k = 0; k < line.length; k++) { const c = line[k]; ctx.fillRect(c % W, (c / W) | 0, 1, 1); }
+    ctx.globalAlpha = 1;
+  }
   // structures
   for (let i = 0; i < g.wall.length; i++) {
     const wall = g.wall[i], tmp = g.tmp[i];
@@ -94,7 +102,8 @@ export function drawBoard(b: Board, v: BoardView): void {
     if (wall > 0) {
       ctx.fillStyle = g.flags[i] & FLAG.skillIce ? ICE_DAM : g.dur[i] < 0.3 ? LEVEE_WEAK : LEVEE;
       ctx.globalAlpha = Math.min(1, 0.55 + wall); // taller = more solid
-      ctx.fillRect(x, y, 1, 1);
+      // drawn 1.5 cells wide (overlapping neighbours): a 1-cell line was hard to see on phones
+      ctx.fillRect(x - 0.25, y - 0.25, 1.5, 1.5);
       ctx.globalAlpha = 1;
       if (g.dur[i] < 0.3) { ctx.strokeStyle = '#300'; ctx.lineWidth = 0.12; ctx.beginPath(); ctx.moveTo(x + 0.2, y + 0.2); ctx.lineTo(x + 0.8, y + 0.8); ctx.stroke(); }
     }
