@@ -218,12 +218,27 @@ test('wetland passive: absorption drains water on wetland cells only with the pa
     const { world, map } = setup(WILLOW, wetland, start);
     const wz = map.zones.zones.find(z => z.type === 'wetland')!;
     for (const c of wz.cells) world.grid.w[c] = 0.5;
-    world.cfg.K = 0; startWave(world, 1); world.waveParams.mul = 0;
+    world.cfg.K = 0; world.cfg.absorbWaveFrac = 0; startWave(world, 1); world.waveParams.mul = 0; // no saturation cap here
     for (let k = 0; k < 30; k++) stepSim(world);
     return world.metrics.drained;
   };
   assert.equal(run(['open-floodplain']), 0);
   assert.ok(run(['wetland-passive', 'open-floodplain']) > 0);
+});
+
+test('soil saturation: wetland absorption this wave stays ≤ absorbWaveFrac × absorbMul × wave inflow', () => {
+  const { world, map } = setup(WILLOW, wetland, ['wetland-passive', 'open-floodplain']);
+  const wz = map.zones.zones.find(z => z.type === 'wetland')!;
+  for (const c of wz.cells) world.grid.w[c] = 0.5; // plenty of standing water to absorb
+  startWave(world, 1);
+  for (let k = 0; k < 300; k++) {
+    stepSim(world);
+    const cap = Math.min(1, world.cfg.absorbWaveFrac * world.mods.absorbMul) * world.metrics.waveInflow;
+    assert.ok(world.metrics.waveAbsorbed <= cap + 1e-9, `tick ${k}: absorbed ${world.metrics.waveAbsorbed} > cap ${cap}`);
+  }
+  assert.ok(world.metrics.waveAbsorbed > 0, 'still absorbs up to the cap');
+  startWave(world, 2);
+  assert.equal(world.metrics.waveAbsorbed, 0, 'the soil drains again at wave start');
 });
 
 // ---------------------------------------------------------------- axes

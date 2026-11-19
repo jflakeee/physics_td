@@ -111,6 +111,11 @@ export interface SimConfig {
   tps: number;
   /** Wetland absorption per tick at absorbMul 1 (forest gets `forestAbsorbFrac` of it). */
   absorbRate: number;
+  /**
+   * Soil saturation: wetland + forest absorb at most `min(1, absorbWaveFrac × mods.absorbMul)`
+   * of the water that has entered this wave (`metrics.waveInflow`). 0 = no cap.
+   */
+  absorbWaveFrac: number;
   forestAbsorbFrac: number;
   /** Forest damage: depth and duration (ticks) before health starts falling, and loss per tick. */
   forestFloodDepth: number;
@@ -140,6 +145,8 @@ export interface SimMetrics {
   waveDamage: number;
   /** Highest base-core water sum seen this wave. */
   waveMaxFlood: number;
+  /** Water absorbed by wetland / forest this wave (soil saturation, see `absorbWaveCap`). */
+  waveAbsorbed: number;
   /** Levee cells collapsed (whole run). */
   collapses: number;
   /** Ecology index now (%), GD §16. */
