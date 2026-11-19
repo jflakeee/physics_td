@@ -26,7 +26,8 @@ export function createHud(s: HudSinks) {
     n += set('level', String(v.level), x => { s.level.textContent = x; });
     const pct = Math.min(100, Math.round(v.flood / v.threshold * 100));
     n += set('gauge', String(pct), x => { s.gauge.style.width = x + '%'; s.gauge.setAttribute('aria-valuenow', x); });
-    n += set('gaugeText', `${v.flood.toFixed(2)}/${v.threshold}`, x => { s.gaugeText.textContent = x; });
+    // players read a share of the damage line, not raw water units (playtest: "0.38/1.2" meant nothing)
+    n += set('gaugeText', `${pct}%`, x => { s.gaugeText.textContent = x; });
     return n;
   };
 }

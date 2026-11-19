@@ -2,7 +2,7 @@ import type { LoadedMap } from '../../game/map.ts';
 import { advance, createPlay, send } from '../../game/play.ts';
 import type { Play, PlayEvent, PlayOptions, SkillHandler, Speed } from '../../game/play.ts';
 import { createBoard, drawBoard, refreshTerrain } from '../../render/board.ts';
-import { cooldownTicks } from '../../rules/skills.ts';
+import { baseCost, cooldownTicks } from '../../rules/skills.ts';
 import { REFUSAL_TOAST } from '../../rules/types.ts';
 import type { Refusal } from '../../rules/types.ts';
 import { skillViews } from '../skillViews.ts';
@@ -97,8 +97,9 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   };
   const [hpS, hpV] = stat('❤', t('hud.hp')), [cashS, cashV] = stat('💰', t('hud.cash'));
   const [waveS, waveV] = stat('🌊', t('hud.wave')), [lvS, lvV] = stat('Lv', t('hud.level'));
-  const pumpsBtn = h('button', { class: 'hb', 'data-hb': 'pumps', 'aria-label': t('hud.pumpsOff') }, '💧');
-  const routeBtn = h('button', { class: 'hb', 'data-hb': 'route', 'aria-label': '펌프 배출 위치 설정', 'aria-pressed': 'false', title: '펌프 선택 → 배출 위치 선택' }, '🚰');
+  const cap = (icon: string, text: string) => { const f = document.createDocumentFragment(); f.append(h('span', { class: 'hb-ico', 'aria-hidden': 'true' }, icon), h('span', { class: 'hb-cap', 'aria-hidden': 'true' }, text)); return f; };
+  const pumpsBtn = h('button', { class: 'hb', 'data-hb': 'pumps', 'aria-label': t('hud.pumpsOff') }); pumpsBtn.append(cap('💧', t('hud.pumpsOffShort')));
+  const routeBtn = h('button', { class: 'hb', 'data-hb': 'route', 'aria-label': '펌프 배출 위치 설정', 'aria-pressed': 'false', title: '펌프 선택 → 배출 위치 선택' }); routeBtn.append(cap('🚰', t('hud.routeShort')));
   const pauseBtn = h('button', { class: 'hb', 'data-hb': 'pause', 'aria-label': t('hud.pause'), 'aria-pressed': 'false' }, '⏸');
   const speedBtn = h('button', { class: 'hb', 'data-hb': 'speed', 'aria-label': t('hud.speed', { x: 1 }) }, '1×');
   const stats = h('div', { class: 'stats' }); stats.append(hpS, cashS, waveS);
@@ -111,7 +112,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   const gaugeText = h('span', { class: 'gauge-text' });
   const lvBadge = h('span', { class: 'lvbadge', 'aria-live': 'polite' });
   lvBadge.hidden = true;
-  gaugeRow.append(lvS, lvBadge, h('span', { 'aria-hidden': 'true' }, '🏠'), gauge, gaugeText);
+  const floodLbl = h('span', { class: 'flood-lbl', 'aria-hidden': 'true' }, '🏠 ' + t('hud.floodShort'));
+  gaugeRow.append(lvS, lvBadge, h('span', { class: 'sep', 'aria-hidden': 'true' }), floodLbl, gauge, gaugeText);
 
   // --- board
   const boardWrap = h('div', { class: 'board-wrap' });
@@ -136,6 +138,9 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
   for (const s of skills) {
     const b = h('button', { class: s.slot === 'common' ? 'sk common' : 'sk', 'aria-label': t(s.i18n + '.name'), 'data-skill': s.id });
     b.append(h('span', { class: 'ico', 'aria-hidden': 'true' }, s.icon));
+    // cash cost on the button (playtest: the $6 levee price was only learnt by paying it)
+    const def = play.rules?.defs.get(s.id), price = play.rules && def ? baseCost(play.rules, def) : 0;
+    if (price > 0) { b.append(h('span', { class: 'cost', 'aria-hidden': 'true' }, '$' + price)); b.dataset.cost = String(price); }
     if (s.slot === 'ultimate') b.classList.add('ult');
     skillBtns.set(s.id, b); bar.append(b);
   }
@@ -234,6 +239,8 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
       lastTut = key;
       bubble.hidden = !show;
       if (show) { bubbleText.textContent = t('tutorial.' + T0.step); bubbleNext.hidden = !tut.tapToContinue(T0, play); }
+      // during a wave the bubble sits at the top so it does not hide water coming from the south
+      bubble.classList.toggle('top', play.phase === 'wave');
       root.dataset.tutorial = show ? String(T0.step) : '';
       o.onTutorial?.(T0.step);
     }
