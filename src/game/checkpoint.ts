@@ -4,6 +4,7 @@ import type { Play } from './play.ts';
 import type { ScoreState } from '../rules/leveling.ts';
 import type { RngState } from '../core/rng.ts';
 import { createRng } from '../core/rng.ts';
+import { resetTraceFlux } from '../sim/trace.ts';
 
 /**
  * Wave checkpoints (DETAILED_DESIGN_V2 §10 defeat → retry). Taken in prepare right before a
@@ -86,7 +87,7 @@ export function restoreCheckpoint(p: Play, c: Checkpoint): void {
   p.level = c.level;
   if (p.score && c.score) Object.assign(p.score, structuredClone(c.score));
   if (c.story) p.story = structuredClone(c.story);
-  if (p.world.trace && c.traceF) { p.world.trace.f.set(c.traceF); p.world.trace.damage.fill(0); }
+  if (p.world.trace && c.traceF) { p.world.trace.f.set(c.traceF); p.world.trace.damage.fill(0); resetTraceFlux(p.world.trace); }
   if (p.draft && c.draft) { const { rng, ...rest } = c.draft; Object.assign(p.draft, rest, { rng: createRng(rng), offer: null }); }
   p.queue.length = 0; p.acc = 0; p.damaging = false;
 }
