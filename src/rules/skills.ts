@@ -84,7 +84,7 @@ function applyPumpParams(rs: RulesState): void {
   const p = rs.defs.get('pump')?.params;
   if (!p) return;
   const cfg = rs.world.cfg;
-  cfg.pumpCashPerTick = p.costPerSecond / cfg.tps;
+  cfg.pumpCashPerTick = (rs.map.data.pumpCostPerSecond ?? p.costPerSecond) / cfg.tps; // map override (balance)
   cfg.pumpRadius = p.radius; cfg.pumpRate = p.ratePerCell; cfg.pumpCapFrac = p.capFrac; cfg.pumpMaxOn = p.maxOn;
 }
 

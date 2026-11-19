@@ -303,3 +303,11 @@ test('play + rules: cooldown falls only in waves; wave end pays income; skill re
   assert.ok(inc && inc.t === 'income' && inc.amount === ECONOMY.waveClear);
   assert.ok(p.world.cash! >= cash0 + ECONOMY.waveClear - 1, 'income added (no pumps running)');
 });
+
+test('map pumpCostPerSecond overrides the pump skill running cost', () => {
+  const plain = setup(DIKE);
+  const pricey = setup({ ...DIKE, pumpCostPerSecond: 2 });
+  const tps = plain.world.cfg.tps;
+  assert.ok(Math.abs(plain.world.cfg.pumpCashPerTick - plain.rs.defs.get('pump')!.params!.costPerSecond / tps) < 1e-12);
+  assert.ok(Math.abs(pricey.world.cfg.pumpCashPerTick - 2 / tps) < 1e-12);
+});
