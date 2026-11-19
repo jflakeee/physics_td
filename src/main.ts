@@ -127,6 +127,7 @@ function showMapSelect(region?: string): void {
   const cleared = Object.fromEntries(Object.entries(save.progress.maps).filter(([, r]) => r.clearedBy.length > 0).map(([k]) => [k, true]));
   const ms = mountMapSelect({
     root, t, maps: MAPS, chars: CHARACTERS, charId, cleared, firstRun: isFirstRun(save),
+    stars: Object.fromEntries(Object.entries(save.progress.maps).map(([k, r]) => [k, r.stars])),
     region, onBack: region ? showWorld : undefined,
     resume: res.run && !region ? { label: t('mapSelect.resume', { map: t((MAPS.find(m => m.id === res.run!.mapId)?.name ?? '') + '.name'), wave: res.run.wave + 1 }), go: () => resume(res.run!) } : null,
     notices: takeNotices(),

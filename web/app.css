@@ -238,3 +238,11 @@ button:disabled { opacity: .35; }
 .world-svg .region.wm-start polygon { stroke: #ffe39a; stroke-width: 1.4; animation: wm-pulse 1.4s ease-in-out infinite; }
 @keyframes wm-pulse { 50% { stroke-width: 2.6; stroke-opacity: 0.5; } }
 @media (prefers-reduced-motion: reduce) { .world-svg .region.wm-start polygon { animation: none; } }
+
+/* second UI pass (2026-11-19) */
+.board-wrap .start { left: auto; right: 10px; transform: none; }
+.char-desc { margin: 4px 2px 0; font-size: calc(13px * var(--fs)); color: var(--muted); }
+.map-card .meta { display: block; font-size: calc(12px * var(--fs)); color: var(--muted); margin-top: 2px; }
+.map-card .aff-home { color: #8fe3a6; }
+.map-card .aff-challenge { color: #ffb37a; }
+.map-card .stars { font-size: calc(14px * var(--fs)); letter-spacing: 1px; color: #ffd36b; white-space: nowrap; }
