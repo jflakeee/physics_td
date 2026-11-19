@@ -311,3 +311,13 @@ test('map pumpCostPerSecond overrides the pump skill running cost', () => {
   assert.ok(Math.abs(plain.world.cfg.pumpCashPerTick - plain.rs.defs.get('pump')!.params!.costPerSecond / tps) < 1e-12);
   assert.ok(Math.abs(pricey.world.cfg.pumpCashPerTick - 2 / tps) < 1e-12);
 });
+
+test('map skillCosts overrides a skill cost for the cash check and the charge', () => {
+  const { rs, world, map } = setup({ ...DIKE, skillCosts: { 'build-levee': 16 } });
+  const zone = map.zones.zones.find(z => canUse(rs, 'build-levee', false, z.id) === null)!;
+  world.cash = 15;
+  assert.equal(canUse(rs, 'build-levee', false, zone.id), 'NO_CASH');
+  world.cash = 100;
+  assert.equal(useSkill(rs, 'build-levee', false, zone.id), null);
+  assert.equal(world.cash, 84);
+});

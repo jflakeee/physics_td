@@ -165,7 +165,7 @@ export function canUse(rs: RulesState, id: string, paused: boolean, zone?: numbe
   if (cdOf(rs, id) > 0) return 'COOLDOWN';
   if (def.slot === 'ultimate' && rs.gauge < rs.eco.gaugeMax) return 'NO_GAUGE';
   const cash = rs.world.cash;
-  if (def.cost > 0 && cash !== null && cash < skillCost(rs, def, zone)) return 'NO_CASH';
+  if (baseCost(rs, def) > 0 && cash !== null && cash < skillCost(rs, def, zone)) return 'NO_CASH';
   if (def.target === 'zone') {
     if (!mapHasTarget(rs, def)) return 'NO_TARGET_IN_MAP';
     if (zone !== undefined) {
@@ -192,13 +192,19 @@ function setCd(rs: RulesState, id: string, v: number): void {
  * (no zone) uses the cheapest possible use so a re-freeze stays reachable.
  */
 export function skillCost(rs: RulesState, def: SkillDef, zone?: number): number {
-  if (def.cost <= 0) return def.cost;
+  const base = baseCost(rs, def);
+  if (base <= 0) return base;
   const dam = ops(rs, def, rankOf(rs, def.id)).find((o): o is IceDamOp => o.op === 'iceDam');
-  if (!dam) return def.cost;
-  if (zone === undefined) return Math.min(def.cost, dam.refreezeCost);
+  if (!dam) return base;
+  if (zone === undefined) return Math.min(base, dam.refreezeCost);
   const z = rs.map.zones.zones[zone - 1];
   const plan = z ? iceDamPlan(rs, rs.world, z, dam) : null;
-  return plan?.kind === 'refreeze' ? dam.refreezeCost : def.cost;
+  return plan?.kind === 'refreeze' ? dam.refreezeCost : base;
+}
+
+/** A skill's cash cost on this map: the map's `skillCosts` override, else the skill data. */
+export function baseCost(rs: RulesState, def: SkillDef): number {
+  return rs.map.data.skillCosts?.[def.id] ?? def.cost;
 }
 
 /** Remaining cooldown in ticks (UI). */
@@ -212,7 +218,7 @@ export function useSkill(rs: RulesState, id: string, paused: boolean, zone?: num
   const z = zone !== undefined ? rs.map.zones.zones[zone - 1] : undefined;
   const cost = skillCost(rs, def, zone);
   if (!runOps(rs, ops(rs, def, rankOf(rs, def.id)), { zone: z, path })) return 'BAD_TARGET';
-  if (def.cost > 0 && rs.world.cash !== null) rs.world.cash -= cost;
+  if (cost > 0 && rs.world.cash !== null) rs.world.cash -= cost;
   if (def.cooldown > 0) setCd(rs, id, Math.round(def.cooldown * rs.world.cfg.tps * (def.slot === 'common' ? rs.commonCdMul : 1)));
   if (def.slot === 'ultimate') rs.gauge = 0;
   if (def.axis) rs.axes[def.axis] += def.cooldown > 0 ? def.cooldown / rs.eco.axisCooldownDiv : rs.eco.axisPerCostUse;

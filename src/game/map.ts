@@ -40,6 +40,8 @@ export interface MapData {
   style?: string;
   /** Pump running cost per second on this map (overrides the pump skill's `costPerSecond`). */
   pumpCostPerSecond?: number;
+  /** Per-map cash cost overrides by skill id (e.g. floodplain soil: levees cost more). */
+  skillCosts?: Record<string, number>;
   /** Region id; selects regional skill variants (e.g. 'glacier'). Default 'river'. */
   region?: string;
   I1: number;
