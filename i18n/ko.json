@@ -264,5 +264,9 @@
   "dir.E": "동",
   "cause.hint": "다음엔 먼저 막아 보자 → {src}",
   "cause.hintRain": "비는 막을 수 없다. 기지 가까이에서 빼내자 (펌프·습지)",
-  "cause.hintIce": "빙하호가 무너지기 전에 얼음을 다시 얼려 두자"
+  "cause.hintIce": "빙하호가 무너지기 전에 얼음을 다시 얼려 두자",
+  "hud.floodShort": "침수",
+  "hud.pumpsOffShort": "펌프 끔",
+  "hud.routeShort": "배출",
+  "world.startHint": "빛나는 강 유역을 눌러 시작하세요"
 }

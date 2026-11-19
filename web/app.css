@@ -226,3 +226,15 @@ button:disabled { opacity: .35; }
 .cause-bar { height: 10px; border-radius: 5px; background: linear-gradient(90deg, #e05a4f var(--w), #0b1420 var(--w)); border: 1px solid var(--line); }
 .cause b { text-align: right; font-variant-numeric: tabular-nums; }
 .cause-hint { margin: 6px 0 0; font-size: calc(13px * var(--fs)); color: #ffd36b; }
+
+/* first-minute playtest fixes (2026-11-19) */
+.bubble.top { top: 8px; bottom: auto; }
+.hb { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.hb .hb-cap { font-size: calc(9px * var(--fs)); margin-top: 2px; color: var(--muted); white-space: nowrap; }
+.sk { position: relative; }
+.sk .cost { position: absolute; right: 3px; bottom: 2px; font-size: calc(11px * var(--fs)); font-weight: 700; color: #ffd36b; text-shadow: 0 1px 1px #000; }
+.gauge-row .sep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); }
+.gauge-row .flood-lbl { white-space: nowrap; }
+.world-svg .region.wm-start polygon { stroke: #ffe39a; stroke-width: 1.4; animation: wm-pulse 1.4s ease-in-out infinite; }
+@keyframes wm-pulse { 50% { stroke-width: 2.6; stroke-opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .world-svg .region.wm-start polygon { animation: none; } }

@@ -42,6 +42,8 @@ export function mountWorldMap(o: WorldMapOptions): { dispose(): void } {
   const status = mk('p', 'world-status');
   status.setAttribute('role', 'status');
   status.textContent = (o.notices ?? []).join(' · ');
+  const firstVisit = !o.cells.some(c => c.map); // no map cleared yet (the home cell is always there)
+  if (firstVisit && !status.textContent) status.textContent = t('world.startHint');
 
   const S = 10; // SVG units per hex radius; the viewBox scales it to the screen
   const svg = document.createElementNS(ns, 'svg');
@@ -89,6 +91,7 @@ export function mountWorldMap(o: WorldMapOptions): { dispose(): void } {
       else say(`${t('world.locked')} — ${t('world.lockedHint', { region: o.regionName(r.unlock!.clearRegion) })}`);
     }, open ? r.icon : '🔒');
     g.dataset.region = r.id;
+    if (open && firstVisit && r.id === world.home) g.classList.add('wm-start'); // pulsing ring (playtest: no cue where to tap)
   }
   const far = mk('div', 'world-far');
   far.setAttribute('aria-hidden', 'true');
