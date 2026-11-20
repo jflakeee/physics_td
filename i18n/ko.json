@@ -277,5 +277,9 @@
   "affinity.home": "정석",
   "affinity.challenge": "도전",
   "affinity.neutral": "중립",
-  "mapSelect.stars": "별 {n}개"
+  "mapSelect.stars": "별 {n}개",
+  "dir.NW": "북서",
+  "dir.NE": "북동",
+  "dir.SW": "남서",
+  "dir.SE": "남동"
 }

@@ -206,12 +206,22 @@ export function mountPlay(o: PlayScreenOptions): { play: Play; target(): TargetS
     const tr = world.trace;
     if (!tr) return [];
     const sh = damageShares(tr), W = world.grid.width, H = world.grid.height;
+    // inlet side (N/S/W/E); two inlets on one side get a corner (남서/남동…) so the labels differ
+    const side = world.inlets.map(inl => {
+      const c = inl.cells[0], x = c % W, y = (c / W) | 0;
+      const d = y === 0 ? 'N' : y === H - 1 ? 'S' : x === 0 ? 'W' : 'E';
+      const half = d === 'N' || d === 'S' ? (x < W / 2 ? 'W' : 'E') : (y < H / 2 ? 'N' : 'S');
+      return { d, half };
+    });
+    const dirKey = (k: number) => {
+      const { d, half } = side[k];
+      if (side.filter(o => o.d === d).length < 2) return d;
+      return d === 'N' || d === 'S' ? d + half : half + d; // NW, NE, SW, SE
+    };
     return sh.map((share, k) => {
       if (k === tr.rain) return { label: t('cause.rain'), share, kind: 'rain' as const };
       if (k === tr.ice) return { label: t('cause.ice'), share, kind: 'ice' as const };
-      const c = world.inlets[k].cells[0], x = c % W, y = (c / W) | 0;
-      const dir = y === 0 ? 'N' : y === H - 1 ? 'S' : x === 0 ? 'W' : 'E';
-      return { label: t('cause.inlet', { dir: t('dir.' + dir) }), share, kind: 'inlet' as const };
+      return { label: t('cause.inlet', { dir: t('dir.' + dirKey(k)) }), share, kind: 'inlet' as const };
     });
   };
 
