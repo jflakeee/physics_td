@@ -1,0 +1,22 @@
+name: Game tools audit
+on:
+  push:
+    branches:
+      - chore/game-tools-integration-20261120
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.20.0'
+      - name: Run isolated audit tests
+        run: node --test tests/audit-game-tools.test.mjs
+      - name: Print optional tool status
+        run: node scripts/audit-game-tools.mjs --json
