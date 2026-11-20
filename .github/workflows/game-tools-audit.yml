@@ -32,5 +32,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Browser smoke for optional labs
         run: node tests/e2e/tool-labs.e2e.mjs
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tool-labs-browser-evidence
+          path: production/qa/evidence/tool-labs/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Print optional tool status
         run: node scripts/audit-game-tools.mjs --json
