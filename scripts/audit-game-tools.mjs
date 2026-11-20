@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Read-only audit: detect project-local optional tools without installing anything.
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export function inspectGameTools(root) {
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -17,7 +18,7 @@ export function inspectGameTools(root) {
   ];
 }
 
-if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const report = inspectGameTools(process.cwd());
   if (process.argv.includes('--json')) console.log(JSON.stringify(report, null, 2));
   else {
