@@ -41,7 +41,7 @@ let raf = 0;
 let samples = 0;
 let totalRenderMs = 0;
 let maxRenderMs = 0;
-let lastMetricUpdate = 0;
+let firstFrameAt = 0;
 const FRAME_INTERVAL_MS = 1000 / 30;
 function message(text) { status.textContent = text; }
 function drawBackground() {
@@ -74,9 +74,12 @@ function tick(now) {
   totalRenderMs += renderMs;
   maxRenderMs = Math.max(maxRenderMs, renderMs);
   samples++;
-  if (now - lastMetricUpdate >= 2000) {
-    metrics.textContent = '목표 30 FPS · 평균 렌더 ' + (totalRenderMs / samples).toFixed(1) + 'ms · 최대 ' + maxRenderMs.toFixed(1) + 'ms (' + samples + '프레임)';
-    samples = 0; totalRenderMs = 0; maxRenderMs = 0; lastMetricUpdate = now;
+  if (!firstFrameAt) firstFrameAt = now;
+  if (now - firstFrameAt >= 2000) {
+    const elapsed = (now - firstFrameAt) / 1000;
+    const measuredFps = Math.max(0, (samples - 1) / elapsed);
+    metrics.textContent = '목표 30 FPS · 측정 ' + measuredFps.toFixed(1) + ' FPS · 평균 렌더 ' + (totalRenderMs / samples).toFixed(1) + 'ms · 최대 ' + maxRenderMs.toFixed(1) + 'ms (' + samples + '프레임)';
+    samples = 0; totalRenderMs = 0; maxRenderMs = 0; firstFrameAt = 0;
   }
   raf = requestAnimationFrame(tick);
 }
@@ -85,7 +88,7 @@ function resume() {
   previous = 0;
   raf = requestAnimationFrame(tick);
 }
-function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; previous = 0; }
+function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; previous = 0; samples = 0; totalRenderMs = 0; maxRenderMs = 0; firstFrameAt = 0; }
 pauseButton.setAttribute('aria-pressed', String(paused));
 pauseButton.textContent = paused ? '재생' : '일시정지';
 drawBackground();
