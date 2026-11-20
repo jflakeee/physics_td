@@ -17,6 +17,6 @@ jobs:
         with:
           node-version: '22.20.0'
       - name: Run isolated audit tests
-        run: node --test tests/audit-game-tools.test.mjs
+        run: node --test tests/audit-game-tools.test.mjs tests/prototype-syntax.test.mjs
       - name: Print optional tool status
         run: node scripts/audit-game-tools.mjs --json
