@@ -18,5 +18,13 @@ jobs:
           node-version: '22.20.0'
       - name: Run isolated audit tests
         run: node --test tests/audit-game-tools.test.mjs tests/prototype-syntax.test.mjs
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build all game targets and optional labs
+        run: npm run build
+      - name: Check optional labs are packaged
+        run: |
+          test -s dist/tools-sfx/index.html
+          test -s dist/tools-vfx/index.html
       - name: Print optional tool status
         run: node scripts/audit-game-tools.mjs --json
