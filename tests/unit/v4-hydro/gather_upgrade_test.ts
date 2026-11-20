@@ -206,3 +206,33 @@ test('when_the_village_is_short_of_power_wheels_still_earn_but_the_village_bonus
     assert.ok(w.blackout > 0 || w.record.blackoutHearts > 0, 'the blackout clock runs');
   } finally { (T as { demand: number }).demand = d; }
 });
+
+test('upgrade taps spend each level cost once and never exceed the level cap', () => {
+  const w = createHydro(1);
+  const id = w.plants[0].site;
+  w.mats = { wood: 100, stone: 100 };
+  const c1 = upgradeCost(w, id)!;
+  assert.equal(upgrade(w, id), true);
+  assert.equal(w.lvl[id], 2);
+  assert.deepEqual(w.mats, { wood: 100 - c1.wood, stone: 100 - c1.stone });
+  const c2 = upgradeCost(w, id)!;
+  assert.equal(upgrade(w, id), true);
+  assert.equal(w.lvl[id], 3);
+  const remaining = { ...w.mats };
+  assert.deepEqual(remaining, { wood: 100 - c1.wood - c2.wood, stone: 100 - c1.stone - c2.stone });
+  for (let i = 0; i < 5; i++) assert.equal(upgrade(w, id), false);
+  assert.deepEqual(w.mats, remaining, 'repeated taps at max level must not spend materials');
+});
+
+test('saved maximum-level building cannot be upgraded or charged again', () => {
+  const w = createHydro(1);
+  w.mats = { wood: 100, stone: 100 };
+  const id = w.plants[0].site;
+  assert.equal(upgrade(w, id), true);
+  assert.equal(upgrade(w, id), true);
+  const back = restoreRun(snapshotRun(w))!;
+  const remaining = { ...back.mats };
+  assert.equal(back.lvl[id], 3);
+  assert.equal(upgrade(back, id), false);
+  assert.deepEqual(back.mats, remaining);
+});
