@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Physics TD · plinkfx sound lab (isolated)</title>
+<style>
+  body{margin:0;background:#0f1a28;color:#edf5ff;font:16px system-ui,sans-serif}
+  main{max-width:640px;margin:auto;padding:24px}
+  button{min-height:48px;margin:5px;padding:12px 18px;border:1px solid #85b8d8;border-radius:10px;background:#24435b;color:white;font:inherit}
+  button:focus-visible{outline:3px solid #ffd76d}
+  #status{min-height:2em}
+  small{color:#b6cbd9}
+</style>
+</head>
+<body>
+<main>
+<h1>Physics TD · 효과음 실험실</h1>
+<p>게임 코드와 분리된 plinkfx CDN 시범 페이지입니다. 인터넷 연결이 필요하며, 실제 게임에는 연결되지 않습니다.</p>
+<p><button type="button" id="enable">효과음 활성화</button><button type="button" id="mute" aria-pressed="false">음소거</button></p>
+<section aria-label="효과음 미리 듣기">
+<button type="button" data-sound="splash">🌊 물 충돌</button>
+<button type="button" data-sound="confirm">🧱 시설 설치</button>
+<button type="button" data-sound="warning">⚠️ 위험 경고</button>
+<button type="button" data-sound="victory">🏆 방어 성공</button>
+</section>
+<p id="status" role="status">활성화 버튼을 눌러 시작하세요.</p>
+<small>주의: 외부 CDN 사용은 검증용입니다. 제품 빌드에는 버전 고정·로컬 번들·라이선스 확인이 필요합니다.</small>
+</main>
+<script type="module">
+const status = document.querySelector('#status');
+const buttons = [...document.querySelectorAll('[data-sound]')];
+let audio = null;
+let isMuted = false;
+const last = new Map();
+function setStatus(message) { status.textContent = message; }
+document.querySelector('#enable').addEventListener('click', async () => {
+  try {
+    // Import only after an explicit gesture; no game startup dependency.
+    audio ??= await import('https://esm.sh/plinkfx@0');
+    audio.unlockAudio();
+    audio.preload(['splash', 'confirm', 'warning', 'victory']);
+    audio.muted(isMuted);
+    setStatus('효과음 준비 완료. 버튼을 눌러 확인하세요.');
+  } catch (err) {
+    setStatus('효과음 로드 실패: 네트워크 또는 CDN 접근을 확인하세요.');
+    console.error(err);
+  }
+});
+document.querySelector('#mute').addEventListener('click', event => {
+  isMuted = !isMuted;
+  event.currentTarget.setAttribute('aria-pressed', String(isMuted));
+  event.currentTarget.textContent = isMuted ? '음소거 해제' : '음소거';
+  audio?.muted(isMuted);
+  setStatus(isMuted ? '음소거 중' : '음소거 해제');
+});
+for (const button of buttons) button.addEventListener('click', () => {
+  if (!audio) { setStatus('먼저 효과음을 활성화하세요.'); return; }
+  if (isMuted) { setStatus('음소거 중입니다.'); return; }
+  const sound = button.dataset.sound;
+  const now = performance.now();
+  if (now - (last.get(sound) ?? -Infinity) < 120) return;
+  last.set(sound, now);
+  audio.play(sound, { volume: sound === 'warning' ? 0.35 : 0.55, cooldown: 0.12, voices: 2 });
+  setStatus(sound + ' 재생 요청');
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) audio?.stopAll();
+});
+</script>
+</body>
+</html>
