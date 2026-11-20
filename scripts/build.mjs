@@ -34,6 +34,12 @@ for (const f of ['index.html', 'ui.js', 'engine.js']) await copyFile(join('proto
   const eng = await import(new URL('../dist/v6/engine.js', import.meta.url)); const miss = names.filter(n => !(n in eng));
   if (miss.length) throw Error('v6 engine.js missing exports: ' + miss.join(', ')); }
 console.log('v6 prototype: dist/v6/');
+// Optional tool labs are isolated from game entrypoints and loaded only when visited.
+for (const lab of ['tools-sfx', 'tools-vfx']) {
+  await mkdir(join('dist', lab), { recursive: true });
+  await copyFile(join('prototypes', lab, 'index.html'), join('dist', lab, 'index.html'));
+}
+console.log('optional tool labs: dist/tools-sfx/, dist/tools-vfx/');
 await writeFile('dist/.nojekyll', '');
 const bytes = Object.values(r.metafile.outputs).reduce((a, o) => a + o.bytes, 0);
 console.log(`v2 build: dist/app.js ${(bytes / 1024).toFixed(1)} KB`);
