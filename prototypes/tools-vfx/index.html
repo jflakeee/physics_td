@@ -55,7 +55,8 @@ function drawBackground() {
 function tick(now) {
   raf = 0;
   if (paused || document.hidden) return;
-  if (previous && now - previous < FRAME_INTERVAL_MS) {
+  // Allow sub-millisecond rAF scheduling jitter; otherwise 60 Hz screens can drop to 20 FPS.
+  if (previous && now - previous < FRAME_INTERVAL_MS - 1) {
     raf = requestAnimationFrame(tick);
     return;
   }
