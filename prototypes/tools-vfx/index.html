@@ -52,6 +52,16 @@ function drawBackground() {
   ctx.fillStyle = '#64b5d5';
   ctx.fillRect(0, 109, canvas.width, 2);
 }
+function renderFrame(dt) {
+  if (fx && api && frame && image) {
+    fx.update(dt);
+    api.clearFrame(frame);
+    fx.draw(frame, 'back');
+    fx.draw(frame, 'front');
+    api.composite(frame, image.data, 0x3e2b14); // packed RGB: #142b3e
+    ctx.putImageData(image, 0, 0);
+  } else drawBackground();
+}
 function tick(now) {
   raf = 0;
   if (paused || document.hidden) return;
@@ -63,14 +73,7 @@ function tick(now) {
   const dt = Math.min((now - (previous || now)) / 1000, 0.05);
   previous = now;
   const renderStart = performance.now();
-  if (fx && api && frame && image) {
-    fx.update(dt);
-    api.clearFrame(frame);
-    fx.draw(frame, 'back');
-    fx.draw(frame, 'front');
-    api.composite(frame, image.data, 0x3e2b14); // packed RGB: #142b3e
-    ctx.putImageData(image, 0, 0);
-  } else drawBackground();
+  renderFrame(dt);
   const renderMs = performance.now() - renderStart;
   totalRenderMs += renderMs;
   maxRenderMs = Math.max(maxRenderMs, renderMs);
@@ -96,6 +99,8 @@ drawBackground();
 document.querySelector('#ripples').addEventListener('click', () => {
   if (!api || !ripple) { message('라이브러리 로딩 중입니다.'); return; }
   fx = api.createFx(ripple, { x: 160, y: 113, seed: 3 });
+  // Always show a still frame, including when reduced-motion is enabled.
+  renderFrame(0);
   message('물결 효과 생성 완료');
   if (!paused) resume();
 });
