@@ -26,5 +26,11 @@ jobs:
         run: |
           test -s dist/tools-sfx/index.html
           test -s dist/tools-vfx/index.html
+      - name: Install Chromium browser test dependencies
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browser smoke for optional labs
+        run: node tests/e2e/tool-labs.e2e.mjs
       - name: Print optional tool status
         run: node scripts/audit-game-tools.mjs --json
