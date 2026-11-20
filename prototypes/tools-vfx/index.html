@@ -55,7 +55,7 @@ function tick(now) {
     api.clearFrame(frame);
     fx.draw(frame, 'back');
     fx.draw(frame, 'front');
-    api.composite(frame, image.data, '#142b3e');
+    api.composite(frame, image.data, 0x3e2b14); // packed RGB: #142b3e
     ctx.putImageData(image, 0, 0);
   } else drawBackground();
   raf = requestAnimationFrame(tick);
