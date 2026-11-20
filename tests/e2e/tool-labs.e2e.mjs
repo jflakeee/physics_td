@@ -2,7 +2,7 @@
 // Run from repo root: node tests/e2e/tool-labs.e2e.mjs
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -23,6 +23,8 @@ const server = createServer(async (req, res) => {
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 const base = 'http://127.0.0.1:' + server.address().port;
 let browser;
+const evidence = resolve('production/qa/evidence/tool-labs');
+await mkdir(evidence, { recursive: true });
 try {
   browser = await chromium.launch({ headless: true });
   for (const [name, viewport] of [
@@ -44,6 +46,7 @@ try {
         assert.equal(await page.locator('canvas').count(), 1);
         assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'true');
         await page.getByText('pixelfx 로드 실패', { exact: false }).waitFor();
+        await page.screenshot({ path: resolve(evidence, name + '-vfx-offline.png'), fullPage: true });
         await page.locator('#pause').click();
         assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'false');
         await page.locator('#pause').click();
@@ -56,6 +59,7 @@ try {
         assert.equal(await page.locator('#mute').getAttribute('aria-pressed'), 'true');
       }
     }
+    await page.screenshot({ path: resolve(evidence, name + '-sfx-offline.png'), fullPage: true });
     assert.deepEqual(errors, [], name + ' page errors');
     console.log('PASS', name, 'layout and reduced-motion smoke');
     await page.close();
