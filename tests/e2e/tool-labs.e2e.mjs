@@ -59,9 +59,9 @@ try {
         assert.match(await page.locator('#status').textContent(), /먼저 효과음을 활성화/);
         await page.locator('#mute').click();
         assert.equal(await page.locator('#mute').getAttribute('aria-pressed'), 'true');
+        await page.screenshot({ path: resolve(evidence, name + '-sfx-offline.png'), fullPage: true });
       }
     }
-    await page.screenshot({ path: resolve(evidence, name + '-sfx-offline.png'), fullPage: true });
     assert.deepEqual(errors, [], name + ' page errors');
     console.log('PASS', name, 'layout and reduced-motion smoke');
     await page.close();
