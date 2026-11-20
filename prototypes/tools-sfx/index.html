@@ -32,20 +32,22 @@ const status = document.querySelector('#status');
 const buttons = [...document.querySelectorAll('[data-sound]')];
 let audio = null;
 let isMuted = false;
+const audioReady = import('https://esm.sh/plinkfx@0').then(mod => {
+  audio = mod;
+  setStatus('라이브러리 준비 완료. 효과음 활성화를 누르세요.');
+}).catch(err => {
+  setStatus('효과음 로드 실패: 네트워크 또는 CDN 접근을 확인하세요.');
+  console.error(err);
+});
 const last = new Map();
 function setStatus(message) { status.textContent = message; }
-document.querySelector('#enable').addEventListener('click', async () => {
-  try {
-    // Import only after an explicit gesture; no game startup dependency.
-    audio ??= await import('https://esm.sh/plinkfx@0');
-    audio.unlockAudio();
-    audio.preload(['splash', 'confirm', 'warning', 'victory']);
-    audio.muted(isMuted);
-    setStatus('효과음 준비 완료. 버튼을 눌러 확인하세요.');
-  } catch (err) {
-    setStatus('효과음 로드 실패: 네트워크 또는 CDN 접근을 확인하세요.');
-    console.error(err);
-  }
+document.querySelector('#enable').addEventListener('click', () => {
+  // Audio unlock must happen synchronously inside the user gesture, not after await/import.
+  if (!audio) { setStatus('라이브러리 로딩 중입니다. 잠시 후 다시 누르세요.'); return; }
+  audio.unlockAudio();
+  audio.preload(['splash', 'confirm', 'warning', 'victory']);
+  audio.muted(isMuted);
+  setStatus('효과음 활성화 요청 완료. 버튼을 눌러 확인하세요.');
 });
 document.querySelector('#mute').addEventListener('click', event => {
   isMuted = !isMuted;
