@@ -84,8 +84,8 @@ pauseButton.addEventListener('click', () => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else resume(); });
 try {
   const [core, effect] = await Promise.all([
-    import('https://esm.sh/gh/patch-gg/pixelfx'),
-    import('https://esm.sh/gh/patch-gg/pixelfx/src/fx/water/ripples.js'),
+    import('https://cdn.jsdelivr.net/gh/patch-gg/pixelfx@main/src/core/index.js'),
+    import('https://cdn.jsdelivr.net/gh/patch-gg/pixelfx@main/src/fx/water/ripples.js'),
   ]);
   api = core;
   ripple = effect;
