@@ -40,10 +40,12 @@ try {
       const response = await page.goto(base + '/' + lab + '/', { waitUntil: 'domcontentloaded' });
       assert.equal(response.status(), 200, lab + ' HTTP status');
       assert.equal(await page.locator('button').count() > 0, true, lab + ' buttons');
+      assert.equal(await page.locator('button').first().evaluate(el => el.getBoundingClientRect().height >= 44), true, lab + ' touch target');
       assert.equal(await page.locator('#status').count(), 1, lab + ' status');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, lab + ' horizontal overflow');
       if (lab === 'tools-vfx') {
         assert.equal(await page.locator('canvas').count(), 1);
+        assert.equal(await page.locator('canvas').evaluate(el => el.width === 320 && el.height === 180), true, 'canvas resolution');
         assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'true');
         await page.getByText('pixelfx 로드 실패', { exact: false }).waitFor();
         await page.screenshot({ path: resolve(evidence, name + '-vfx-offline.png'), fullPage: true });
