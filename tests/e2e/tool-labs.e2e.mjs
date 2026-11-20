@@ -32,6 +32,8 @@ try {
     const page = await browser.newPage({ viewport, reducedMotion: 'reduce' });
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
+    // Make CDN failure deterministic: offline-capable fallback UI must remain usable.
+    await page.route(/^https:\/\//, route => route.abort('internetdisconnected'));
     for (const lab of ['tools-vfx', 'tools-sfx']) {
       const response = await page.goto(base + '/' + lab + '/', { waitUntil: 'domcontentloaded' });
       assert.equal(response.status(), 200, lab + ' HTTP status');
@@ -41,6 +43,17 @@ try {
       if (lab === 'tools-vfx') {
         assert.equal(await page.locator('canvas').count(), 1);
         assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'true');
+        await page.getByText('pixelfx 로드 실패', { exact: false }).waitFor();
+        await page.locator('#pause').click();
+        assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'false');
+        await page.locator('#pause').click();
+        assert.equal(await page.locator('#pause').getAttribute('aria-pressed'), 'true');
+      } else {
+        await page.getByText('효과음 로드 실패', { exact: false }).waitFor();
+        await page.locator('[data-sound="splash"]').click();
+        assert.match(await page.locator('#status').textContent(), /먼저 효과음을 활성화/);
+        await page.locator('#mute').click();
+        assert.equal(await page.locator('#mute').getAttribute('aria-pressed'), 'true');
       }
     }
     assert.deepEqual(errors, [], name + ' page errors');
