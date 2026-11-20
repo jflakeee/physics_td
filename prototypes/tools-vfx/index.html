@@ -108,7 +108,13 @@ pauseButton.addEventListener('click', () => {
   paused = !paused;
   pauseButton.setAttribute('aria-pressed', String(paused));
   pauseButton.textContent = paused ? '재생' : '일시정지';
-  if (paused) stop(); else resume();
+  if (paused) {
+    stop();
+    metrics.textContent = '일시정지 · 성능 측정 중단';
+  } else {
+    metrics.textContent = '성능 측정 재시작 중…';
+    resume();
+  }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else resume(); });
 try {
