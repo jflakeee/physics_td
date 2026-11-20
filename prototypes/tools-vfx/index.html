@@ -99,6 +99,8 @@ drawBackground();
 document.querySelector('#ripples').addEventListener('click', () => {
   if (!api || !ripple) { message('라이브러리 로딩 중입니다.'); return; }
   fx = api.createFx(ripple, { x: 160, y: 113, seed: 3 });
+  // At t=0 ripple strength is zero; advance to a visible still frame.
+  fx.update(0.18);
   // Always show a still frame, including when reduced-motion is enabled.
   renderFrame(0);
   message('물결 효과 생성 완료');
