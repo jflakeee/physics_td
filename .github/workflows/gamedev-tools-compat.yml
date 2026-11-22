@@ -1,0 +1,32 @@
+name: Game tools compatibility (no deployment)
+on:
+  push:
+    branches:
+      - chore/gamedev-tools-integration-20261122
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install existing project dependencies
+        run: npm ci
+      - name: Install pinned optional effects for compatibility testing
+        run: npm install --no-save --package-lock=false plinkfx@0.3.0 pixelfx@0.3.1
+      - name: Verify effect entrypoints
+        run: |
+          node --input-type=module -e "import('plinkfx').then(m=>{if(typeof m.play!=='function')throw Error('plinkfx play missing')})"
+          node --input-type=module -e "import('pixelfx').then(m=>{if(!Object.keys(m).length)throw Error('pixelfx exports missing')})"
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Build
+        run: npm run build
