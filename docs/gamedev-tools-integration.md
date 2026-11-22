@@ -30,3 +30,9 @@ Target: `jflakeee/physics_td`. Working branch: `chore/gamedev-tools-integration-
 - **Committed:** this audit document on the integration branch.
 - **Not performed:** package installation, plugin activation, runtime integration, test execution, Android build, deployment.
 - **Environment limitation:** the available execution container cannot resolve github.com, so upstream packages could not be downloaded for local testing.
+
+## CI verification (2026-11-22)
+- [GitHub Actions run #6](https://github.com/jflakeee/physics_td/actions/runs/45033913223): **success** on commit `eeba3d68`.
+- Passed: existing dependency install, optional plinkfx and PixelFX install, entrypoint imports, typecheck, unit tests, web build.
+- PixelFX is fetched from `github:patch-gg/pixelfx#main` because `pixelfx@0.3.1` returned npm registry E404; **pin a commit before production use**.
+- This run did not include mobile e2e, audio playback, visual regression, runtime gameplay integration, Android packaging, or deployment.
