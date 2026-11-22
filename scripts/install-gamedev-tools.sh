@@ -13,7 +13,7 @@ if ! command -v npm >/dev/null || ! command -v npx >/dev/null; then
 fi
 
 echo "Installing browser effect libraries (package-lock.json will be updated)..."
-npm install --save-exact plinkfx@0.3.0 pixelfx@0.3.1
+npm install --save-exact plinkfx@0.3.0 github:patch-gg/pixelfx#main
 
 echo "Game Studios is already installed; leaving .claude/ unchanged."
 echo "Optional agent skills (run separately after reviewing prompts and conflicts):"
