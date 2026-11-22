@@ -21,7 +21,7 @@ jobs:
       - name: Install existing project dependencies
         run: npm ci
       - name: Install pinned optional effects for compatibility testing
-        run: npm install --no-save --package-lock=false plinkfx@0.3.0 pixelfx@0.3.1
+        run: npm install --no-save --package-lock=false plinkfx@0.3.0 github:patch-gg/pixelfx#main
       - name: Verify effect entrypoints
         run: |
           node --input-type=module -e "import('plinkfx').then(m=>{if(typeof m.play!=='function')throw Error('plinkfx play missing')})"
